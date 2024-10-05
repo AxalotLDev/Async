@@ -2,8 +2,8 @@ package net.himeki.mcmtfabric.mixin;
 
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
-import net.himeki.mcmtfabric.ParallelProcessor;
 
+import net.himeki.mcmtfabric.ParallelProcessor;
 import net.minecraft.server.world.ServerChunkManager;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.world.chunk.Chunk;
@@ -22,9 +22,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(ServerChunkManager.class)
 public abstract class ServerChunkManagerMixin extends ChunkManager {
 
-    @Shadow
-    @Final
-    public ServerChunkManager.MainThreadExecutor mainThreadExecutor;
+//    @Shadow
+//    @Final
+//    public ServerChunkManager.MainThreadExecutor mainThreadExecutor;
 
     @Shadow
     @Final

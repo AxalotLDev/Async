@@ -44,7 +44,6 @@ public class MCMT implements ModInitializer {
         LOGGER.info("MCMT Setting up threadpool...");
         ParallelProcessor.setupThreadPool(GeneralConfig.getParallelism());
 
-
         // Listener reg begin
         ServerLifecycleEvents.SERVER_STARTED.register(server -> StatsCommand.resetAll());
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> ConfigCommand.register(dispatcher));
