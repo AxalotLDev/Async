@@ -1,0 +1,15 @@
+accessWidener	v1	named
+accessible field net/minecraft/server/world/ServerChunkManager mainThreadExecutor Lnet/minecraft/server/world/ServerChunkManager$MainThreadExecutor;
+accessible field net/minecraft/server/world/ServerChunkLoadingManager pointOfInterestStorage Lnet/minecraft/world/poi/PointOfInterestStorage;
+accessible field net/minecraft/world/chunk/WorldChunk$WrappedBlockEntityTickInvoker wrapped Lnet/minecraft/world/chunk/BlockEntityTickInvoker;
+accessible field net/minecraft/world/chunk/WorldChunk$DirectBlockEntityTickInvoker blockEntity Lnet/minecraft/block/entity/BlockEntity;
+accessible method net/minecraft/server/world/ServerWorld processBlockEvent (Lnet/minecraft/server/world/BlockEvent;)Z
+accessible method net/minecraft/server/world/ServerChunkManager getChunkHolder (J)Lnet/minecraft/server/world/ChunkHolder;
+accessible method net/minecraft/server/world/ServerChunkManager$MainThreadExecutor runTask ()Z
+accessible method net/minecraft/world/World tickBlockEntities ()V
+accessible method net/minecraft/server/world/ServerChunkLoadingManager shouldTick (Lnet/minecraft/util/math/ChunkPos;)Z
+accessible class net/minecraft/server/world/ServerChunkLoadingManager$EntityTracker
+accessible class net/minecraft/server/world/ServerChunkManager$ChunkWithHolder
+accessible class net/minecraft/world/chunk/WorldChunk$WrappedBlockEntityTickInvoker
+accessible class net/minecraft/world/chunk/WorldChunk$DirectBlockEntityTickInvoker
+accessible class net/minecraft/world/block/ChainRestrictedNeighborUpdater$Entry

@@ -1,0 +1,41 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "net.himeki.mcmtfabric.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "ChainRestrictedNeighborUpdaterMixin",
+    "ChunkHolderMixin",
+    "ChunkMixin",
+    "ChunkTicketManagerMixin",
+    "DedicatedServerWatchdogMixin",
+    "EntityIndexMixin",
+    "EntityListMixin",
+    "ItemEntityMixin",
+    "LevelPropagatorMixin",
+    "LockHelperMixin",
+    "MinecraftServerMixin",
+    "NearestLivingEntitiesSensorMixin",
+    "PathNodeNavigatorMixin",
+    "PendingUpdateQueueMixin",
+    "SectionedEntityCacheMixin",
+    "SerializingRegionBasedStorageMixin",
+    "ServerChunkLoadingManagerMixin",
+    "ServerChunkManagerMixin",
+    "ServerWorldMixin",
+    "SimulationDistanceLevelPropagatorMixin",
+    "SyncAllMixin",
+    "TypeFilterableListMixin",
+    "UtilMixin",
+    "WorldMixin",
+    "WorldTickSchedulerMixin"
+  ],
+  "client": [
+  ],
+  "server": [
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  },
+  "plugin": "net.himeki.mcmtfabric.mixin.SynchronisePlugin"
+}

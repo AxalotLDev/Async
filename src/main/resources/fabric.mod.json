@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "id": "mcmtfabric",
+  "version": "${version}",
+  "name": "MCMTFabric",
+  "description": "A fabric port of MCMT.",
+  "authors": [
+    "Grider"
+  ],
+  "contact": {
+    "homepage": "",
+    "sources": "https://github.com/himekifee/MCMTFabric"
+  },
+  "license": "GPLv3",
+  "icon": "assets/mcmtfabric/mcmt.png",
+  "environment": "*",
+  "entrypoints": {
+    "preLaunch": [
+      "net.himeki.mcmtfabric.syncfu.SyncFuTransformer"
+    ],
+    "main": [
+      "net.himeki.mcmtfabric.MCMT"
+    ]
+  },
+  "accessWidener": "mcmtfabric.accesswidener",
+  "mixins": [
+    "mcmtfabric.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.11.3",
+    "fabric": "*",
+    "minecraft": "1.21.x",
+    "java": ">=21",
+    "cloth-config2": ">=5.0.34"
+  },
+  "custom": {
+    "lithium:options": {
+      "world.chunk_access": false,
+      "entity": false,
+      "collections": false
+//      "alloc.entity_tracker": false,
+//      "chunk.entity_class_groups": false,
+//      "util.entity_movement_tracking": false,
+//      "util.entity_section_position": false,
+//      "mixin.experimental.entity": false
+    }
+  },
+  "suggests": {
+  }
+}
