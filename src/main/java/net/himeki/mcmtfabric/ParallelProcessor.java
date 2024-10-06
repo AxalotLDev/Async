@@ -184,7 +184,7 @@ public class ParallelProcessor {
             tickConsumer.accept(entityIn);
             return;
         }
-        if (entityIn.isRemoved() || !entityIn.isAlive() || (entityIn.portalManager != null && entityIn.portalManager.isInPortal())) {
+        if (entityIn == null || entityIn.isRemoved() || !entityIn.isAlive() || (entityIn.portalManager != null && entityIn.portalManager.isInPortal())) {
             tickConsumer.accept(entityIn);
             return;
         }
@@ -212,11 +212,7 @@ public class ParallelProcessor {
                 if (filter != null) {
                     filter.serialise(() -> tickConsumer.accept(entityIn), entityIn, entityIn.getBlockPos(), serverworld, SerDesHookTypes.EntityTick);
                 } else {
-                    if (serverworld.getChunk(entityIn.getBlockPos()).getGameEventDispatcher(entityIn.getBlockPos().getY() >> 4) != null) {
-                        tickConsumer.accept(entityIn);
-                    } else {
-                        LOGGER.warn("GameEventDispatcher is null for chunk at entity position: {}", entityIn.getBlockPos());
-                    }
+                    tickConsumer.accept(entityIn);
                 }
             } catch (Exception e) {
                 System.err.println("Exception ticking Entity " + entityIn.getType().getName() + " at " + entityIn.getPos());
