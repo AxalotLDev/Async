@@ -37,12 +37,12 @@
     "lithium:options": {
       "world.chunk_access": false,
       "entity": false,
-      "collections": false
-//      "alloc.entity_tracker": false,
-//      "chunk.entity_class_groups": false,
-//      "util.entity_movement_tracking": false,
-//      "util.entity_section_position": false,
-//      "mixin.experimental.entity": false
+      "collections": false,
+      "alloc.entity_tracker": false,
+      "chunk.entity_class_groups": false,
+      "util.entity_movement_tracking": false,
+      "util.entity_section_position": false,
+      "mixin.experimental.entity": false
     }
   },
   "suggests": {

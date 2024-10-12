@@ -17,6 +17,5 @@ public abstract class ChunkMixin {
     @Shadow
     @Final
     @Mutable
-    private Map<BlockPos, BlockEntity> blockEntities =  ConcurrentCollections.newHashMap();
-
+    protected Map<BlockPos, BlockEntity> blockEntities =  ConcurrentCollections.newHashMap();
 }

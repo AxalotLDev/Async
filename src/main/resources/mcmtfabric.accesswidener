@@ -13,3 +13,12 @@ accessible class net/minecraft/server/world/ServerChunkManager$ChunkWithHolder
 accessible class net/minecraft/world/chunk/WorldChunk$WrappedBlockEntityTickInvoker
 accessible class net/minecraft/world/chunk/WorldChunk$DirectBlockEntityTickInvoker
 accessible class net/minecraft/world/block/ChainRestrictedNeighborUpdater$Entry
+
+accessible class net/minecraft/server/world/ServerEntityManager$Listener
+accessible method net/minecraft/server/world/ServerEntityManager getNeededLoadStatus (Lnet/minecraft/world/entity/EntityLike;Lnet/minecraft/world/entity/EntityTrackingStatus;)Lnet/minecraft/world/entity/EntityTrackingStatus;
+accessible method net/minecraft/server/world/ServerEntityManager stopTicking (Lnet/minecraft/world/entity/EntityLike;)V
+accessible method net/minecraft/server/world/ServerEntityManager stopTracking (Lnet/minecraft/world/entity/EntityLike;)V
+accessible method net/minecraft/server/world/ServerEntityManager entityLeftSection (JLnet/minecraft/world/entity/EntityTrackingSection;)V
+accessible field net/minecraft/server/world/ServerEntityManager handler Lnet/minecraft/world/entity/EntityHandler;
+accessible field net/minecraft/server/world/ServerEntityManager entityUuids Ljava/util/Set;
+accessible field net/minecraft/server/world/ServerEntityManager cache Lnet/minecraft/world/entity/SectionedEntityCache;
