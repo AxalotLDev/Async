@@ -1,0 +1,44 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "com.axalotl.async.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "ChainRestrictedNeighborUpdaterMixin",
+    "ChunkHolderMixin",
+    "ChunkMixin",
+    "ChunkTicketManagerMixin",
+    "DedicatedServerWatchdogMixin",
+    "EntityIndexMixin",
+    "EntityListMixin",
+    "ItemEntityMixin",
+    "LevelPropagatorMixin",
+    "LivingEntityMixin",
+    "LockHelperMixin",
+    "MinecraftServerMixin",
+    "NearestLivingEntitiesSensorMixin",
+    "PathNodeNavigatorMixin",
+    "PendingUpdateQueueMixin",
+    "SectionedEntityCacheMixin",
+    "SerializingRegionBasedStorageMixin",
+    "ServerChunkLoadingManagerMixin",
+    "ServerChunkManagerMixin",
+    "ServerEntityManagerMixin",
+    "ServerWorldMixin",
+    "SimulationDistanceLevelPropagatorMixin",
+    "SyncAllMixin",
+    "TypeFilterableListMixin",
+    "UtilMixin",
+    "WorldChunkMixin",
+    "WorldMixin",
+    "WorldTickSchedulerMixin"
+  ],
+  "client": [
+  ],
+  "server": [
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  },
+  "plugin": "com.axalotl.async.mixin.SynchronisePlugin"
+}

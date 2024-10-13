@@ -1,11 +1,12 @@
 {
   "schemaVersion": 1,
-  "id": "mcmtfabric",
+  "id": "async",
   "version": "${version}",
-  "name": "MCMTFabric",
-  "description": "A fabric port of MCMT.",
+  "name": "Async",
+  "description": "A fabric port of MCMT with only entity ticking.",
   "authors": [
-    "Grider"
+    "Grider",
+    "AxalotL"
   ],
   "contact": {
     "homepage": "",
@@ -16,15 +17,15 @@
   "environment": "*",
   "entrypoints": {
     "preLaunch": [
-      "net.himeki.mcmtfabric.syncfu.SyncFuTransformer"
+      "com.axalotl.async.syncfu.SyncFuTransformer"
     ],
     "main": [
-      "net.himeki.mcmtfabric.MCMT"
+      "com.axalotl.async.Async"
     ]
   },
-  "accessWidener": "mcmtfabric.accesswidener",
+  "accessWidener": "async.accesswidener",
   "mixins": [
-    "mcmtfabric.mixins.json"
+    "async.mixins.json"
   ],
   "depends": {
     "fabricloader": ">=0.11.3",

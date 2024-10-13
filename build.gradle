@@ -1,5 +1,5 @@
 plugins {
-    id 'fabric-loom' version '1.7-SNAPSHOT'
+    id 'fabric-loom' version '1.8-SNAPSHOT'
     id 'maven-publish'
 }
 
@@ -69,7 +69,7 @@ java {
 }
 
 loom {
-    accessWidenerPath = file("src/main/resources/mcmtfabric.accesswidener")
+    accessWidenerPath = file("src/main/resources/async.accesswidener")
 }
 
 jar {
