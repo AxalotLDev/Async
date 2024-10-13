@@ -5,6 +5,7 @@
 <h3>Fabric is a mod designed to improve the performance of entity
 processing by processing them in parallel.</h3>
 </div>
+
 ## So what is Async?
 Async is a Fabric mod designed to improve entity processing performance. It does this by taking advantage of multiple CPU cores in parallel. It is recommended to use with Lithium for best performance.
 
