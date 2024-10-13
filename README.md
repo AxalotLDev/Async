@@ -23,7 +23,7 @@ Only the latest Minecraft release and the latest Minecraft snapshot are fully su
 The mod supports C2ME if you disable 2 mixins in it: asynccatchers.MixinThreadedAnvilChunkStorage and threading_detections.random_instances.MixinWorld
 
 ## Support
-Our issue tracker: [link](https://path.to/your/logo.png)
+Our issue tracker: [link](https://github.com/AxalotLDev/Async/issues)
 
 ## Configuration
 Async offers numerous settings for fine-tuning its behavior. Use the `/async config` command in-game to access the configuration menu.
