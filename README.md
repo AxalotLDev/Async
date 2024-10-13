@@ -30,7 +30,7 @@ Async offers numerous settings for fine-tuning its behavior. Use the `/async con
 While Async significantly improves performance, results may vary depending on your hardware and the specifics of your game world. We recommend experimenting with the settings to achieve the optimal balance of performance and stability.
 
 ## Acknowledgements
-This mod is based on the ideas from JMT-MCMT. Many thanks to the original developers for their pioneering work in Minecraft optimization.
+This mod is based on the ideas from [JMT-MCMT](https://github.com/jediminer543/JMT-MCMT). Many thanks to the original developers for their pioneering work in Minecraft optimization.
 
 ## License
 License information can be found [here](/LICENSE).
