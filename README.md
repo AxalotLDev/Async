@@ -14,7 +14,7 @@ Although it is usable in most cases and tested during build time, it doesn't mea
 So backup your worlds and practice good game modding skills.
 
 ## Download
-Modrinth: https://modrinth.com/mod/
+Modrinth: https://modrinth.com/mod/async
 
 ## Support status for Minecraft versions
 Only the latest Minecraft release and the latest Minecraft snapshot are fully supported. Older Minecraft releases are in long-term support and will receive critical bug fixes. Older Minecraft snapshots are not supported.
