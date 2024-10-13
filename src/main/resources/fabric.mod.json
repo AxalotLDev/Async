@@ -10,8 +10,9 @@
     "FurryMileon"
   ],
   "contact": {
-    "homepage": "",
-    "sources": "https://github.com/AxalotLDev/Async"
+    "sources": "https://github.com/AxalotLDev/Async",
+    "issues": "https://github.com/AxalotLDev/Async/issues",
+    "homepage": "https://modrinth.com/mod/async"
   },
   "license": "GPLv3",
   "icon": "assets/async/icon.png",
@@ -46,6 +47,9 @@
       "util.entity_section_position": false,
       "mixin.experimental.entity": false
     }
+  },
+  "breaks": {
+    "vmp": "*"
   },
   "suggests": {
   }
