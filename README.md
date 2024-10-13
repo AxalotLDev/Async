@@ -2,8 +2,7 @@
 <img width="200" src="https://github.com/AxalotLDev/Async/raw/ver/1.21.1/src/main/resources/assets/async/icon.png" alt="Async icon" align="right">
 <div align="left">
 <h1>Async - Minecraft Entity Multi-Threading Mod</h1>
-<h3>Fabric is a mod designed to improve the performance of entity
-processing by processing them in parallel.</h3>
+<h3>Async is a Fabric mod designed to improve the performance of entity processing by processing them in parallel.</h3>
 </div>
 
 ## So what is Async?
