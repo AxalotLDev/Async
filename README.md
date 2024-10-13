@@ -1,11 +1,35 @@
-[![Join our discord](https://img.shields.io/discord/749993549004800081?style=for-the-badge)](https://discord.gg/ZuYgPFURkf)
-[![Issues](https://img.shields.io/github/issues/himekifee/MCMTFabric?style=for-the-badge)](https://github.com/himekifee/MCMTFabric/issues)
-[![Build Statics](https://img.shields.io/github/actions/workflow/status/himekifee/MCMTFabric/gradle.yml?style=for-the-badge)](https://github.com/himekifee/MCMTFabric/actions/workflows/gradle.yml)
-[![Curseforge Downloads](https://img.shields.io/badge/dynamic/json?label=Curse%20Downloads&query=downloads.total&url=https%3A%2F%2Fapi.cfwidget.com%2Fminecraft%2Fmc-mods%2Fmcmtfabric&style=for-the-badge)](https://www.curseforge.com/minecraft/mc-mods/mcmtfabric)
-[![Shenanagins](https://forthebadge.com/images/badges/powered-by-black-magic.svg)](https://www.youtube.com/watch?v=dQw4w9WgXcQ)
-# MCMTFabric - Minecraft Multi-Threading Mod Fabric Version
-This mod is based on the amazing work on [JMT-MCMT](https://github.com/jediminer543/JMT-MCMT). Please check that repository for technical details. For those who want to understand how this magic works, I recommend reading my source since I read from MCMT and that one is full of ASM engineering which is not noob (like me) friendly. Feel free to ask any question on discord. No plan for making another discord server so let's just use MCMT's one.
+[![Issues](https://img.shields.io/github/issues/AxalotLDev/Async?style=for-the-badge)](https://github.com/AxalotLDev/Async/issues)
+<img width="200" src="https://github.com/AxalotLDev/Async/raw/ver/1.21.1/src/main/resources/assets/async/icon.png" alt="Async icon" align="right">
+<div align="left">
+<h1>Async - Minecraft Entity Multi-Threading Mod</h1>
+<h3>Fabric is a mod designed to improve the performance of entity
+processing by processing them in parallel.</h3>
+</div>
+## So what is Async?
+Async is a Fabric mod designed to improve entity processing performance. It does this by taking advantage of multiple CPU cores in parallel. It is recommended to use with Lithium for best performance.
 
-[cloth-config](https://www.curseforge.com/minecraft/mc-mods/cloth-config) is needed as a dependency.
+## So what is Async not?
+Async is currently in alpha stage and pretty experimental.
+Although it is usable in most cases and tested during build time, it doesn't mean that it is fully stable for a production server.
+So backup your worlds and practice good game modding skills.
 
-If you want to send me some milk tea (I don't really like coffee) please send some XMR to `88R8LWHX7jj5zkC3iz88U29yDFAhdgKdQTbViPsbeVDvS6rHS6UTkR6WWqEDgkg8UjeorRDdD5uenBLgCHXxboVb8BTdpzH`. Happy playing! 
+## Download
+Modrinth: https://modrinth.com/mod/
+
+## Support status for Minecraft versions
+Only the latest Minecraft release and the latest Minecraft snapshot are fully supported. Older Minecraft releases are in long-term support and will receive critical bug fixes. Older Minecraft snapshots are not supported.
+
+## Support
+Our issue tracker: [link](https://path.to/your/logo.png)
+
+## Configuration
+Async offers numerous settings for fine-tuning its behavior. Use the `/async config` command in-game to access the configuration menu.
+
+## Note to Users
+While Async significantly improves performance, results may vary depending on your hardware and the specifics of your game world. We recommend experimenting with the settings to achieve the optimal balance of performance and stability.
+
+## Acknowledgements
+This mod is based on the ideas from JMT-MCMT. Many thanks to the original developers for their pioneering work in Minecraft optimization.
+
+## License
+License information can be found [here](/LICENSE).

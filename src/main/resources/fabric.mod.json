@@ -14,7 +14,7 @@
     "sources": "https://github.com/AxalotLDev/Async"
   },
   "license": "GPLv3",
-  "icon": "assets/async/image.png",
+  "icon": "assets/async/icon.png",
   "environment": "*",
   "entrypoints": {
     "preLaunch": [
