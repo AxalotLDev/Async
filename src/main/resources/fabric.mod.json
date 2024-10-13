@@ -3,17 +3,18 @@
   "id": "async",
   "version": "${version}",
   "name": "Async",
-  "description": "A fabric port of MCMT with only entity ticking.",
+  "description": "Async - Minecraft Entity Multi-Threading Mod",
   "authors": [
     "Grider",
-    "AxalotL"
+    "AxalotL",
+    "FurryMileon"
   ],
   "contact": {
     "homepage": "",
-    "sources": "https://github.com/himekifee/MCMTFabric"
+    "sources": "https://github.com/AxalotLDev/Async"
   },
   "license": "GPLv3",
-  "icon": "assets/mcmtfabric/mcmt.png",
+  "icon": "assets/async/image.png",
   "environment": "*",
   "entrypoints": {
     "preLaunch": [
