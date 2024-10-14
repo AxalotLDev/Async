@@ -234,13 +234,13 @@ public class SerDesRegistry {
                 } catch (Exception e) {
                     LOGGER.error("Exception running " + obj.getClass().getName() + " asynchronusly", e);
                     LOGGER.error("Adding " + obj.getClass().getName() + " to blacklist.");
-                    SerDesConfig.createFilterConfig(
-                            "auto-" + obj.getClass().getName(),
-                            10,
-                            Lists.newArrayList(),
-                            Lists.newArrayList(obj.getClass().getName()),
-                            null
-                    );
+//                    SerDesConfig.createFilterConfig(
+//                            "auto-" + obj.getClass().getName(),
+//                            10,
+//                            Lists.newArrayList(),
+//                            Lists.newArrayList(obj.getClass().getName()),
+//                            null
+//                    );
 
                     AutoFilter.singleton().addClassToBlacklist(obj.getClass());
                     // TODO: this could leave a tick in an incomplete state. should the full exception be thrown?

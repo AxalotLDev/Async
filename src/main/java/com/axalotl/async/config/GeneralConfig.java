@@ -31,6 +31,9 @@ public class GeneralConfig implements ConfigData {
     )
     public ParaMaxMode paraMaxMode = ParaMaxMode.Standard;
 
+    @Comment("Enable virtual threads java 21")
+    public boolean useVirtualThreads = false;
+
     // Entity
     @Comment("Disable entity parallelisation")
     public boolean disableEntity = false;
@@ -76,7 +79,7 @@ public class GeneralConfig implements ConfigData {
         if (paraMax >= -1)
             if (paraMaxMode == ParaMaxMode.Standard || paraMaxMode == ParaMaxMode.Override || paraMaxMode == ParaMaxMode.Reduction)
                 return;
-        throw new ValidationException("Failed to validate MCMT config.");
+        throw new ValidationException("Failed to validate Async config.");
     }
 
     public static int getParallelism() {

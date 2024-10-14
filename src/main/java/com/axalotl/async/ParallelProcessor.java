@@ -29,16 +29,20 @@ public class ParallelProcessor {
     static ExecutorService tickPool;
 
     public static void setupThreadPool(int parallelism) {
-        AtomicInteger tickPoolThreadID = new AtomicInteger();
-        final ClassLoader cl = Async.class.getClassLoader();
-        ForkJoinPool.ForkJoinWorkerThreadFactory tickThreadFactory = p -> {
-            ForkJoinWorkerThread fjwt = ForkJoinPool.defaultForkJoinWorkerThreadFactory.newThread(p);
-            fjwt.setName("Async-Tick-Pool-Thread-" + tickPoolThreadID.getAndIncrement());
-            regThread("Async-Tick", fjwt);
-            fjwt.setContextClassLoader(cl);
-            return fjwt;
-        };
-        tickPool = new ForkJoinPool(parallelism, tickThreadFactory, null, true);
+        if (Async.config.useVirtualThreads) {
+            tickPool = Executors.newVirtualThreadPerTaskExecutor();
+        } else {
+            AtomicInteger tickPoolThreadID = new AtomicInteger();
+            final ClassLoader cl = Async.class.getClassLoader();
+            ForkJoinPool.ForkJoinWorkerThreadFactory tickThreadFactory = p -> {
+                ForkJoinWorkerThread fjwt = ForkJoinPool.defaultForkJoinWorkerThreadFactory.newThread(p);
+                fjwt.setName("Async-Tick-Pool-Thread-" + tickPoolThreadID.getAndIncrement());
+                regThread("Async-Tick", fjwt);
+                fjwt.setContextClassLoader(cl);
+                return fjwt;
+            };
+            tickPool = new ForkJoinPool(parallelism, tickThreadFactory, null, true);
+        }
     }
 
     static Map<String, Set<Thread>> mcThreadTracker = new ConcurrentHashMap<>();
@@ -58,7 +62,7 @@ public class ParallelProcessor {
     }
 
     public static boolean serverExecutionThreadPatch() {
-        return isThreadPooled("MCMT-World", Thread.currentThread()) || isThreadPooled("MCMT-Tick", Thread.currentThread());
+        return isThreadPooled("Async-Tick", Thread.currentThread());
     }
 
     static GeneralConfig config;

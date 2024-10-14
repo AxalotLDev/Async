@@ -44,6 +44,13 @@ public class ConfigCommand {
                                     "Async's entity threading is now " + (config.disableEntity ? "disabled" : "enabled"));
                             cmdCtx.getSource().sendFeedback(() -> message, true);
                             return 1;
+                        }))
+                        .then(literal("opTracing").executes(cmdCtx -> {
+                            config.disableEntity = !config.disableEntity;
+                            MutableText message = Text.literal(
+                                    "Async's entity and task count stats is now " + (config.disableEntity ? "disabled" : "enabled"));
+                            cmdCtx.getSource().sendFeedback(() -> message, true);
+                            return 1;
                         })).then(literal("tnt").executes(cmdCtx -> {
                             config.disableTNT = !config.disableTNT;
                             MutableText message = Text.literal(

@@ -3,14 +3,10 @@ package com.axalotl.async.config;
 import com.electronwill.nightconfig.core.Config;
 import com.electronwill.nightconfig.core.conversion.*;
 import com.electronwill.nightconfig.core.file.FileConfig;
-import com.electronwill.nightconfig.core.file.NoFormatFoundException;
-import com.google.common.base.Predicates;
 import com.google.common.collect.Lists;
 import net.fabricmc.loader.api.FabricLoader;
 
 import javax.annotation.Nullable;
-import java.io.IOException;
-import java.nio.file.Files;
 import java.util.*;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -159,28 +155,28 @@ public class SerDesConfig {
     public static void loadConfigs() {
         filters = new HashMap<>();
         pools = new HashMap<>();
-        java.nio.file.Path cfgDir = FabricLoader.getInstance().getConfigDir();
-        java.nio.file.Path serdesDir = cfgDir.resolve("mcmt-serdes");
-        if (Files.isDirectory(serdesDir)) {
-
-        } else {
-            try {
-                Files.createDirectory(serdesDir);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-        try {
-            Files.walk(serdesDir).map(p -> {
-                try {
-                    return FileConfig.of(p);
-                } catch (NoFormatFoundException nffe) {
-                    return null;
-                }
-            }).filter(Predicates.notNull()).filter(Objects::nonNull).forEach(SerDesConfig::loadConfig);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+//        java.nio.file.Path cfgDir = FabricLoader.getInstance().getConfigDir();
+//        java.nio.file.Path serdesDir = cfgDir.resolve("mcmt-serdes");
+//        if (Files.isDirectory(serdesDir)) {
+//
+//        } else {
+//            try {
+//                Files.createDirectory(serdesDir);
+//            } catch (IOException e) {
+//                e.printStackTrace();
+//            }
+//        }
+//        try {
+//            Files.walk(serdesDir).map(p -> {
+//                try {
+//                    return FileConfig.of(p);
+//                } catch (NoFormatFoundException nffe) {
+//                    return null;
+//                }
+//            }).filter(Predicates.notNull()).filter(Objects::nonNull).forEach(SerDesConfig::loadConfig);
+//        } catch (IOException e) {
+//            e.printStackTrace();
+//        }
     }
 
     private static void loadConfig(FileConfig fc) {

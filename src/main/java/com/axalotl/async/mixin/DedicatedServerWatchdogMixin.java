@@ -1,5 +1,6 @@
 package com.axalotl.async.mixin;
 
+import com.axalotl.async.Async;
 import com.axalotl.async.ParallelProcessor;
 import net.minecraft.server.dedicated.DedicatedServerWatchdog;
 import net.minecraft.util.crash.CrashReport;
@@ -17,7 +18,9 @@ import java.lang.management.ThreadMXBean;
 public class DedicatedServerWatchdogMixin {
     @Inject(method = "run", at = @At(value = "INVOKE", target = "Lnet/minecraft/Bootstrap;println(Ljava/lang/String;)V"), locals = LocalCapture.CAPTURE_FAILSOFT)
     private void addCustomCrashReport(CallbackInfo ci, long l, long m, long n, ThreadMXBean threadMXBean, ThreadInfo threadInfos[], StringBuilder stringBuilder, Error error, CrashReport crashReport, CrashReportSection crashReportSection, CrashReportSection crashReportSection2) {
-        CrashReportSection MCMTSection = crashReport.addElement("MCMT");
-        MCMTSection.add("currentTasks", () -> ParallelProcessor.currentEnts.toString());
+        if (Async.config.opsTracing) {
+            CrashReportSection AsyncSection = crashReport.addElement("Async");
+            AsyncSection.add("currentTasks", () -> ParallelProcessor.currentEnts.toString());
+        }
     }
 }
