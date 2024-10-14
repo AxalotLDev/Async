@@ -17,7 +17,7 @@ So backup your worlds and practice good game modding skills.
 Modrinth: https://modrinth.com/mod/async
 
 ## Support status for Minecraft versions
-Only the latest Minecraft release and the latest Minecraft snapshot are fully supported. Older Minecraft releases are in long-term support and will receive critical bug fixes. Older Minecraft snapshots are not supported.
+Only the latest Minecraft release and are fully supported. Older Minecraft releases are in long-term support and will receive critical bug fixes. Older Minecraft snapshots are not supported.
 
 ## Support C2ME?
 The mod supports C2ME if you disable 2 mixins in it: asynccatchers.MixinThreadedAnvilChunkStorage and threading_detections.random_instances.MixinWorld
