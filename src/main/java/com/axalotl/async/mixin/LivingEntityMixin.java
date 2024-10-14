@@ -16,13 +16,15 @@ import java.util.Optional;
 
 @Mixin(LivingEntity.class)
 public abstract class LivingEntityMixin extends Entity {
-    @Shadow private Optional<BlockPos> climbingPos;
+    @Shadow
+    private Optional<BlockPos> climbingPos;
 
     public LivingEntityMixin(EntityType<?> type, World world) {
         super(type, world);
     }
 
-    @Shadow protected abstract boolean canEnterTrapdoor(BlockPos pos, BlockState state);
+    @Shadow
+    protected abstract boolean canEnterTrapdoor(BlockPos pos, BlockState state);
 
     /**
      * @author AxalotL

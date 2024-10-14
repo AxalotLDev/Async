@@ -9,10 +9,12 @@ import net.minecraft.block.entity.PistonBlockEntity;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.FallingBlockEntity;
 import net.minecraft.entity.TntEntity;
-import net.minecraft.entity.passive.*;
+import net.minecraft.entity.passive.AllayEntity;
+import net.minecraft.entity.passive.DolphinEntity;
+import net.minecraft.entity.passive.FoxEntity;
 import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.entity.vehicle.ChestMinecartEntity;
 import net.minecraft.entity.vehicle.HopperMinecartEntity;
+import net.minecraft.entity.vehicle.TntMinecartEntity;
 import net.minecraft.server.network.ServerPlayerEntity;
 
 import net.minecraft.server.world.ServerWorld;
@@ -99,10 +101,10 @@ public class ParallelProcessor {
             return;
         }
         if (entityIn instanceof PlayerEntity || entityIn instanceof ServerPlayerEntity ||
+                entityIn instanceof TntMinecartEntity ||
                 entityIn instanceof FallingBlockEntity ||
                 entityIn instanceof AllayEntity ||
                 entityIn instanceof DolphinEntity ||
-                entityIn instanceof HopperMinecartEntity || entityIn instanceof ChestMinecartEntity ||
                 entityIn instanceof FoxEntity
         ) {
             tickConsumer.accept(entityIn);

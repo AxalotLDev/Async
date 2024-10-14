@@ -20,7 +20,7 @@ public class DedicatedServerWatchdogMixin {
     private void addCustomCrashReport(CallbackInfo ci, long l, long m, long n, ThreadMXBean threadMXBean, ThreadInfo threadInfos[], StringBuilder stringBuilder, Error error, CrashReport crashReport, CrashReportSection crashReportSection, CrashReportSection crashReportSection2) {
         if (Async.config.opsTracing) {
             CrashReportSection AsyncSection = crashReport.addElement("Async");
-            AsyncSection.add("currentTasks", () -> ParallelProcessor.currentEnts.toString());
+            AsyncSection.add("currentTasks", () -> ParallelProcessor.currentTasks.toString());
         }
     }
 }

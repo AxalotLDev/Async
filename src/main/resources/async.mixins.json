@@ -11,6 +11,7 @@
     "DedicatedServerWatchdogMixin",
     "EntityIndexMixin",
     "EntityListMixin",
+    "HopperBlockEntityMixin",
     "ItemEntityMixin",
     "LevelPropagatorMixin",
     "LivingEntityMixin",

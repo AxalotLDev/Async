@@ -155,28 +155,6 @@ public class SerDesConfig {
     public static void loadConfigs() {
         filters = new HashMap<>();
         pools = new HashMap<>();
-//        java.nio.file.Path cfgDir = FabricLoader.getInstance().getConfigDir();
-//        java.nio.file.Path serdesDir = cfgDir.resolve("mcmt-serdes");
-//        if (Files.isDirectory(serdesDir)) {
-//
-//        } else {
-//            try {
-//                Files.createDirectory(serdesDir);
-//            } catch (IOException e) {
-//                e.printStackTrace();
-//            }
-//        }
-//        try {
-//            Files.walk(serdesDir).map(p -> {
-//                try {
-//                    return FileConfig.of(p);
-//                } catch (NoFormatFoundException nffe) {
-//                    return null;
-//                }
-//            }).filter(Predicates.notNull()).filter(Objects::nonNull).forEach(SerDesConfig::loadConfig);
-//        } catch (IOException e) {
-//            e.printStackTrace();
-//        }
     }
 
     private static void loadConfig(FileConfig fc) {

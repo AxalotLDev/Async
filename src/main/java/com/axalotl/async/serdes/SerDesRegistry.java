@@ -7,10 +7,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-import com.google.common.collect.Lists;
-import com.axalotl.async.Async;
 import com.axalotl.async.config.BlockEntityLists;
-import com.axalotl.async.config.GeneralConfig;
 import com.axalotl.async.config.SerDesConfig;
 import com.axalotl.async.serdes.filter.*;
 import com.axalotl.async.serdes.pools.ChunkLockPool;
@@ -140,9 +137,9 @@ public class SerDesRegistry {
         });
     }
 
-    public static boolean removeFromWhitelist(ISerDesHookType isdh, Class<?> c) {
-        return whitelist.getOrDefault(isdh, EMPTYSET).remove(c);
-    }
+//    public static boolean removeFromWhitelist(ISerDesHookType isdh, Class<?> c) {
+//        return whitelist.getOrDefault(isdh, EMPTYSET).remove(c);
+//    }
 
     public static void initPools() {
         registry.clear();
@@ -234,14 +231,6 @@ public class SerDesRegistry {
                 } catch (Exception e) {
                     LOGGER.error("Exception running " + obj.getClass().getName() + " asynchronusly", e);
                     LOGGER.error("Adding " + obj.getClass().getName() + " to blacklist.");
-//                    SerDesConfig.createFilterConfig(
-//                            "auto-" + obj.getClass().getName(),
-//                            10,
-//                            Lists.newArrayList(),
-//                            Lists.newArrayList(obj.getClass().getName()),
-//                            null
-//                    );
-
                     AutoFilter.singleton().addClassToBlacklist(obj.getClass());
                     // TODO: this could leave a tick in an incomplete state. should the full exception be thrown?
                     if (e instanceof RuntimeException) throw e;
