@@ -2,12 +2,23 @@ package com.axalotl.async.mixin;
 
 import com.axalotl.async.ParallelProcessor;
 import com.axalotl.async.parallelised.ConcurrentCollections;
+import com.axalotl.async.parallelised.ParaServerChunkProvider;
+import com.mojang.datafixers.DataFixer;
 import it.unimi.dsi.fastutil.objects.ObjectLinkedOpenHashSet;
+import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.mob.MobEntity;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.WorldGenerationProgressListener;
 import net.minecraft.server.world.BlockEvent;
+import net.minecraft.server.world.ServerChunkManager;
+import net.minecraft.server.world.ServerEntityManager;
 import net.minecraft.server.world.ServerWorld;
+import net.minecraft.structure.StructureTemplateManager;
 import net.minecraft.world.*;
+import net.minecraft.world.chunk.ChunkStatusChangeListener;
+import net.minecraft.world.gen.chunk.ChunkGenerator;
+import net.minecraft.world.level.storage.LevelStorage;
 import org.objectweb.asm.Opcodes;
 import org.spongepowered.asm.mixin.*;
 import org.spongepowered.asm.mixin.injection.At;
@@ -18,9 +29,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import java.util.Collection;
 import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.concurrent.Executor;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 
 @Mixin(ServerWorld.class)
 public abstract class ServerWorldMixin implements StructureWorldAccess {
@@ -36,12 +49,40 @@ public abstract class ServerWorldMixin implements StructureWorldAccess {
     @Shadow
     @Final
     EntityList entityList;
+    @Shadow
+    @Final
+    private ServerEntityManager<Entity> entityManager;
+    @Shadow
+    @Final
+    private MinecraftServer server;
     @Unique
     ServerWorld thisWorld = (ServerWorld) (Object) this;
 
     @Inject(method = "tick", at = @At(value = "INVOKE", target = "Lnet/minecraft/util/profiler/Profiler;push(Ljava/lang/String;)V", ordinal = 2))
     private void preEntityTick(BooleanSupplier shouldKeepTicking, CallbackInfo ci) {
         ParallelProcessor.preEntityTick(thisWorld);
+    }
+
+    @Redirect(method = "<init>", at = @At(value = "NEW", target = "(Lnet/minecraft/server/world/ServerWorld;Lnet/minecraft/world/level/storage/LevelStorage$Session;Lcom/mojang/datafixers/DataFixer;Lnet/minecraft/structure/StructureTemplateManager;Ljava/util/concurrent/Executor;Lnet/minecraft/world/gen/chunk/ChunkGenerator;IIZLnet/minecraft/server/WorldGenerationProgressListener;Lnet/minecraft/world/chunk/ChunkStatusChangeListener;Ljava/util/function/Supplier;)Lnet/minecraft/server/world/ServerChunkManager;"))
+    private ServerChunkManager overwriteServerChunkManager(ServerWorld world, LevelStorage.Session session, DataFixer dataFixer, StructureTemplateManager structureTemplateManager, Executor workerExecutor, ChunkGenerator chunkGenerator, int viewDistance, int simulationDistance, boolean dsync, WorldGenerationProgressListener worldGenerationProgressListener, ChunkStatusChangeListener chunkStatusChangeListener, Supplier persistentStateManagerFactory) {
+        if (FabricLoader.getInstance().isModLoaded("c2me")) {
+            return new ParaServerChunkProvider(world, session, dataFixer, structureTemplateManager, workerExecutor, chunkGenerator, viewDistance, simulationDistance, dsync, worldGenerationProgressListener, chunkStatusChangeListener, persistentStateManagerFactory);
+        } else {
+            return new ServerChunkManager(
+                    this.toServerWorld(),
+                    session,
+                    dataFixer,
+                    server.getStructureTemplateManager(),
+                    workerExecutor,
+                    chunkGenerator,
+                    server.getPlayerManager().getViewDistance(),
+                    server.getPlayerManager().getSimulationDistance(),
+                    server.syncChunkWrites(),
+                    worldGenerationProgressListener,
+                    this.entityManager::updateTrackingStatus,
+                    () -> server.getOverworld().getPersistentStateManager()
+            );
+        }
     }
 
     @Redirect(method = "method_31420", at = @At(value = "INVOKE", target = "Lnet/minecraft/server/world/ServerWorld;tickEntity(Ljava/util/function/Consumer;Lnet/minecraft/entity/Entity;)V"))
