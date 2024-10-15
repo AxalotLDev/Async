@@ -9,6 +9,9 @@ import net.minecraft.world.entity.EntityLike;
 import net.minecraft.world.entity.EntityTrackingSection;
 import net.minecraft.world.entity.EntityTrackingStatus;
 import org.spongepowered.asm.mixin.*;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(ServerEntityManager.Listener.class)
 public abstract class ServerEntityManagerMixin<T extends EntityLike> implements AutoCloseable {
@@ -25,15 +28,29 @@ public abstract class ServerEntityManagerMixin<T extends EntityLike> implements 
     @Shadow
     ServerEntityManager<T> manager;
 
+    @Shadow
+    protected abstract void updateLoadStatus(EntityTrackingStatus oldStatus, EntityTrackingStatus newStatus);
 
-    @Shadow protected abstract void updateLoadStatus(EntityTrackingStatus oldStatus, EntityTrackingStatus newStatus);
+    @Inject(method = "updateEntityPosition", at = @At("HEAD"), cancellable = true)
+    public void onUpdateEntityPosition(CallbackInfo ci) {
+        BlockPos blockPos = this.entity.getBlockPos();
+        long l = ChunkSectionPos.toLong(blockPos);
+        if (l != this.sectionPos) {
+            EntityTrackingStatus entityTrackingStatus = this.section.getStatus();
+            this.section.remove(this.entity);
+            this.manager.entityLeftSection(this.sectionPos, this.section);
+            EntityTrackingSection<T> entityTrackingSection = this.manager.cache.getTrackingSection(l);
+            if (entityTrackingSection == null) return;
+            entityTrackingSection.add(this.entity);
+            this.section = entityTrackingSection;
+            this.sectionPos = l;
+            this.updateLoadStatus(entityTrackingStatus, entityTrackingSection.getStatus());
+        }
+        ci.cancel();
+    }
 
-    /**
-     * @author Axalotl
-     * @reason RemoveWarns
-     */
-    @Overwrite
-    public void remove(Entity.RemovalReason reason) {
+    @Inject(method = "remove", at = @At("HEAD"), cancellable = true)
+    public void onUpdateEntityPosition(Entity.RemovalReason reason, CallbackInfo ci) {
         this.section.remove(this.entity);
         EntityTrackingStatus entityTrackingStatus = ServerEntityManager.getNeededLoadStatus(this.entity, this.section.getStatus());
         if (entityTrackingStatus.shouldTick()) {
@@ -48,26 +65,6 @@ public abstract class ServerEntityManagerMixin<T extends EntityLike> implements 
         this.manager.entityUuids.remove(this.entity.getUuid());
         this.entity.setChangeListener(EntityChangeListener.NONE);
         this.manager.entityLeftSection(this.sectionPos, this.section);
-    }
-
-    /**
-     * @author Axalotl
-     * @reason RemoveWarns && Add nulls check
-     */
-    @Overwrite
-    public void updateEntityPosition() {
-        BlockPos blockPos = this.entity.getBlockPos();
-        long l = ChunkSectionPos.toLong(blockPos);
-        if (l != this.sectionPos) {
-            EntityTrackingStatus entityTrackingStatus = this.section.getStatus();
-            this.section.remove(this.entity);
-            this.manager.entityLeftSection(this.sectionPos, this.section);
-            EntityTrackingSection<T> entityTrackingSection = this.manager.cache.getTrackingSection(l);
-            if (entityTrackingSection == null) return;
-            entityTrackingSection.add(this.entity);
-            this.section = entityTrackingSection;
-            this.sectionPos = l;
-            this.updateLoadStatus(entityTrackingStatus, entityTrackingSection.getStatus());
-        }
+        ci.cancel();
     }
 }

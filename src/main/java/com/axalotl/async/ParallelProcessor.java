@@ -13,7 +13,6 @@ import net.minecraft.entity.passive.AllayEntity;
 import net.minecraft.entity.passive.DolphinEntity;
 import net.minecraft.entity.passive.FoxEntity;
 import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.entity.vehicle.HopperMinecartEntity;
 import net.minecraft.entity.vehicle.TntMinecartEntity;
 import net.minecraft.server.network.ServerPlayerEntity;
 
@@ -70,7 +69,7 @@ public class ParallelProcessor {
     static GeneralConfig config;
 
     public static void preTick() {
-        config = Async.config; // Load when config are loaded. Static loads before config update.
+        config = Async.config;
     }
 
     public static void preChunkTick(ServerWorld world) {
