@@ -12,7 +12,6 @@ public class Long2ByteConcurrentHashMap implements Long2ByteMap {
 
     Map<Long, Byte> backing;
     byte defaultReturn = 0;
-    byte nullKey = 0;
 
     public Long2ByteConcurrentHashMap() {
         backing = new ConcurrentHashMap<>();

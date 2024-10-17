@@ -91,7 +91,7 @@ public class Long2ObjectOpenConcurrentHashMap<V> extends Long2ObjectOpenHashMap<
 
     @Override
     public V put(long key, V value) {
-        return put((Long)key, value);
+        return put((Long) key, value);
     }
 
     @Override
@@ -107,10 +107,14 @@ public class Long2ObjectOpenConcurrentHashMap<V> extends Long2ObjectOpenHashMap<
     }
 
     @Override
-    public boolean trim() { return true; }
+    public boolean trim() {
+        return true;
+    }
 
     @Override
-    public boolean trim(final int n) { return true; }
+    public boolean trim(final int n) {
+        return true;
+    }
 
     @Override
     public boolean replace(final long k, final V oldValue, final V v) {
@@ -184,10 +188,6 @@ public class Long2ObjectOpenConcurrentHashMap<V> extends Long2ObjectOpenHashMap<
 
     @Override
     public V computeIfAbsent(final long k, final java.util.function.LongFunction<? extends V> mappingFunction) {
-        return backing.computeIfAbsent(k, (llong) -> mappingFunction.apply(llong));
-    }
-
-    public V computeIfAbsent(final Long k, final java.util.function.LongFunction<? extends V> mappingFunction) {
         return backing.computeIfAbsent(k, (llong) -> mappingFunction.apply(llong));
     }
 

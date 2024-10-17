@@ -9,7 +9,6 @@ import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import com.axalotl.async.commands.ConfigCommand;
 import com.axalotl.async.commands.StatsCommand;
 import com.axalotl.async.config.GeneralConfig;
-import com.axalotl.async.serdes.SerDesRegistry;
 import net.minecraft.util.ActionResult;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -22,14 +21,10 @@ public class Async implements ModInitializer {
     public void onInitialize() {
         LOGGER.info("Initializing Async...");
         ConfigHolder<GeneralConfig> holder = AutoConfig.register(GeneralConfig.class, Toml4jConfigSerializer::new);
-        holder.registerLoadListener((manager, data) -> {
-            holder.getConfig().loadTELists();
-            return ActionResult.SUCCESS;
-        });
+        holder.registerLoadListener((manager, data) -> ActionResult.SUCCESS);
         holder.load();
         config = holder.getConfig();
         StatsCommand.runDataThread();
-        SerDesRegistry.init();
         LOGGER.info("Async Setting up thread-pool...");
         ParallelProcessor.setupThreadPool(GeneralConfig.getParallelism());
 

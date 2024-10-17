@@ -50,7 +50,7 @@ public abstract class ServerEntityManagerMixin<T extends EntityLike> implements 
     }
 
     @Inject(method = "remove", at = @At("HEAD"), cancellable = true)
-    public void onUpdateEntityPosition(Entity.RemovalReason reason, CallbackInfo ci) {
+    public void onRemove(Entity.RemovalReason reason, CallbackInfo ci) {
         this.section.remove(this.entity);
         EntityTrackingStatus entityTrackingStatus = ServerEntityManager.getNeededLoadStatus(this.entity, this.section.getStatus());
         if (entityTrackingStatus.shouldTick()) {

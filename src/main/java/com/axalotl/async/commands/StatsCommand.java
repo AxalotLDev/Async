@@ -20,8 +20,6 @@ public class StatsCommand {
                 cmdCtx.getSource().sendFeedback(() -> message, true);
             }
             String messageString = "Current max threads: " + mean(maxThreads, liveValues);
-            messageString += "\nCurrent entities: " + ParallelProcessor.currentEnts.get();
-            messageString += "\nCurrent tasks: " + ParallelProcessor.currentTasks.size();
             MutableText message = Text.literal(messageString);
             cmdCtx.getSource().sendFeedback(() -> message, true);
             return 1;

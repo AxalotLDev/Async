@@ -31,7 +31,6 @@
     "TypeFilterableListMixin",
     "UtilMixin",
     "WorldChunkMixin",
-    "WorldMixin",
     "WorldTickSchedulerMixin"
   ],
   "client": [

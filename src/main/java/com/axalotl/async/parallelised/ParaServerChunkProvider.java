@@ -49,7 +49,6 @@ public class ParaServerChunkProvider extends ServerChunkManager {
     private static final int HASH_INIT = 0x811c9dc5;
 
     protected Thread cacheThread;
-    //    protected ChunkLock loadingChunkLock = new ChunkLock();
     Logger log = LogManager.getLogger();
     Marker chunkCleaner = MarkerManager.getMarker("ChunkCleaner");
     private final World world;

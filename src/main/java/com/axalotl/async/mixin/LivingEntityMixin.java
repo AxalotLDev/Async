@@ -1,6 +1,5 @@
 package com.axalotl.async.mixin;
 
-import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.TrapdoorBlock;
 import net.minecraft.entity.Entity;
@@ -12,6 +11,8 @@ import net.minecraft.world.World;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import java.util.Optional;
 
@@ -22,57 +23,32 @@ public abstract class LivingEntityMixin extends Entity {
         super(type, world);
     }
 
-    @Shadow private Optional<BlockPos> climbingPos;
+    @Shadow
+    private Optional<BlockPos> climbingPos;
 
-    @Shadow protected abstract boolean canEnterTrapdoor(BlockPos pos, BlockState state);
+    @Shadow
+    protected abstract boolean canEnterTrapdoor(BlockPos pos, BlockState state);
 
-    @ModifyExpressionValue(method = "isClimbing", at = @At(value = "INVOKE", target = "Lnet/minecraft/block/BlockState;isIn(Lnet/minecraft/registry/tag/TagKey;)Z"))
-    private boolean modifyIsInClimbable(boolean original) {
+    @Inject(method = "isClimbing", at = @At(value = "HEAD"), cancellable = true)
+    private void modifyIsInClimbable(CallbackInfoReturnable<Boolean> cir) {
         try {
             if (this.isSpectator()) {
-                return false;
+                cir.setReturnValue(false);
             } else {
                 BlockPos blockPos = this.getBlockPos();
                 BlockState blockState = this.getBlockStateAtPos();
                 if (blockState.isIn(BlockTags.CLIMBABLE)) {
                     this.climbingPos = Optional.of(blockPos);
-                    return true;
+                    cir.setReturnValue(true);
                 } else if (blockState.getBlock() instanceof TrapdoorBlock && this.canEnterTrapdoor(blockPos, blockState)) {
                     this.climbingPos = Optional.of(blockPos);
-                    return true;
+                    cir.setReturnValue(true);
                 } else {
-                    return false;
+                    cir.setReturnValue(false);
                 }
             }
         } catch (Exception e) {
-            return false;
+            cir.setReturnValue(false);
         }
     }
-
-//    /**
-//     * @author AxalotL
-//     * @reason Null check
-//     */
-//    @Overwrite
-//    public boolean isClimbing() {
-//        try {
-//            if (this.isSpectator()) {
-//                return false;
-//            } else {
-//                BlockPos blockPos = this.getBlockPos();
-//                BlockState blockState = this.getBlockStateAtPos();
-//                if (blockState.isIn(BlockTags.CLIMBABLE)) {
-//                    this.climbingPos = Optional.of(blockPos);
-//                    return true;
-//                } else if (blockState.getBlock() instanceof TrapdoorBlock && this.canEnterTrapdoor(blockPos, blockState)) {
-//                    this.climbingPos = Optional.of(blockPos);
-//                    return true;
-//                } else {
-//                    return false;
-//                }
-//            }
-//        } catch (Exception e) {
-//            return false;
-//        }
-//    }
 }

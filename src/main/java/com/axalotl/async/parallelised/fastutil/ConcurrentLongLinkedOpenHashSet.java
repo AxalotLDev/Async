@@ -1,5 +1,6 @@
 package com.axalotl.async.parallelised.fastutil;
 
+import java.io.Serial;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.concurrent.ConcurrentSkipListSet;
@@ -15,32 +16,21 @@ import it.unimi.dsi.fastutil.longs.LongSortedSet;
 
 public class ConcurrentLongLinkedOpenHashSet extends LongLinkedOpenHashSet {
 
+    @Serial
     private static final long serialVersionUID = -5532128240738069111L;
 
     private final ConcurrentSkipListSet<Long> backing;
 
     public ConcurrentLongLinkedOpenHashSet() {
-        //backing = new ConcurrentLinkedDeque<Long>();
-        backing = new ConcurrentSkipListSet<Long>();
+        backing = new ConcurrentSkipListSet<>();
     }
 
     public ConcurrentLongLinkedOpenHashSet(final int initial) {
-        //backing = new ConcurrentLinkedDeque<Long>();
-        backing = new ConcurrentSkipListSet<Long>();
+        backing = new ConcurrentSkipListSet<>();
     }
 
     public ConcurrentLongLinkedOpenHashSet(final int initial, final float dnc) {
         this(initial);
-    }
-
-    public ConcurrentLongLinkedOpenHashSet(final LongCollection c) {
-        this(c.size());
-        addAll(c);
-    }
-
-    public ConcurrentLongLinkedOpenHashSet(final LongCollection c, final float f) {
-        this(c.size(), f);
-        addAll(c);
     }
 
     public ConcurrentLongLinkedOpenHashSet(final LongIterator i, final float f) {
@@ -53,23 +43,15 @@ public class ConcurrentLongLinkedOpenHashSet extends LongLinkedOpenHashSet {
         this(i, -1);
     }
 
-    public ConcurrentLongLinkedOpenHashSet(final Iterator<?> i, final float f) {
-        this(LongIterators.asLongIterator(i), f);
-    }
-
     public ConcurrentLongLinkedOpenHashSet(final Iterator<?> i) {
         this(LongIterators.asLongIterator(i));
     }
 
     public ConcurrentLongLinkedOpenHashSet(final long[] a, final int offset, final int length, final float f) {
-        this(length < 0 ? 0 : length, f);
+        this(Math.max(length, 0), f);
         LongArrays.ensureOffsetLength(a, offset, length);
         for (int i = 0; i < length; i++)
             add(a[offset + i]);
-    }
-
-    public ConcurrentLongLinkedOpenHashSet(final long[] a, final int offset, final int length) {
-        this(a, offset, length, DEFAULT_LOAD_FACTOR);
     }
 
     public ConcurrentLongLinkedOpenHashSet(final long[] a, final float f) {
@@ -82,15 +64,7 @@ public class ConcurrentLongLinkedOpenHashSet extends LongLinkedOpenHashSet {
 
     @Override
     public boolean add(final long k) {
-        boolean out = backing.add(k);
-		/*
-		if (!firstDef) {
-			first = k;
-			firstDef = true;
-		}
-		last = k;
-		*/
-        return out;
+        return backing.add(k);
     }
 
     @Override
@@ -105,16 +79,12 @@ public class ConcurrentLongLinkedOpenHashSet extends LongLinkedOpenHashSet {
 
     @Override
     public boolean addAndMoveToFirst(final long k) {
-        boolean out = backing.add(k);
-        //first = k;
-        return out;
+        return backing.add(k);
     }
 
     @Override
     public boolean addAndMoveToLast(final long k) {
-        boolean out = backing.add(k);
-        //last = k;
-        return out;
+        return backing.add(k);
     }
 
     @Override
@@ -139,10 +109,6 @@ public class ConcurrentLongLinkedOpenHashSet extends LongLinkedOpenHashSet {
 
     @Override
     public long firstLong() {
-		/*
-		if (backing.size() == 0) throw new NoSuchElementException();
-		return first;
-		*/
         return backing.first();
     }
 
@@ -169,28 +135,15 @@ public class ConcurrentLongLinkedOpenHashSet extends LongLinkedOpenHashSet {
     @Override
     public LongListIterator iterator(long from) {
         throw new IllegalStateException();
-        //return FastUtilHackUtil.wrap(backing.iterator());
     }
 
     @Override
     public long lastLong() {
-		/*
-		if (backing.size() == 0) throw new NoSuchElementException();
-		return last;
-		*/
         return backing.last();
     }
 
     @Override
     public boolean remove(final long k) {
-		/*
-		if (k == first) {
-			first = backing.iterator().next();
-		}
-		if (k == last) {
-			last = backing.iterator().next();
-		}
-		*/
         return backing.remove(k);
     }
 
@@ -198,7 +151,6 @@ public class ConcurrentLongLinkedOpenHashSet extends LongLinkedOpenHashSet {
     public long removeFirstLong() {
         long fl = this.firstLong();
         this.remove(fl);
-        //first = backing.iterator().next();
         return fl;
     }
 
@@ -206,7 +158,6 @@ public class ConcurrentLongLinkedOpenHashSet extends LongLinkedOpenHashSet {
     public long removeLastLong() {
         long fl = this.lastLong();
         this.remove(fl);
-        //last = backing.iterator().next();
         return fl;
     }
 

@@ -15,18 +15,11 @@ public class ConcurrentCollections {
     private static final Logger LOGGER = LogManager.getLogger();
 
     public static <T> Set<T> newHashSet() {
-        //LOGGER.info("Concurrent hash set created");
-        return Collections.newSetFromMap(new ConcurrentHashMap<T, Boolean>());
+        return Collections.newSetFromMap(new ConcurrentHashMap<>());
     }
 
     public static <T, U> Map<T, U> newHashMap() {
-        //LOGGER.info("Concurrent hash map created");
-        return new ConcurrentHashMap<T, U>();
-    }
-
-    public static <T> List<T> newLinkedList() {
-        LOGGER.info("Concurrent \"linked\" list created");
-        return new CopyOnWriteArrayList<T>();
+        return new ConcurrentHashMap<>();
     }
 
     public static <T> Collector<T, ?, List<T>> toList() {
@@ -35,7 +28,7 @@ public class ConcurrentCollections {
 
     public static <T> Queue<T> newArrayDeque() {
         LOGGER.info("Concurrent \"array\" deque created");
-        return new ConcurrentLinkedDeque<T>();
+        return new ConcurrentLinkedDeque<>();
     }
 
 }
