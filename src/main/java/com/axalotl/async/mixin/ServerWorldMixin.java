@@ -39,7 +39,7 @@ import java.util.function.BooleanSupplier;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 
-@Mixin(ServerWorld.class)
+@Mixin(value = ServerWorld.class, priority = 1100)
 public abstract class ServerWorldMixin implements StructureWorldAccess {
     @Shadow
     @Final

@@ -39,14 +39,13 @@
   "custom": {
     "lithium:options": {
       "world.chunk_access": false,
-      "entity.collisions": false,
-      "entity.fast_retrieval": false,
-      "collections.entity_by_type": false,
-      "collections.entity_ticking": false,
-      "collections.entity_filtering": false,
-      "entity.inactive_navigations": false,
+      "entity": false,
+      "collections": false,
       "alloc.entity_tracker": false,
-      "mixin.minimal_nonvanilla.collisions.empty_space": false
+      "chunk.entity_class_groups": false,
+      "util.entity_movement_tracking": false,
+      "util.entity_section_position": false,
+      "mixin.experimental.entity": false
     }
   },
   "breaks": {

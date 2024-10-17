@@ -22,7 +22,6 @@
     "PendingUpdateQueueMixin",
     "SectionedEntityCacheMixin",
     "SerializingRegionBasedStorageMixin",
-    "ServerChunkLoadingManagerMixin",
     "ServerChunkManagerMixin",
     "ServerEntityManagerMixin",
     "ServerWorldMixin",
