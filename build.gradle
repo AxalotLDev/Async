@@ -35,6 +35,10 @@ dependencies {
     modApi("me.shedaniel.cloth:cloth-config-fabric:15.0.130") {
         exclude(group: "net.fabricmc.fabric-api")
     }
+    modImplementation 'com.electronwill.night-config:toml:3.8.1'
+
+    include group: 'com.electronwill.night-config', name: 'toml', version: '3.8.1'
+    include group: 'com.electronwill.night-config', name: 'core', version: '3.8.1'
 
     compileOnly 'org.projectlombok:lombok:1.18.32'
     annotationProcessor 'org.projectlombok:lombok:1.18.32'
