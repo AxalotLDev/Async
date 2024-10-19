@@ -44,7 +44,7 @@ public class Int2ObjectConcurrentHashMap<V> implements Int2ObjectMap<V> {
 
     @Override
     public void defaultReturnValue(V rv) {
-        throw new NotImplementedException("MCMT - Not implemented");
+        throw new NotImplementedException("Async - Not implemented");
     }
 
     @Override

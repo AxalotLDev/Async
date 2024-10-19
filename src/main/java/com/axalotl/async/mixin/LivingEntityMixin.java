@@ -29,7 +29,7 @@ public abstract class LivingEntityMixin extends Entity {
     @Shadow
     protected abstract boolean canEnterTrapdoor(BlockPos pos, BlockState state);
 
-    @Inject(method = "isClimbing", at = @At(value = "HEAD"), cancellable = true)
+    @Inject(method = "isClimbing", at = @At(value = "INVOKE", target = "Lnet/minecraft/block/BlockState;isIn(Lnet/minecraft/registry/tag/TagKey;)Z"), cancellable = true)
     private void modifyIsInClimbable(CallbackInfoReturnable<Boolean> cir) {
         try {
             if (this.isSpectator()) {

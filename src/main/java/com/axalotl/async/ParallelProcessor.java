@@ -1,5 +1,8 @@
 package com.axalotl.async;
 
+import com.axalotl.async.serdes.SerDesHookTypes;
+import com.axalotl.async.serdes.SerDesRegistry;
+import com.axalotl.async.serdes.filter.ISerDesFilter;
 import lombok.Getter;
 import lombok.Setter;
 import net.minecraft.entity.Entity;
@@ -9,53 +12,54 @@ import net.minecraft.entity.passive.AllayEntity;
 import net.minecraft.entity.passive.DolphinEntity;
 import net.minecraft.entity.passive.FoxEntity;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.entity.vehicle.HopperMinecartEntity;
 import net.minecraft.entity.vehicle.TntMinecartEntity;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
 
+import net.minecraft.server.world.ServerWorld;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.util.*;
 import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 
 public class ParallelProcessor {
     private static final Logger LOGGER = LogManager.getLogger();
-
-    @Getter
-    protected static Phaser phaser;
-
-    protected static ExecutorService tickPool;
-
     @Getter
     @Setter
     protected static MinecraftServer server;
-
-    protected static AtomicInteger ThreadPoolID = null;
-
+    protected static ExecutorService tickPool;
+    protected static AtomicInteger ThreadPoolID = new AtomicInteger();
     @Getter
-    protected static AtomicBoolean isTicking = new AtomicBoolean();
     public static AtomicInteger currentEnts = new AtomicInteger();
+
+    private static final Map<Class<? extends Entity>, Boolean> modEntityCache = new ConcurrentHashMap<>();
+    private static final Set<Class<?>> specialEntities = Set.of(
+            PlayerEntity.class,
+            ServerPlayerEntity.class,
+            TntMinecartEntity.class,
+            FallingBlockEntity.class,
+            AllayEntity.class,
+            DolphinEntity.class,
+            FoxEntity.class,
+            HopperMinecartEntity.class
+    );
 
     static Map<String, Set<Thread>> mcThreadTracker = new ConcurrentHashMap<>();
 
     public static void setupThreadPool(int parallelism) {
-        if (Async.config.useVirtualThreads) {
-            tickPool = Executors.newVirtualThreadPerTaskExecutor();
-        } else {
-            ThreadPoolID = new AtomicInteger();
-            final ClassLoader cl = Async.class.getClassLoader();
-            ForkJoinPool.ForkJoinWorkerThreadFactory tickThreadFactory = p -> {
-                ForkJoinWorkerThread fjwt = ForkJoinPool.defaultForkJoinWorkerThreadFactory.newThread(p);
-                fjwt.setName("Async-Tick-Pool-Thread-" + ThreadPoolID.getAndIncrement());
-                regThread("Async-Tick", fjwt);
-                fjwt.setContextClassLoader(cl);
-                return fjwt;
-            };
-            tickPool = new ForkJoinPool(parallelism, tickThreadFactory, (t, e) -> LOGGER.error("Error on create tickPool", e), true);
-        }
+        final ClassLoader cl = Async.class.getClassLoader();
+        ForkJoinPool.ForkJoinWorkerThreadFactory tickThreadFactory = p -> {
+            ForkJoinWorkerThread fjwt = ForkJoinPool.defaultForkJoinWorkerThreadFactory.newThread(p);
+            fjwt.setName("Async-Tick-Pool-Thread-" + ThreadPoolID.getAndIncrement());
+            regThread("Async-Tick", fjwt);
+            fjwt.setContextClassLoader(cl);
+            return fjwt;
+        };
+        tickPool = new ForkJoinPool(parallelism, tickThreadFactory, (t, e) -> LOGGER.error("Error on create Async tickPool", e), true);
     }
 
 
@@ -71,75 +75,45 @@ public class ParallelProcessor {
         return isThreadPooled("Async-Tick", Thread.currentThread());
     }
 
-    public static void startTick(MinecraftServer server) {
-        if (phaser != null) {
-            return;
-        }
-        ParallelProcessor.server = server;
-        isTicking.set(true);
-        phaser = new Phaser();
-        phaser.register();
-    }
 
-    public static void endTick(MinecraftServer server) {
-        if (ParallelProcessor.server == server) {
-            phaser.arriveAndAwaitAdvance();
-            isTicking.set(false);
-            phaser = null;
-        }
-    }
-
-
-    public static void callEntityTick(Entity entityIn) {
-        if (Async.config.disabled || Async.config.disableEntity) {
-            entityIn.tick();
+    public static void callEntityTick(Consumer<Entity> tickConsumer, Entity entityIn, ServerWorld serverworld) {
+        if (Async.config.disabled || Async.config.disableEntity || entityIn.isRemoved() || !entityIn.isAlive() ||
+                (entityIn.portalManager != null && entityIn.portalManager.isInPortal()) || isModEntity(entityIn) ||
+                specialEntities.contains(entityIn.getClass()) || (Async.config.disableTNT && entityIn instanceof TntEntity)) {
+            tickConsumer.accept(entityIn);
             return;
         }
-        if (phaser.getRegisteredParties() >= 65535) {
-            entityIn.tick();
-            return;
-        }
-        if (!isTicking.get()) {
-            entityIn.tick();
-            return;
-        }
-        if (isModEntity(entityIn)) {
-            entityIn.tick();
-            return;
-        }
-        if (entityIn.isRemoved() || !entityIn.isAlive() || (entityIn.portalManager != null && entityIn.portalManager.isInPortal())) {
-            entityIn.tick();
-            return;
-        }
-        if (Async.config.disableTNT && entityIn instanceof TntEntity) {
-            entityIn.tick();
-            return;
-        }
-        if (entityIn instanceof PlayerEntity || entityIn instanceof ServerPlayerEntity ||
-                entityIn instanceof TntMinecartEntity ||
-                entityIn instanceof FallingBlockEntity ||
-                entityIn instanceof AllayEntity ||
-                entityIn instanceof DolphinEntity ||
-                entityIn instanceof FoxEntity
-        ) {
-            entityIn.tick();
-            return;
-        }
-        phaser.register();
-        tickPool.execute(() -> {
+        CompletableFuture.runAsync(() -> {
             try {
+                final ISerDesFilter filter = SerDesRegistry.getFilter(SerDesHookTypes.EntityTick, entityIn.getClass());
                 currentEnts.incrementAndGet();
-                entityIn.tick();
+                if (filter != null) {
+                    filter.serialise(() -> tickConsumer.accept(entityIn), entityIn, entityIn.getBlockPos(), serverworld, SerDesHookTypes.EntityTick);
+                } else {
+                    tickConsumer.accept(entityIn);
+                }
             } catch (Exception e) {
                 LOGGER.error("Exception ticking Entity {} at {}", entityIn.getType().getName(), entityIn.getPos(), e);
             } finally {
-                phaser.arriveAndDeregister();
                 currentEnts.decrementAndGet();
             }
-        });
+        }, tickPool);
     }
 
     private static boolean isModEntity(Entity entityIn) {
-        return !entityIn.getClass().getPackageName().startsWith("net.minecraft");
+        return modEntityCache.computeIfAbsent(entityIn.getClass(), clazz ->
+                !clazz.getPackageName().startsWith("net.minecraft")
+        );
+    }
+
+    public static void stop() {
+        tickPool.shutdown();
+        try {
+            if (!tickPool.awaitTermination(60, TimeUnit.SECONDS)) {
+                tickPool.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            tickPool.shutdownNow();
+        }
     }
 }

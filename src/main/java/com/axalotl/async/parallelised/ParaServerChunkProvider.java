@@ -115,7 +115,7 @@ public class ParaServerChunkProvider extends ServerChunkManager {
 
     public void cacheChunk(long chunkPos, Chunk chunk, ChunkStatus status) {
         long oldAccess = access.getAndIncrement();
-        if (access.get() < oldAccess) { // overflow
+        if (access.get() < oldAccess) {
             clearCache();
         }
 

@@ -27,9 +27,6 @@ public class GeneralConfig implements ConfigData {
     )
     public ParaMaxMode paraMaxMode = ParaMaxMode.Standard;
 
-    @Comment("Enable virtual threads java 21 (Don't use for game!)")
-    public boolean useVirtualThreads = false;
-
     // Entity
     @Comment("Disable entity parallelisation")
     public boolean disableEntity = false;
