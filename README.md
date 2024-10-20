@@ -22,8 +22,8 @@ Async is a Fabric mod designed to enhance entity processing performance. The mod
 
 | Environment              | TPS   | MSPT             |
 |--------------------------|-------|------------------|
-| **Lithium + Moderfix + Async** | 20    | 40 / 50          |
-| **Lithium + Moderfix**        | 4.3   | 150+             |
+| **Lithium + Modernfix + Async** | 20    | 40 / 50          |
+| **Lithium + Modernfix**        | 4.3   | 150+             |
 | **Purpur**                 | 4.61  | 150+             |
 
 ### 🛠️ Test Configuration
