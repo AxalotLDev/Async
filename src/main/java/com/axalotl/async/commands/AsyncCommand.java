@@ -6,7 +6,7 @@ import net.minecraft.server.command.ServerCommandSource;
 
 import static net.minecraft.server.command.CommandManager.literal;
 
-public class ConfigCommand {
+public class AsyncCommand {
     public static void register(CommandDispatcher<ServerCommandSource> dispatcher) {
         LiteralArgumentBuilder<ServerCommandSource> config = literal("async");
         config = StatsCommand.registerStatus(config);

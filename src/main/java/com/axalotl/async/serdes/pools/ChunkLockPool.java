@@ -2,8 +2,8 @@ package com.axalotl.async.serdes.pools;
 
 import javax.annotation.Nullable;
 
-import com.axalotl.async.parallelised.ChunkLock;
 
+import com.axalotl.async.parallelised.ChunkLock;
 import lombok.Getter;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;

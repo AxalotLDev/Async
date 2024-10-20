@@ -27,11 +27,13 @@
     "ServerChunkLoadingManagerMixin",
     "ServerChunkManagerMixin",
     "ServerEntityManagerMixin",
+    "ServerPlayerEntityMixin",
     "ServerWorldMixin",
     "SimulationDistanceLevelPropagatorMixin",
     "SyncAllMixin",
     "TypeFilterableListMixin",
     "UtilMixin",
+    "WorldMixin",
     "WorldTickSchedulerMixin"
   ],
   "client": [

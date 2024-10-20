@@ -7,17 +7,16 @@ import java.util.Set;
 import com.axalotl.async.config.BlockEntityLists;
 import com.axalotl.async.serdes.ISerDesHookType;
 import com.axalotl.async.serdes.SerDesRegistry;
+
 import com.axalotl.async.serdes.pools.ChunkLockPool;
 import com.axalotl.async.serdes.pools.ISerDesPool;
-import com.axalotl.async.serdes.pools.ISerDesPool.ISerDesOptions;
-
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
 
 public class LegacyFilter implements ISerDesFilter {
 
     ISerDesPool clp;
-    ISerDesOptions config;
+    ISerDesPool.ISerDesOptions config;
 
     @Override
     public void init() {

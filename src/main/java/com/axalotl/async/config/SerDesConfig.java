@@ -8,7 +8,10 @@ import lombok.Getter;
 import net.fabricmc.loader.api.FabricLoader;
 
 import javax.annotation.Nullable;
-import java.util.*;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
@@ -18,7 +21,6 @@ public class SerDesConfig {
      * Standard, run of the mill filter config
      * <p>
      * TODO: add more filter config parameters; like backup pools etc.
-     *
      */
 
     private static final ObjectConverter OBJECT_CONVERTER = new ObjectConverter();
@@ -61,7 +63,8 @@ public class SerDesConfig {
         String pool;
 
         @Path("pools.primary.params")
-        Config poolParams;
+        //@SpecNotNull
+        Config poolParams; // nightconfig does not support Maps, use Configs instead
 
         public Map<String, Object> getPoolParams() {
             try {
@@ -107,7 +110,8 @@ public class SerDesConfig {
                 return true;
             }
 
-            if (t instanceof List<?> list) {
+            if (t instanceof List<?>) {
+                List<?> list = (List<?>) t;
                 for (Object s : list) {
                     if (!(s instanceof String && ((String) s).matches(validatorRegex))) {
                         return false;
@@ -132,26 +136,48 @@ public class SerDesConfig {
     static Map<String, List<FilterConfig>> filters = new HashMap<>();
     static Map<String, List<PoolConfig>> pools = new HashMap<>();
 
-    public static void loadConfigs() {
-        filters = new HashMap<>();
-        pools = new HashMap<>();
-    }
+//    public static void loadConfigs() {
+//        filters = new HashMap<>();
+//        pools = new HashMap<>();
+//        java.nio.file.Path cfgDir = FabricLoader.getInstance().getConfigDir();
+//        java.nio.file.Path serdesDir = cfgDir.resolve("async-serdes");
+//        if (Files.isDirectory(serdesDir)) {
+//
+//        } else {
+////            try {
+////                Files.createDirectory(serdesDir);
+////            } catch (IOException e) {
+////                e.printStackTrace();
+////            }
+//        }
+//        try {
+//            Files.walk(serdesDir).map(p -> {
+//                try {
+//                    return FileConfig.of(p);
+//                } catch (NoFormatFoundException nffe) {
+//                    return null;
+//                }
+//            }).filter(Predicates.notNull()).filter(Objects::nonNull).forEach(SerDesConfig::loadConfig);
+//        } catch (IOException e) {
+//            e.printStackTrace();
+//        }
+//    }
 
-    private static void loadConfig(FileConfig fc) {
-        fc.load();
-        String file = fc.getNioPath().getFileName().toString();
-        List<Config> pool = fc.get("pools");
-        List<Config> filter = fc.get("filters");
-        if (pool == null) pool = new ArrayList<>();
-        if (filter == null) filter = new ArrayList<>();
-        filters.put(file, filter.stream()
-                .map(c -> OBJECT_CONVERTER.toObject(c, FilterConfig::new))
-                .collect(Collectors.toList()));
-        pools.put(file, pool.stream()
-                .map(c -> OBJECT_CONVERTER.toObject(c, PoolConfig::new))
-                .collect(Collectors.toList()));
-        configs.put(file, fc);
-    }
+//    private static void loadConfig(FileConfig fc) {
+//        fc.load();
+//        String file = fc.getNioPath().getFileName().toString();
+//        List<Config> pool = fc.get("pools");
+//        List<Config> filter = fc.get("filters");
+//        if (pool == null) pool = new ArrayList<>();
+//        if (filter == null) filter = new ArrayList<>();
+//        filters.put(file, filter.stream()
+//                .map(c -> OBJECT_CONVERTER.toObject(c, FilterConfig::new))
+//                .collect(Collectors.toList()));
+//        pools.put(file, pool.stream()
+//                .map(c -> OBJECT_CONVERTER.toObject(c, PoolConfig::new))
+//                .collect(Collectors.toList()));
+//        configs.put(file, fc);
+//    }
 
     public static List<PoolConfig> getPools() {
         return pools.values().stream()
@@ -168,7 +194,7 @@ public class SerDesConfig {
     }
 
     public static void createFilterConfig(String name, Integer priority, List<String> whitelist, List<String> blacklist, @Nullable String pool) {
-        java.nio.file.Path saveTo = FabricLoader.getInstance().getConfigDir().resolve("mcmt-serdes").resolve(name + ".toml");
+        java.nio.file.Path saveTo = FabricLoader.getInstance().getConfigDir().resolve("async-serdes").resolve(name + ".toml");
         FilterConfig fc = new FilterConfig(priority, name, whitelist, blacklist, pool == null ? "LEGACY" : pool, Config.inMemory());
         FileConfig config = FileConfig.builder(saveTo).build();
         config.set("filters", Lists.newArrayList(OBJECT_CONVERTER.toConfig(fc, Config::inMemoryUniversal)));

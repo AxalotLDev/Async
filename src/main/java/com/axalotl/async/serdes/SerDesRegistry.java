@@ -12,10 +12,9 @@ import com.axalotl.async.config.SerDesConfig;
 import com.axalotl.async.serdes.filter.*;
 import com.axalotl.async.serdes.pools.ChunkLockPool;
 import com.axalotl.async.serdes.pools.ISerDesPool;
-import com.axalotl.async.serdes.pools.ISerDesPool.ISerDesOptions;
-
 import com.axalotl.async.serdes.pools.PostExecutePool;
 import com.axalotl.async.serdes.pools.SingleExecutionPool;
+
 import net.minecraft.block.entity.PistonBlockEntity;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
@@ -53,7 +52,7 @@ public class SerDesRegistry {
     private static final ISerDesFilter DEFAULT_FILTER = new DefaultFilter();
 
     public static void init() {
-        SerDesConfig.loadConfigs();
+//        SerDesConfig.loadConfigs();
         initPools();
         initFilters();
         initLookup();
@@ -137,6 +136,10 @@ public class SerDesRegistry {
         });
     }
 
+//    public static boolean removeFromWhitelist(ISerDesHookType isdh, Class<?> c) {
+//        return whitelist.getOrDefault(isdh, EMPTYSET).remove(c);
+//    }
+
     public static void initPools() {
         registry.clear();
         // HARDCODED DEFAULTS
@@ -155,9 +158,8 @@ public class SerDesRegistry {
                         registry.put(pc.getName(), (ISerDesPool) o);
                         ((ISerDesPool) o).init(pc.getName(), pc.getInitParams());
                     }
-                } catch (ClassNotFoundException | InvocationTargetException | IllegalArgumentException |
-                         IllegalAccessException | InstantiationException | SecurityException |
-                         NoSuchMethodException e) {
+                } catch (ClassNotFoundException | NoSuchMethodException | SecurityException | InstantiationException |
+                         IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
                     e.printStackTrace();
                 }
             }
@@ -183,7 +185,7 @@ public class SerDesRegistry {
         }
 
         ISerDesPool clp;
-        ISerDesOptions config;
+        ISerDesPool.ISerDesOptions config;
 
         @Override
         public void init() {
@@ -221,13 +223,24 @@ public class SerDesRegistry {
             }
             // TODO legacy behaviour please fix
             if (hookType.equals(SerDesHookTypes.TETick) && filterTE(obj)) {
+                if (clp == null) {
+                    clp = SerDesRegistry.getOrCreatePool("LEGACY", ChunkLockPool::new);
+                }
                 clp.serialise(task, obj, bp, w, config);
             } else {
                 try {
                     task.run();
                 } catch (Exception e) {
-                    LOGGER.error("Exception running " + obj.getClass().getName() + " asynchronusly", e);
-                    LOGGER.error("Adding " + obj.getClass().getName() + " to blacklist.");
+                    LOGGER.error("Exception running {} asynchronusly", obj.getClass().getName(), e);
+                    LOGGER.error("Adding {} to blacklist.", obj.getClass().getName());
+//                    SerDesConfig.createFilterConfig(
+//                            "auto-" + obj.getClass().getName(),
+//                            10,
+//                            Lists.newArrayList(),
+//                            Lists.newArrayList(obj.getClass().getName()),
+//                            null
+//                    );
+
                     AutoFilter.singleton().addClassToBlacklist(obj.getClass());
                     // TODO: this could leave a tick in an incomplete state. should the full exception be thrown?
                     if (e instanceof RuntimeException) throw e;

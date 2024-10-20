@@ -41,8 +41,6 @@
       "world.chunk_access": false,
       "entity": false,
       "collections": false,
-      "util.entity_movement_tracking": false,
-      "util.entity_section_position": false,
       "alloc.entity_tracker": false,
       "world.game_events": false
     }

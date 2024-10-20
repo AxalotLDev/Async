@@ -51,7 +51,6 @@ public class StatsCommand {
     static final int samples = 100;
     static final int stepsPer = 35;
     static int[] maxThreads = new int[samples];
-    static int[] maxEntities = new int[samples];
     static int currentSteps = 0;
     static int currentPos = 0;
     static int liveValues = 0;
@@ -71,7 +70,6 @@ public class StatsCommand {
                     if (threadStats) {
                         if (resetThreadStats) {
                             maxThreads = new int[samples];
-                            maxEntities = new int[samples];
                             currentSteps = 0;
                             currentPos = 0;
                             liveValues = 0;
@@ -81,13 +79,13 @@ public class StatsCommand {
                         if (++currentSteps % stepsPer == 0) {
                             currentPos = (currentPos + 1) % samples;
                             liveValues = Math.min(liveValues + 1, samples);
-                            maxEntities[currentPos] = 0;
                             maxThreads[currentPos] = 0;
                         }
-
+                        int total;
+                        int tes = ParallelProcessor.currentTEs.get();
                         int entities = ParallelProcessor.currentEnts.get();
-                        maxEntities[currentPos] = Math.max(maxEntities[currentPos], entities);
-                        maxThreads[currentPos] = Math.max(maxThreads[currentPos], entities);
+                        total = tes + entities;
+                        maxThreads[currentPos] = Math.max(maxThreads[currentPos], total);
                     }
                 }
             } catch (InterruptedException e) {
