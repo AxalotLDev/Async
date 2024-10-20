@@ -16,8 +16,7 @@ import net.minecraft.entity.passive.AllayEntity;
 import net.minecraft.entity.passive.DolphinEntity;
 import net.minecraft.entity.passive.FoxEntity;
 import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.entity.vehicle.HopperMinecartEntity;
-import net.minecraft.entity.vehicle.TntMinecartEntity;
+import net.minecraft.entity.vehicle.*;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
@@ -49,12 +48,15 @@ public class ParallelProcessor {
     private static final Set<Class<?>> specialEntities = Set.of(
             PlayerEntity.class,
             ServerPlayerEntity.class,
-            TntMinecartEntity.class,
             FallingBlockEntity.class,
             AllayEntity.class,
             DolphinEntity.class,
             FoxEntity.class,
-            HopperMinecartEntity.class
+            AbstractMinecartEntity.class,
+            ChestMinecartEntity.class,
+            CommandBlockMinecartEntity.class,
+            FurnaceMinecartEntity.class,
+            SpawnerMinecartEntity.class
     );
 
     static Map<String, Set<Thread>> mcThreadTracker = new ConcurrentHashMap<>();
