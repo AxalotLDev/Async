@@ -81,11 +81,8 @@ public class StatsCommand {
                             liveValues = Math.min(liveValues + 1, samples);
                             maxThreads[currentPos] = 0;
                         }
-                        int total;
-                        int tes = ParallelProcessor.currentTEs.get();
                         int entities = ParallelProcessor.currentEnts.get();
-                        total = tes + entities;
-                        maxThreads[currentPos] = Math.max(maxThreads[currentPos], total);
+                        maxThreads[currentPos] = Math.max(maxThreads[currentPos], entities);
                     }
                 }
             } catch (InterruptedException e) {

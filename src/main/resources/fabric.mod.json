@@ -23,6 +23,9 @@
     ],
     "main": [
       "com.axalotl.async.Async"
+    ],
+    "mixinsquared": [
+      "com.axalotl.async.mixin.c2me.AsyncModMixinCanceller"
     ]
   },
   "accessWidener": "async.accesswidener",

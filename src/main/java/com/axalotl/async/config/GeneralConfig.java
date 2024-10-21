@@ -31,9 +31,6 @@ public class GeneralConfig implements ConfigData {
     @Comment("Disable entity parallelisation")
     public boolean disableEntity = false;
 
-    @Comment("Disable tile entity parallelisation")
-    public boolean disableTileEntity = false;
-
     @Comment("Disable tnt entity parallelisation")
     public boolean disableTNT = false;
 

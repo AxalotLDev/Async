@@ -9,6 +9,7 @@ import me.shedaniel.autoconfig.serializer.Toml4jConfigSerializer;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
+import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.util.ActionResult;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -16,10 +17,12 @@ import org.apache.logging.log4j.Logger;
 public class Async implements ModInitializer {
     public static final Logger LOGGER = LogManager.getLogger();
     public static GeneralConfig config;
+    public static Boolean c2me;
 
     @Override
     public void onInitialize() {
         LOGGER.info("Initializing Async...");
+        c2me = FabricLoader.getInstance().isModLoaded("c2me");
         ConfigHolder<GeneralConfig> holder = AutoConfig.register(GeneralConfig.class, Toml4jConfigSerializer::new);
         holder.registerLoadListener((manager, data) -> ActionResult.SUCCESS);
         holder.load();

@@ -19,6 +19,7 @@ repositories {
     maven { url = "https://maven.shedaniel.me/" }
     maven { url = "https://maven.terraformersmc.com/releases/" }
     maven { url = "https://jitpack.io" }
+    maven { url = "https://maven.bawnorton.com/releases" }
     mavenCentral()
     mavenLocal()
 }
@@ -42,6 +43,10 @@ dependencies {
 
     compileOnly 'org.projectlombok:lombok:1.18.32'
     annotationProcessor 'org.projectlombok:lombok:1.18.32'
+
+    include(implementation(annotationProcessor("com.github.bawnorton.mixinsquared:mixinsquared-fabric:0.2.0")))
+    modCompileOnly files('C:/c2me-fixes-worldgen-threading-issues-mc1.21.1-0.3.0+alpha.0.291.jar')
+    modCompileOnly files('C:/c2me-fixes-general-threading-issues-mc1.21.1-0.3.0+alpha.0.291.jar')
 }
 
 processResources {
