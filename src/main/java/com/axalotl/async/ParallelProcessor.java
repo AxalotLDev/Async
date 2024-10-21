@@ -77,7 +77,9 @@ public class ParallelProcessor {
     }
 
     public static void preEntityTick() {
-        if (!Async.config.disabled && !Async.config.disableEntity) phaser.register();
+        if (!Async.config.disabled && !Async.config.disableEntity) {
+            phaser.register();
+        }
     }
 
     public static void callEntityTick(Consumer<Entity> tickConsumer, Entity entityIn, ServerWorld serverworld) {
@@ -111,7 +113,14 @@ public class ParallelProcessor {
     public static void postEntityTick() {
         if (!Async.config.disabled && !Async.config.disableEntity) {
             phaser.arriveAndDeregister();
-            phaser.arriveAndAwaitAdvance();
+            try {
+                phaser.awaitAdvanceInterruptibly(phaser.arrive(), 5, TimeUnit.MINUTES);
+            } catch (TimeoutException e) {
+                LOGGER.error("Timeout waiting for phase to complete, possible deadlock.");
+                server.close();
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
         }
     }
 
