@@ -21,7 +21,7 @@ public class EntityTrackingSectionMixin<T extends EntityLike> {
     private boolean onRemove(T entity, Operation<Boolean> original) {
         try {
             return original.call(entity);
-        } catch (Exception e) {
+        } catch (Exception ignored) {
             return false;
         }
     }

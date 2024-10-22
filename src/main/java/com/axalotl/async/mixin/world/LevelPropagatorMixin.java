@@ -17,7 +17,7 @@ public abstract class LevelPropagatorMixin {
     @Final
     @Shadow
     @Mutable
-    Long2ByteMap pendingUpdates;
+    private Long2ByteMap pendingUpdates;
 
 
     @Redirect(method = "<init>", at = @At(value = "FIELD", target = "Lnet/minecraft/world/chunk/light/LevelPropagator;pendingUpdates:Lit/unimi/dsi/fastutil/longs/Long2ByteMap;", opcode = Opcodes.PUTFIELD))

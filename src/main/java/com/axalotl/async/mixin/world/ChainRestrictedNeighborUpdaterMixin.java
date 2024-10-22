@@ -19,7 +19,7 @@ public abstract class ChainRestrictedNeighborUpdaterMixin implements NeighborUpd
     @Shadow
     @Final
     @Mutable
-    List<ChainRestrictedNeighborUpdater.Entry> pending = new CopyOnWriteArrayList<>();
+    private List<ChainRestrictedNeighborUpdater.Entry> pending = new CopyOnWriteArrayList<>();
 
     @WrapMethod(method = "enqueue")
     private synchronized void syncEnqueue(BlockPos pos, ChainRestrictedNeighborUpdater.Entry entry, Operation<Void> original) {
