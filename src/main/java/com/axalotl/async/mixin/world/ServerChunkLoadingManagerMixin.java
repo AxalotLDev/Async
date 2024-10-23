@@ -40,5 +40,6 @@ public abstract class ServerChunkLoadingManagerMixin extends VersionedChunkStora
 
     @WrapMethod(method = "release")
     private synchronized void release(AbstractChunkHolder chunkHolder, Operation<Void> original) {
+        original.call(chunkHolder);
     }
 }
