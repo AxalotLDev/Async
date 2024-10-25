@@ -16,8 +16,7 @@ import net.minecraft.server.world.ServerWorld;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
@@ -28,7 +27,7 @@ public class ParallelProcessor {
     @Setter
     protected static MinecraftServer server;
     protected static ExecutorService tickPool;
-    protected static Phaser phaser;
+    private static final Queue<CompletableFuture<Void>> entityTickFutures = new ConcurrentLinkedQueue<>();
     protected static AtomicInteger ThreadPoolID = new AtomicInteger();
     @Getter
     public static AtomicInteger currentEnts = new AtomicInteger();
@@ -73,14 +72,9 @@ public class ParallelProcessor {
     }
 
     public static void preChunkTick() {
-        phaser = new Phaser(1);
+        entityTickFutures.clear();
     }
 
-    public static void preEntityTick() {
-        if (!Async.config.disabled && !Async.config.disableEntity) {
-            phaser.register();
-        }
-    }
 
     public static void callEntityTick(Consumer<Entity> tickConsumer, Entity entityIn, ServerWorld serverworld) {
         if (Async.config.disabled || Async.config.disableEntity || isModEntity(entityIn) ||
@@ -91,8 +85,7 @@ public class ParallelProcessor {
             tickConsumer.accept(entityIn);
             return;
         }
-        phaser.register();
-        tickPool.execute(() -> {
+        CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
             try {
                 final ISerDesFilter filter = SerDesRegistry.getFilter(SerDesHookTypes.EntityTick, entityIn.getClass());
                 currentEnts.incrementAndGet();
@@ -104,23 +97,18 @@ public class ParallelProcessor {
             } catch (Exception e) {
                 LOGGER.error("Exception ticking Entity {} at {}", entityIn.getType().getName(), entityIn.getPos(), e);
             } finally {
-                phaser.arriveAndDeregister();
                 currentEnts.decrementAndGet();
             }
-        });
+        }, tickPool);
+        entityTickFutures.add(future);
     }
 
     public static void postEntityTick() {
         if (!Async.config.disabled && !Async.config.disableEntity) {
-            phaser.arriveAndDeregister();
-            try {
-                phaser.awaitAdvanceInterruptibly(phaser.arrive(), 5, TimeUnit.MINUTES);
-            } catch (TimeoutException e) {
-                LOGGER.error("Timeout waiting for phase to complete, possible deadlock.");
-                server.close();
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            }
+            CompletableFuture<Void> allTasks = CompletableFuture
+                    .allOf(entityTickFutures.toArray(new CompletableFuture[0]))
+                    .orTimeout(5, TimeUnit.MINUTES);
+            allTasks.join();
         }
     }
 
