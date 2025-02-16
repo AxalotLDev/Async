@@ -21,6 +21,7 @@
     "entity.ItemEntityMixin",
     "entity.LivingEntityMixin",
     "entity.LivingTargetCacheMixin",
+    "entity.MobEntityMixin",
     "entity.MobVisibilityCacheMixin",
     "entity.NearestItemsSensorMixin",
     "entity.NearestLivingEntitiesSensorMixin",
