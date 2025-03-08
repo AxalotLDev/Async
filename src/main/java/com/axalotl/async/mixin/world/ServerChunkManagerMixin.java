@@ -59,9 +59,4 @@ public abstract class ServerChunkManagerMixin extends ChunkManager {
             }
         }
     }
-
-    @WrapMethod(method = "putInCache")
-    private synchronized void syncPutInCache(long pos, Chunk chunk, ChunkStatus status, Operation<Void> original) {
-        original.call(pos, chunk, status);
-    }
 }
