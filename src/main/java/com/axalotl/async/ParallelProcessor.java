@@ -138,10 +138,7 @@ public class ParallelProcessor {
                     return null;
                 });
 
-                server.getWorlds().forEach(world -> {
-                    world.getChunkManager().executeQueuedTasks();
-                    world.getChunkManager().mainThreadExecutor.runTasks(allTasks::isDone);
-                });
+                server.getWorlds().forEach(world -> world.getChunkManager().mainThreadExecutor.runTasks(allTasks::isDone));
             } catch (CompletionException e) {
                 LOGGER.error("Critical error during entity tick processing", e);
                 server.shutdown();
