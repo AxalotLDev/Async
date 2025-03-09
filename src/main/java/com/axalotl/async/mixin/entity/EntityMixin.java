@@ -3,6 +3,8 @@ package com.axalotl.async.mixin.entity;
 import com.axalotl.async.config.AsyncConfig;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import net.minecraft.block.BlockState;
+import net.minecraft.block.Blocks;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.MovementType;
 import net.minecraft.util.math.Vec3d;
@@ -53,6 +55,16 @@ public abstract class EntityMixin {
     private void setRemoved(Entity.RemovalReason reason, Operation<Void> original) {
         synchronized (lock) {
             original.call(reason);
+        }
+    }
+
+    @WrapMethod(method = "getBlockStateAtPos")
+    private BlockState getBlockStateAtPos(Operation<BlockState> original) {
+        BlockState blockState = original.call();
+        if (blockState != null) {
+            return blockState;
+        } else {
+            return Blocks.AIR.getDefaultState();
         }
     }
 }
