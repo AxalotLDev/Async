@@ -7,7 +7,7 @@
     "entity.AllayEntityMixin",
     "entity.AnimalEntityMixin",
     "entity.BeeEntityMixin",
-    "entity.BeehiveBlockEntityBeeMixin",
+    "entity.BeehiveBlockEntityMixin",
     "entity.BreedTaskMixin",
     "entity.DamageTrackerMixin",
     "entity.DolphinEntityMixin",
