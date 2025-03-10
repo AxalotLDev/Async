@@ -68,7 +68,7 @@ public class AsyncConfig {
         CONFIG.setComment("synchronizedEntities", "List of entity class for sync processing.");
 
         CONFIG.set("enableAsyncSpawn", enableAsyncSpawn);
-        CONFIG.setComment("enableAsyncSpawn", "Enables parallel processing of entity spawns. Warning, incompatible with Carpet mod lagFreeSpawning rule.");
+        CONFIG.setComment("enableAsyncSpawn", "Enables parallel processing of entity spawns. Warning, incompatible with VMP mod && Carpet mod lagFreeSpawning rule.");
 
         CONFIG.save();
         LOGGER.info("Configuration saved successfully.");
