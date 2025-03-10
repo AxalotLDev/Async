@@ -14,7 +14,7 @@ public class Long2ByteConcurrentHashMap implements Long2ByteMap {
     byte defaultReturn = 0;
 
     public Long2ByteConcurrentHashMap() {
-        this.backing = new ConcurrentHashMap<>();
+        this.backing = new ConcurrentHashMap<>(16, 0.9f, 1);
     }
 
     @Override

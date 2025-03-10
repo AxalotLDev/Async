@@ -23,14 +23,7 @@ public final class Int2ObjectConcurrentHashMap<V> implements Int2ObjectMap<V> {
     private V defaultReturnValue;
 
     public Int2ObjectConcurrentHashMap() {
-        this(16);
-    }
-
-    public Int2ObjectConcurrentHashMap(int initialCapacity) {
-        if (initialCapacity < 0) {
-            throw new IllegalArgumentException("Initial capacity cannot be negative: " + initialCapacity);
-        }
-        this.backing = new ConcurrentHashMap<>(initialCapacity);
+        this.backing = new ConcurrentHashMap<>(16, 0.9f, 1);
     }
 
     @Override
