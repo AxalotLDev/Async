@@ -4,6 +4,8 @@ import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import it.unimi.dsi.fastutil.bytes.ByteCollection;
+import it.unimi.dsi.fastutil.bytes.ByteIterator;
 import it.unimi.dsi.fastutil.longs.*;
 import it.unimi.dsi.fastutil.shorts.ShortIterator;
 import org.apache.commons.lang3.ArrayUtils;
@@ -21,6 +23,325 @@ public final class FastUtilHackUtil {
 
     private FastUtilHackUtil() {
         throw new AssertionError("No instances");
+    }
+
+    public static ByteCollection wrapBytes(Collection<Byte> c) {
+        return new WrappingByteCollection(c);
+    }
+
+    public static class WrappingByteCollection implements ByteCollection {
+
+        Collection<Byte> backing;
+
+        public WrappingByteCollection(Collection<Byte> backing) {
+            this.backing = backing;
+        }
+
+        @Override
+        public int size() {
+            return backing.size();
+        }
+
+        @Override
+        public boolean isEmpty() {
+            return backing.isEmpty();
+        }
+
+        @Override
+        public boolean contains(byte o) {
+            return backing.contains(o);
+        }
+
+        @Override
+        public Object @NotNull [] toArray() {
+            return backing.toArray();
+        }
+
+        @Override
+        public <T> T @NotNull [] toArray(T @NotNull [] a) {
+            return backing.toArray(a);
+        }
+
+        @Override
+        public boolean add(byte e) {
+            return backing.add(e);
+        }
+
+        @Override
+        public boolean containsAll(@NotNull Collection<?> c) {
+            return backing.containsAll(c);
+        }
+
+        @Override
+        public boolean addAll(@NotNull Collection<? extends Byte> c) {
+            return backing.addAll(c);
+        }
+
+        @Override
+        public boolean removeAll(@NotNull Collection<?> c) {
+            return backing.removeAll(c);
+        }
+
+        @Override
+        public boolean retainAll(@NotNull Collection<?> c) {
+            return backing.retainAll(c);
+        }
+
+        @Override
+        public void clear() {
+            backing.clear();
+        }
+
+        @Override
+        public @NotNull ByteIterator iterator() {
+            return FastUtilHackUtil.itrByteWrap(backing);
+        }
+
+        @Override
+        public boolean rem(byte key) {
+            return backing.remove(key);
+        }
+
+        @Override
+        public byte[] toByteArray() {
+            return null;
+        }
+
+        @Override
+        public byte[] toArray(byte[] a) {
+            return ArrayUtils.toPrimitive(backing.toArray(new Byte[0]));
+        }
+
+        @Override
+        public boolean addAll(ByteCollection c) {
+            return addAll((Collection<Byte>) c);
+        }
+
+        @Override
+        public boolean containsAll(ByteCollection c) {
+            return containsAll((Collection<Byte>) c);
+        }
+
+        @Override
+        public boolean removeAll(ByteCollection c) {
+            return removeAll((Collection<Byte>) c);
+        }
+
+        @Override
+        public boolean retainAll(ByteCollection c) {
+            return retainAll((Collection<Byte>) c);
+        }
+    }
+
+    public static ObjectSet<Long2ByteMap.Entry> entrySetLongByteWrap(Map<Long, Byte> map) {
+        return new ConvertingObjectSet<>(map.entrySet(), FastUtilHackUtil::longByteEntryForwards, FastUtilHackUtil::longByteEntryBackwards);
+    }
+
+    private static Long2ByteMap.Entry longByteEntryForwards(Map.Entry<Long, Byte> entry) {
+        return new Long2ByteMap.Entry() {
+
+            @Override
+            public byte setValue(byte value) {
+                return entry.setValue(value);
+            }
+
+            @Override
+            public byte getByteValue() {
+                return entry.getValue();
+            }
+
+            @Override
+            public long getLongKey() {
+                return entry.getKey();
+            }
+
+            @Override
+            public boolean equals(Object obj) {
+                if (obj == entry) {
+                    return true;
+                }
+                return super.equals(obj);
+            }
+
+            @Override
+            public int hashCode() {
+                return entry.hashCode();
+            }
+
+        };
+    }
+
+    private static Map.Entry<Long, Byte> longByteEntryBackwards(Long2ByteMap.Entry entry) {
+        return entry;
+    }
+
+    public static <T> it.unimi.dsi.fastutil.longs.Long2ObjectMap.FastEntrySet<T> entrySetLongWrapFast(Map<Long, T> map) {
+        return new ConvertingObjectSetFast<>(map.entrySet(), FastUtilHackUtil::longEntryForwards, FastUtilHackUtil::longEntryBackwards);
+    }
+
+    public static class ConvertingObjectSetFast<E, T> implements it.unimi.dsi.fastutil.longs.Long2ObjectMap.FastEntrySet<T> {
+
+        Set<E> backing;
+        Function<E, it.unimi.dsi.fastutil.longs.Long2ObjectMap.Entry<T>> forward;
+        Function<it.unimi.dsi.fastutil.longs.Long2ObjectMap.Entry<T>, E> back;
+
+        public ConvertingObjectSetFast(Set<E> backing,
+                                       Function<E, it.unimi.dsi.fastutil.longs.Long2ObjectMap.Entry<T>> forward,
+                                       Function<it.unimi.dsi.fastutil.longs.Long2ObjectMap.Entry<T>, E> back) {
+            this.backing = backing;
+            this.forward = forward;
+            this.back = back;
+        }
+
+        @Override
+        public int size() {
+            return backing.size();
+        }
+
+        @Override
+        public boolean isEmpty() {
+            return backing.isEmpty();
+        }
+
+        @SuppressWarnings("unchecked")
+        @Override
+        public boolean contains(Object o) {
+            try {
+                return backing.contains(back.apply((it.unimi.dsi.fastutil.longs.Long2ObjectMap.Entry<T>) o));
+            } catch (ClassCastException cce) {
+                return false;
+            }
+        }
+
+        @Override
+        public Object @NotNull [] toArray() {
+            return backing.stream().map(forward).toArray();
+        }
+
+        @Override
+        public <R> R @NotNull [] toArray(R @NotNull [] a) {
+            return backing.stream().map(forward).collect(Collectors.toSet()).toArray(a);
+        }
+
+        @SuppressWarnings("unchecked")
+        @Override
+        public boolean remove(Object o) {
+            try {
+                return backing.remove(back.apply((it.unimi.dsi.fastutil.longs.Long2ObjectMap.Entry<T>) o));
+            } catch (ClassCastException cce) {
+                return false;
+            }
+        }
+
+        @SuppressWarnings("unchecked")
+        @Override
+        public boolean containsAll(Collection<?> c) {
+            try {
+                return backing.containsAll(c.stream()
+                        .map(i -> back.apply((it.unimi.dsi.fastutil.longs.Long2ObjectMap.Entry<T>) i))
+                        .collect(Collectors.toSet()));
+            } catch (ClassCastException cce) {
+                return false;
+            }
+
+        }
+
+        @SuppressWarnings("unchecked")
+        @Override
+        public boolean removeAll(Collection<?> c) {
+            try {
+                return backing.removeAll(c.stream().map(i -> back
+                                .apply((it.unimi.dsi.fastutil.longs.Long2ObjectMap.Entry<T>) i))
+                        .collect(Collectors.toSet()));
+            } catch (ClassCastException cce) {
+                return false;
+            }
+        }
+
+        @SuppressWarnings("unchecked")
+        @Override
+        public boolean retainAll(Collection<?> c) {
+            try {
+                return backing.retainAll(c.stream()
+                        .map(i -> back.apply((it.unimi.dsi.fastutil.longs.Long2ObjectMap.Entry<T>) i))
+                        .collect(Collectors.toSet()));
+            } catch (ClassCastException cce) {
+                return false;
+            }
+        }
+
+        @Override
+        public void clear() {
+            backing.clear();
+
+        }
+
+        @Override
+        public @NotNull ObjectIterator<it.unimi.dsi.fastutil.longs.Long2ObjectMap.Entry<T>> iterator() {
+            final Iterator<E> backg = backing.iterator();
+            return new ObjectIterator<>() {
+
+                @Override
+                public boolean hasNext() {
+                    return backg.hasNext();
+                }
+
+                @Override
+                public it.unimi.dsi.fastutil.longs.Long2ObjectMap.Entry<T> next() {
+                    return forward.apply(backg.next());
+                }
+
+                @Override
+                public void remove() {
+                    backg.remove();
+                }
+            };
+        }
+
+        @Override
+        public boolean add(it.unimi.dsi.fastutil.longs.Long2ObjectMap.Entry<T> e) {
+            return backing.add(back.apply(e));
+        }
+
+        @Override
+        public boolean addAll(Collection<? extends it.unimi.dsi.fastutil.longs.Long2ObjectMap.Entry<T>> c) {
+            return backing.addAll(c.stream().map(back).toList());
+        }
+
+        @Override
+        public ObjectIterator<it.unimi.dsi.fastutil.longs.Long2ObjectMap.Entry<T>> fastIterator() {
+            return iterator();
+        }
+
+
+    }
+
+    public static class WrappingByteIterator implements ByteIterator {
+
+        Iterator<Byte> parent;
+
+        public WrappingByteIterator(Iterator<Byte> parent) {
+            this.parent = parent;
+        }
+
+        @Override
+        public boolean hasNext() {
+            return parent.hasNext();
+        }
+
+        @Override
+        public void remove() {
+            parent.remove();
+        }
+
+        @Override
+        public byte nextByte() {
+            return parent.next();
+        }
+    }
+
+    public static ByteIterator itrByteWrap(Iterable<Byte> backing) {
+        return new WrappingByteIterator(backing.iterator());
     }
 
     public static class ConvertingObjectSet<E, T> implements ObjectSet<T> {

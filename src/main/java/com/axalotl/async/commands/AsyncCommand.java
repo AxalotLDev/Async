@@ -11,9 +11,9 @@ public class AsyncCommand {
     public final static Text prefix = Text.literal("§8[§f\uD83C\uDF00§8]§7 ");
 
     public static void register(CommandDispatcher<ServerCommandSource> dispatcher) {
-        LiteralArgumentBuilder<ServerCommandSource> main = literal("async");
-        main = ConfigCommand.registerConfig(main);
-        main = StatsCommand.registerStatus(main);
+        LiteralArgumentBuilder<ServerCommandSource> main = literal("async").requires(source -> source.hasPermissionLevel(4));
+        main = ConfigCommand.registerConfig(main).requires(source -> source.hasPermissionLevel(4));
+        main = StatsCommand.registerStatus(main).requires(source -> source.hasPermissionLevel(4));
         dispatcher.register(main);
     }
 }

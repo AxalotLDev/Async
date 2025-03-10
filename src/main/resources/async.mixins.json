@@ -40,6 +40,7 @@
     "entity.ServerEntityManagerListenerMixin",
     "entity.ServerPlayerEntityMixin",
     "entity.SnifferEntityMixin",
+    "entity.SpawnDensityCapperMixin",
     "entity.TurtleEntityMixin",
     "entity.VillagerEntityMixin",
     "entity.VillagerGossipsMixin",
@@ -60,6 +61,7 @@
     "world.ServerChunkLoadingManagerMixin",
     "world.ServerChunkManagerMixin",
     "world.ServerWorldMixin",
+    "world.SimulationDistanceLevelPropagatorMixin",
     "world.WorldChunkMixin",
     "world.WorldMixin"
   ],

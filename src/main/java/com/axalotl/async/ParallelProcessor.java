@@ -5,11 +5,13 @@ import com.axalotl.async.parallelised.ConcurrentCollections;
 import lombok.Getter;
 import lombok.Setter;
 import net.minecraft.entity.*;
-import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.projectile.ProjectileEntity;
 import net.minecraft.entity.vehicle.*;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.server.world.ServerWorld;
+import net.minecraft.world.SpawnHelper;
+import net.minecraft.world.chunk.WorldChunk;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -32,9 +34,7 @@ public class ParallelProcessor {
     private static final Set<UUID> blacklistedEntity = ConcurrentHashMap.newKeySet();
     private static final Map<String, Set<Thread>> mcThreadTracker = ConcurrentCollections.newHashMap();
     private static final Set<Class<?>> specialEntities = Set.of(
-            FallingBlockEntity.class,
-            PlayerEntity.class,
-            ServerPlayerEntity.class
+            FallingBlockEntity.class
     );
 
     public static void setupThreadPool(int parallelism) {
@@ -90,6 +90,7 @@ public class ParallelProcessor {
         return AsyncConfig.disabled ||
                 entity instanceof ProjectileEntity ||
                 entity instanceof AbstractMinecartEntity ||
+                entity instanceof ServerPlayerEntity ||
                 specialEntities.contains(entity.getClass()) ||
                 blacklistedEntity.contains(entity.getUuid()) ||
                 AsyncConfig.synchronizedEntities.contains(EntityType.getId(entity.getType())) ||
@@ -115,6 +116,21 @@ public class ParallelProcessor {
             tickConsumer.accept(entity);
         } finally {
             currentEntities.decrementAndGet();
+        }
+    }
+
+    public static void asyncSpawn(ServerWorld world, WorldChunk worldChunk, SpawnHelper.Info info, List<SpawnGroup> spawnableGroups) {
+        if (AsyncConfig.enableAsyncSpawn) {
+            CompletableFuture<Void> future = CompletableFuture.runAsync(() ->
+                    SpawnHelper.spawn(world, worldChunk, info, spawnableGroups), tickPool
+            ).exceptionally(e -> {
+                LOGGER.error("Error in async spawn tick, switching to synchronous", e);
+                SpawnHelper.spawn(world, worldChunk, info, spawnableGroups);
+                return null;
+            });
+            taskQueue.add(future);
+        } else {
+            SpawnHelper.spawn(world, worldChunk, info, spawnableGroups);
         }
     }
 

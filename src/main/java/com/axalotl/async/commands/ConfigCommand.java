@@ -109,6 +109,24 @@ public class ConfigCommand {
                                     .append(Text.literal(String.valueOf(value)).styled(style -> style.withColor(Formatting.GREEN)));
                             cmdCtx.getSource().sendFeedback(() -> message, true);
                             return 1;
-                        }))));
+                        })))
+                .then(CommandManager.literal("setAsyncEntitySpawn").requires(cmdSrc -> cmdSrc.hasPermissionLevel(4))
+                        .executes(cmdCtx -> {
+                            boolean currentValue = AsyncConfig.enableAsyncSpawn;
+                            MutableText message = prefix.copy().append(Text.literal("Current value of async entity spawn: ").styled(style -> style.withColor(Formatting.WHITE)))
+                                    .append(Text.literal(String.valueOf(currentValue)).styled(style -> style.withColor(Formatting.GREEN)));
+                            cmdCtx.getSource().sendFeedback(() -> message, false);
+                            return 1;
+                        })
+                        .then(CommandManager.argument("value", BoolArgumentType.bool()).executes(cmdCtx -> {
+                            boolean value = BoolArgumentType.getBool(cmdCtx, "value");
+                            AsyncConfig.enableAsyncSpawn = value;
+                            AsyncConfig.saveConfig();
+                            MutableText message = prefix.copy().append(Text.literal("Async Entity Spawn set to ").styled(style -> style.withColor(Formatting.WHITE)))
+                                    .append(Text.literal(String.valueOf(value)).styled(style -> style.withColor(Formatting.GREEN)));
+                            cmdCtx.getSource().sendFeedback(() -> message, true);
+                            return 1;
+                        })))
+        );
     }
 }

@@ -26,6 +26,7 @@ public class AsyncConfig {
     public static boolean disabled = false;
     public static int paraMax = -1;
     public static boolean enableEntityMoveSync = false;
+    public static boolean enableAsyncSpawn = false;
     public static Set<Identifier> synchronizedEntities = new HashSet<>(Set.of(
             Identifier.ofVanilla("tnt"),
             Identifier.ofVanilla("item"),
@@ -66,6 +67,9 @@ public class AsyncConfig {
         CONFIG.set("synchronizedEntities", synchronizedEntities.stream().map(Identifier::toString).toList());
         CONFIG.setComment("synchronizedEntities", "List of entity class for sync processing.");
 
+        CONFIG.set("enableAsyncSpawn", enableAsyncSpawn);
+        CONFIG.setComment("enableAsyncSpawn", "Enables parallel processing of entity spawns. Warning, incompatible with Carpet mod lagFreeSpawning rule.");
+
         CONFIG.save();
         LOGGER.info("Configuration saved successfully.");
     }
@@ -76,6 +80,7 @@ public class AsyncConfig {
         disabled = CONFIG.getOrElse("disabled", false);
         paraMax = CONFIG.getOrElse("paraMax", -1);
         enableEntityMoveSync = CONFIG.getOrElse("enableEntityMoveSync", false);
+        enableAsyncSpawn = CONFIG.getOrElse("enableAsyncSpawn", false);
 
         synchronizedEntities = new HashSet<>();
         CONFIG.<List<String>>getOptional("synchronizedEntities").ifPresentOrElse(ids -> {
@@ -110,6 +115,7 @@ public class AsyncConfig {
         disabled = false;
         paraMax = -1;
         enableEntityMoveSync = false;
+        enableAsyncSpawn = false;
         synchronizedEntities = new HashSet<>(Set.of(
                 Identifier.ofVanilla("tnt"),
                 Identifier.ofVanilla("item"),
