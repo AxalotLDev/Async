@@ -1,9 +1,11 @@
 package com.axalotl.async.mixin.world;
 
 import com.axalotl.async.ParallelProcessor;
+import net.minecraft.entity.Entity;
 import net.minecraft.entity.SpawnGroup;
 import net.minecraft.server.world.*;
 import net.minecraft.util.math.ChunkPos;
+import net.minecraft.world.SpawnDensityCapper;
 import net.minecraft.world.SpawnHelper;
 import net.minecraft.world.chunk.*;
 import org.jetbrains.annotations.Nullable;
@@ -66,5 +68,10 @@ public abstract class ServerChunkManagerMixin extends ChunkManager {
     @Redirect(method = "tickChunks(Lnet/minecraft/util/profiler/Profiler;JLjava/util/List;)V", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/SpawnHelper;spawn(Lnet/minecraft/server/world/ServerWorld;Lnet/minecraft/world/chunk/WorldChunk;Lnet/minecraft/world/SpawnHelper$Info;Ljava/util/List;)V"))
     private void tickChunks(ServerWorld world, WorldChunk worldChunk, SpawnHelper.Info info, List<SpawnGroup> spawnableGroups) {
         ParallelProcessor.asyncSpawn(world, worldChunk, info, spawnableGroups);
+    }
+
+    @Redirect(method = "tickChunks(Lnet/minecraft/util/profiler/Profiler;JLjava/util/List;)V", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/SpawnHelper;setupSpawn(ILjava/lang/Iterable;Lnet/minecraft/world/SpawnHelper$ChunkSource;Lnet/minecraft/world/SpawnDensityCapper;)Lnet/minecraft/world/SpawnHelper$Info;"))
+    private SpawnHelper.Info onSetupSpawn(int spawningChunkCount, Iterable<Entity> entities, SpawnHelper.ChunkSource chunkSource, SpawnDensityCapper densityCapper) {
+        return ParallelProcessor.asyncSpawnSetup(spawningChunkCount, entities, chunkSource, densityCapper);
     }
 }

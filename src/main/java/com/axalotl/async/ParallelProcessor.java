@@ -10,6 +10,7 @@ import net.minecraft.entity.vehicle.*;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
+import net.minecraft.world.SpawnDensityCapper;
 import net.minecraft.world.SpawnHelper;
 import net.minecraft.world.chunk.WorldChunk;
 import org.apache.logging.log4j.LogManager;
@@ -30,7 +31,7 @@ public class ParallelProcessor {
     public static final AtomicInteger currentEntities = new AtomicInteger();
     private static final AtomicInteger threadPoolID = new AtomicInteger();
     private static ExecutorService tickPool;
-    private static final Queue<CompletableFuture<Void>> taskQueue = new ConcurrentLinkedQueue<>();
+    private static final Queue<CompletableFuture<?>> taskQueue = new ConcurrentLinkedQueue<>();
     private static final Set<UUID> blacklistedEntity = ConcurrentHashMap.newKeySet();
     private static final Map<String, Set<Thread>> mcThreadTracker = ConcurrentCollections.newHashMap();
     private static final Set<Class<?>> specialEntities = Set.of(
@@ -134,17 +135,31 @@ public class ParallelProcessor {
         }
     }
 
+    public static SpawnHelper.Info asyncSpawnSetup(int spawningChunkCount, Iterable<Entity> entities, SpawnHelper.ChunkSource chunkSource, SpawnDensityCapper densityCapper) {
+        if (AsyncConfig.enableAsyncSpawn) {
+            CompletableFuture<SpawnHelper.Info> future = CompletableFuture.supplyAsync(() ->
+                    SpawnHelper.setupSpawn(spawningChunkCount, entities, chunkSource, densityCapper), tickPool
+            ).exceptionally(e -> {
+                LOGGER.error("Error in async setup spawn tick, switching to synchronous", e);
+                return SpawnHelper.setupSpawn(spawningChunkCount, entities, chunkSource, densityCapper);
+            });
+            return future.join();
+        } else {
+            return SpawnHelper.setupSpawn(spawningChunkCount, entities, chunkSource, densityCapper);
+        }
+    }
+
     public static void postEntityTick() {
         if (!AsyncConfig.disabled) {
             try {
-                List<CompletableFuture<Void>> futuresList = new ArrayList<>(taskQueue);
+                List<CompletableFuture<?>> futuresList = new ArrayList<>(taskQueue);
                 taskQueue.clear();
 
                 if (futuresList.isEmpty()) {
                     return;
                 }
 
-                CompletableFuture<Void> allTasks = CompletableFuture.allOf(
+                CompletableFuture<?> allTasks = CompletableFuture.allOf(
                         futuresList.toArray(new CompletableFuture[0])
                 );
 
