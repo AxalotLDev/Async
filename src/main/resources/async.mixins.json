@@ -19,7 +19,6 @@
     "entity.FrogEntityMixin",
     "entity.GoalSelectorMixin",
     "entity.HoldTradeOffersTaskMixin",
-    "entity.ItemEntityMixin",
     "entity.LivingEntityMixin",
     "entity.LivingTargetCacheMixin",
     "entity.MobEntityMixin",
