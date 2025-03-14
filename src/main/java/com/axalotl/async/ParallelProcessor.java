@@ -10,7 +10,6 @@ import net.minecraft.entity.vehicle.*;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
-import net.minecraft.world.SpawnDensityCapper;
 import net.minecraft.world.SpawnHelper;
 import net.minecraft.world.chunk.WorldChunk;
 import org.apache.logging.log4j.LogManager;
@@ -132,20 +131,6 @@ public class ParallelProcessor {
             taskQueue.add(future);
         } else {
             SpawnHelper.spawn(world, worldChunk, info, spawnableGroups);
-        }
-    }
-
-    public static SpawnHelper.Info asyncSpawnSetup(int spawningChunkCount, Iterable<Entity> entities, SpawnHelper.ChunkSource chunkSource, SpawnDensityCapper densityCapper) {
-        if (AsyncConfig.enableAsyncSpawn) {
-            CompletableFuture<SpawnHelper.Info> future = CompletableFuture.supplyAsync(() ->
-                    SpawnHelper.setupSpawn(spawningChunkCount, entities, chunkSource, densityCapper), tickPool
-            ).exceptionally(e -> {
-                LOGGER.error("Error in async setup spawn tick, switching to synchronous", e);
-                return SpawnHelper.setupSpawn(spawningChunkCount, entities, chunkSource, densityCapper);
-            });
-            return future.join();
-        } else {
-            return SpawnHelper.setupSpawn(spawningChunkCount, entities, chunkSource, densityCapper);
         }
     }
 
