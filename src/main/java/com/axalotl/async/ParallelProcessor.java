@@ -32,6 +32,7 @@ public class ParallelProcessor {
     private static ExecutorService tickPool;
     private static final Queue<CompletableFuture<?>> taskQueue = new ConcurrentLinkedQueue<>();
     private static final Set<UUID> blacklistedEntity = ConcurrentHashMap.newKeySet();
+    private static final ConcurrentHashMap<UUID, Integer> portalTickSyncMap = new ConcurrentHashMap<>();
     private static final Map<String, Set<Thread>> mcThreadTracker = ConcurrentCollections.newHashMap();
     private static final Set<Class<?>> specialEntities = Set.of(
             FallingBlockEntity.class
@@ -66,6 +67,7 @@ public class ParallelProcessor {
     }
 
     public static void callEntityTick(Consumer<Entity> tickConsumer, Entity entity) {
+
         if (shouldTickSynchronously(entity)) {
             tickSynchronously(tickConsumer, entity);
         } else {
@@ -87,16 +89,34 @@ public class ParallelProcessor {
     }
 
     public static boolean shouldTickSynchronously(Entity entity) {
-        return AsyncConfig.disabled ||
+        UUID entityId = entity.getUuid();
+        boolean requiresSyncTick = AsyncConfig.disabled ||
                 entity instanceof ProjectileEntity ||
                 entity instanceof AbstractMinecartEntity ||
                 entity instanceof ServerPlayerEntity ||
                 specialEntities.contains(entity.getClass()) ||
-                blacklistedEntity.contains(entity.getUuid()) ||
+                blacklistedEntity.contains(entityId) ||
                 AsyncConfig.synchronizedEntities.contains(EntityType.getId(entity.getType())) ||
-                isPortalTickRequired(entity) ||
                 entity.hasPlayerRider();
+        if (requiresSyncTick) {
+            return true;
+        }
+        if (portalTickSyncMap.containsKey(entityId)) {
+            int ticksLeft = portalTickSyncMap.get(entityId);
+            if (ticksLeft > 0) {
+                portalTickSyncMap.put(entityId, ticksLeft - 1);
+                return true;
+            } else {
+                portalTickSyncMap.remove(entityId);
+            }
+        }
+        if (isPortalTickRequired(entity)) {
+            portalTickSyncMap.put(entityId, 39);
+            return true;
+        }
+        return false;
     }
+
 
     private static boolean isPortalTickRequired(Entity entity) {
         return entity.portalManager != null && entity.portalManager.isInPortal();
