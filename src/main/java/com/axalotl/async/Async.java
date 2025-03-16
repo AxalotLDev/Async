@@ -6,16 +6,24 @@ import com.axalotl.async.config.AsyncConfig;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
+import net.fabricmc.loader.api.FabricLoader;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 public class Async implements ModInitializer {
     public static final Logger LOGGER = LogManager.getLogger(Async.class);
+    public static final boolean VMP = FabricLoader.getInstance().isModLoaded("vmp");
 
     @Override
     public void onInitialize() {
         LOGGER.info("Initializing Async...");
         AsyncConfig.init();
+
+        if (VMP && AsyncConfig.enableAsyncSpawn) {
+            LOGGER.error("Incompatible configuration: Async spawn enabled while VMP mod is active. Crashing to prevent instability.");
+            throw new RuntimeException("Crashing due to VMP mod incompatibility with Async Spawn Configuration.");
+        }
+
         StatsCommand.runStatsThread();
 
         ServerLifecycleEvents.SERVER_STARTING.register(server -> {
