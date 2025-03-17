@@ -67,4 +67,18 @@ public abstract class EntityMixin {
             return Blocks.AIR.getDefaultState();
         }
     }
+
+    @WrapMethod(method = "addPassenger")
+    private void addPassenger(Entity passenger, Operation<Void> original) {
+        synchronized (lock) {
+            original.call(passenger);
+        }
+    }
+
+    @WrapMethod(method = "removePassenger")
+    private void removePassenger(Entity passenger, Operation<Void> original) {
+        synchronized (lock) {
+            original.call(passenger);
+        }
+    }
 }
