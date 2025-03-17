@@ -67,7 +67,6 @@ public class ParallelProcessor {
     }
 
     public static void callEntityTick(Consumer<Entity> tickConsumer, Entity entity) {
-
         if (shouldTickSynchronously(entity)) {
             tickSynchronously(tickConsumer, entity);
         } else {
@@ -157,21 +156,21 @@ public class ParallelProcessor {
     public static void postEntityTick() {
         if (!AsyncConfig.disabled) {
             try {
-                List<CompletableFuture<?>> futuresList = new ArrayList<>(taskQueue);
-                taskQueue.clear();
-
-                if (futuresList.isEmpty()) {
-                    return;
+                List<CompletableFuture<?>> futuresList = new ArrayList<>();
+                CompletableFuture<?> future;
+                while ((future = taskQueue.poll()) != null) {
+                    futuresList.add(future);
                 }
 
                 CompletableFuture<?> allTasks = CompletableFuture.allOf(
                         futuresList.toArray(new CompletableFuture[0])
                 );
-
-                allTasks.orTimeout(120, TimeUnit.SECONDS).exceptionally(ex -> {
-                    LOGGER.error("Timeout during entity tick processing", ex);
-                    server.shutdown();
-                    return null;
+                allTasks.whenComplete((result, ex) -> {
+                    if (ex != null) {
+                        LOGGER.error("Timeout during entity tick processing", ex);
+                        watchdog();
+                        server.shutdown();
+                    }
                 });
 
                 server.getWorlds().forEach(world -> {
@@ -179,10 +178,20 @@ public class ParallelProcessor {
                     world.getChunkManager().mainThreadExecutor.runTasks(allTasks::isDone);
                 });
             } catch (CompletionException e) {
+                watchdog();
                 LOGGER.error("Critical error during entity tick processing", e);
                 server.shutdown();
             }
         }
+    }
+
+    public static void watchdog() {
+        StringBuilder logMessage = new StringBuilder("[Watchdog] Active Threads:\n");
+        Thread.getAllStackTraces().keySet().forEach(thread -> logMessage.append("Thread Name: ").append(thread.getName())
+                .append(" | State: ").append(thread.getState())
+                .append(" | IsDaemon: ").append(thread.isDaemon())
+                .append("\n"));
+        LOGGER.info(logMessage.toString());
     }
 
     public static void stop() {

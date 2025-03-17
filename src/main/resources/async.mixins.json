@@ -60,7 +60,6 @@
     "world.ServerChunkLoadingManagerMixin",
     "world.ServerChunkManagerMixin",
     "world.ServerWorldMixin",
-    "world.SimulationDistanceLevelPropagatorMixin",
     "world.WorldChunkMixin",
     "world.WorldMixin"
   ],
