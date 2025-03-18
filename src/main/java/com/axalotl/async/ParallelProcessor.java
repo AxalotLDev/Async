@@ -165,12 +165,12 @@ public class ParallelProcessor {
                 CompletableFuture<?> allTasks = CompletableFuture.allOf(
                         futuresList.toArray(new CompletableFuture[0])
                 );
-                allTasks.whenComplete((result, ex) -> {
-                    if (ex != null) {
-                        LOGGER.error("Timeout during entity tick processing", ex);
-                        watchdog();
-                        server.shutdown();
-                    }
+
+                allTasks.orTimeout(120, TimeUnit.SECONDS).exceptionally(ex -> {
+                    watchdog();
+                    LOGGER.error("Timeout during entity tick processing", ex);
+                    server.shutdown();
+                    return null;
                 });
 
                 server.getWorlds().forEach(world -> {
