@@ -24,3 +24,4 @@ accessible class net/minecraft/entity/passive/TurtleEntity$MateGoal
 accessible method net/minecraft/entity/passive/TurtleEntity setHasEgg (Z)V
 accessible class net/minecraft/scoreboard/Scores
 accessible class net/minecraft/world/SpawnDensityCapper$DensityCap
+accessible class net/minecraft/util/math/GravityField$Point
