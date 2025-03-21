@@ -10,6 +10,7 @@ import net.minecraft.entity.vehicle.*;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
+import net.minecraft.util.crash.CrashReport;
 import net.minecraft.world.SpawnHelper;
 import net.minecraft.world.chunk.WorldChunk;
 import org.apache.logging.log4j.LogManager;
@@ -167,9 +168,7 @@ public class ParallelProcessor {
                 );
 
                 allTasks.orTimeout(120, TimeUnit.SECONDS).exceptionally(ex -> {
-                    watchdog();
-                    LOGGER.error("Timeout during entity tick processing", ex);
-                    server.shutdown();
+                    server.setCrashReport(new CrashReport("Timeout during entity tick processing", ex));
                     return null;
                 });
 
@@ -178,8 +177,7 @@ public class ParallelProcessor {
                     world.getChunkManager().mainThreadExecutor.runTasks(allTasks::isDone);
                 });
             } catch (CompletionException e) {
-                watchdog();
-                LOGGER.error("Critical error during entity tick processing", e);
+                server.setCrashReport(new CrashReport("Critical error during entity tick processing", e));
                 server.shutdown();
             }
         }
