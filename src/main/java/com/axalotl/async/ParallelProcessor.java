@@ -183,15 +183,6 @@ public class ParallelProcessor {
         }
     }
 
-    public static void watchdog() {
-        StringBuilder logMessage = new StringBuilder("[Watchdog] Active Threads:\n");
-        Thread.getAllStackTraces().keySet().forEach(thread -> logMessage.append("Thread Name: ").append(thread.getName())
-                .append(" | State: ").append(thread.getState())
-                .append(" | IsDaemon: ").append(thread.isDaemon())
-                .append("\n"));
-        LOGGER.info(logMessage.toString());
-    }
-
     public static void stop() {
         if (tickPool != null && !tickPool.isShutdown()) {
             tickPool.shutdown();

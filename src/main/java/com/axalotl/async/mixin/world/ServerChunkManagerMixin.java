@@ -1,6 +1,8 @@
 package com.axalotl.async.mixin.world;
 
 import com.axalotl.async.ParallelProcessor;
+import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import net.minecraft.entity.SpawnGroup;
 import net.minecraft.server.world.*;
 import net.minecraft.util.math.ChunkPos;
@@ -66,5 +68,10 @@ public abstract class ServerChunkManagerMixin extends ChunkManager {
     @Redirect(method = "tickChunks(Lnet/minecraft/util/profiler/Profiler;JLjava/util/List;)V", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/SpawnHelper;spawn(Lnet/minecraft/server/world/ServerWorld;Lnet/minecraft/world/chunk/WorldChunk;Lnet/minecraft/world/SpawnHelper$Info;Ljava/util/List;)V"))
     private void tickChunks(ServerWorld world, WorldChunk worldChunk, SpawnHelper.Info info, List<SpawnGroup> spawnableGroups) {
         ParallelProcessor.asyncSpawn(world, worldChunk, info, spawnableGroups);
+    }
+
+    @WrapMethod(method = "putInCache")
+    private synchronized void syncPutInCache(long pos, Chunk chunk, ChunkStatus status, Operation<Void> original) {
+        original.call(pos, chunk, status);
     }
 }

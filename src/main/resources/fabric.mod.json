@@ -38,7 +38,6 @@
   "custom": {
     "lithium:options": {
       "entity.inactive_navigations": false,
-      "entity.collisions.unpushable_cramming": false,
       "mixin.experimental": false
     }
   },
