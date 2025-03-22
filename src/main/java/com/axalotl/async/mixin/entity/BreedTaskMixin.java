@@ -1,9 +1,9 @@
 package com.axalotl.async.mixin.entity;
 
-import net.minecraft.entity.ai.brain.MemoryModuleType;
-import net.minecraft.entity.ai.brain.task.BreedTask;
-import net.minecraft.entity.passive.AnimalEntity;
-import net.minecraft.server.world.ServerWorld;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.ai.behavior.AnimalMakeLove;
+import net.minecraft.world.entity.ai.memory.MemoryModuleType;
+import net.minecraft.world.entity.animal.Animal;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
@@ -14,32 +14,32 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import java.util.concurrent.locks.ReentrantLock;
 
-@Mixin(BreedTask.class)
+@Mixin(AnimalMakeLove.class)
 public abstract class BreedTaskMixin {
     @Shadow
-    protected abstract AnimalEntity getBreedTarget(AnimalEntity animal);
+    protected abstract Animal getBreedTarget(Animal animal);
 
     @Unique
     private static final ReentrantLock lock = new ReentrantLock();
 
-    @Inject(method = "shouldKeepRunning(Lnet/minecraft/server/world/ServerWorld;Lnet/minecraft/entity/passive/AnimalEntity;J)Z", at = @At(value = "INVOKE", target = "Lnet/minecraft/entity/ai/brain/task/BreedTask;getBreedTarget(Lnet/minecraft/entity/passive/AnimalEntity;)Lnet/minecraft/entity/passive/AnimalEntity;"))
-    private void shouldKeepRunning(ServerWorld serverWorld, AnimalEntity animalEntity, long l, CallbackInfoReturnable<Boolean> cir) {
+    @Inject(method = "canStillUse(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/world/entity/animal/Animal;J)Z", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/ai/behavior/AnimalMakeLove;getBreedTarget(Lnet/minecraft/world/entity/animal/Animal;)Lnet/minecraft/world/entity/animal/Animal;"))
+    private void shouldKeepRunning(ServerLevel serverWorld, Animal animalEntity, long l, CallbackInfoReturnable<Boolean> cir) {
         if (this.getBreedTarget(animalEntity) == null) {
             cir.cancel();
         }
     }
 
-    @Inject(method = "keepRunning(Lnet/minecraft/server/world/ServerWorld;Lnet/minecraft/entity/passive/AnimalEntity;J)V", at = @At(value = "INVOKE", target = "Lnet/minecraft/entity/ai/brain/task/BreedTask;getBreedTarget(Lnet/minecraft/entity/passive/AnimalEntity;)Lnet/minecraft/entity/passive/AnimalEntity;"), cancellable = true)
-    private void canStillUse(ServerWorld serverWorld, AnimalEntity animalEntity, long l, CallbackInfo ci) {
+    @Inject(method = "tick(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/world/entity/animal/Animal;J)V", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/ai/behavior/AnimalMakeLove;getBreedTarget(Lnet/minecraft/world/entity/animal/Animal;)Lnet/minecraft/world/entity/animal/Animal;"), cancellable = true)
+    private void canStillUse(ServerLevel serverWorld, Animal animalEntity, long l, CallbackInfo ci) {
         if (this.getBreedTarget(animalEntity) == null) {
             ci.cancel();
         }
     }
 
     @Inject(method = "getBreedTarget", at = @At("HEAD"), cancellable = true)
-    private void syncBreedTarget(AnimalEntity animal, CallbackInfoReturnable<AnimalEntity> cir) {
+    private void syncBreedTarget(Animal animal, CallbackInfoReturnable<Animal> cir) {
         synchronized (lock) {
-            cir.setReturnValue((AnimalEntity) animal.getBrain().getOptionalRegisteredMemory(MemoryModuleType.BREED_TARGET).orElse(null));
+            cir.setReturnValue((Animal) animal.getBrain().getMemory(MemoryModuleType.BREED_TARGET).orElse(null));
         }
     }
 }

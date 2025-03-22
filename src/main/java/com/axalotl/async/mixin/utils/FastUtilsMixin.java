@@ -4,12 +4,14 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.longs.Long2LongOpenHashMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectLinkedOpenHashMap;
+import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongLinkedOpenHashSet;
 import it.unimi.dsi.fastutil.objects.*;
 import org.spongepowered.asm.mixin.Mixin;
 
 @Mixin(value = {
         Int2ObjectOpenHashMap.class,
+        Long2ObjectOpenHashMap.class,
         LongLinkedOpenHashSet.class,
         ObjectOpenCustomHashSet.class,
         Long2LongOpenHashMap.class,
@@ -21,6 +23,7 @@ import org.spongepowered.asm.mixin.Mixin;
         IntArrayList.class,
         Reference2IntOpenHashMap.class,
         ReferenceArrayList.class,
+        Object2ReferenceOpenCustomHashMap.class,
         Object2ReferenceOpenCustomHashMap.class,
         Reference2ByteOpenHashMap.class,
         Reference2LongOpenHashMap.class,

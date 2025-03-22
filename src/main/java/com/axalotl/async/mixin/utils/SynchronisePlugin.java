@@ -2,8 +2,6 @@ package com.axalotl.async.mixin.utils;
 
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Multimap;
-import net.fabricmc.loader.api.FabricLoader;
-import net.fabricmc.loader.api.MappingResolver;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.objectweb.asm.tree.ClassNode;
@@ -24,8 +22,8 @@ public class SynchronisePlugin implements IMixinConfigPlugin {
 
     @Override
     public void onLoad(String mixinPackage) {
-        MappingResolver mappingResolver = FabricLoader.getInstance().getMappingResolver();
-        mixin2MethodsExcludeMap.put("com.axalotl.async.mixin.utils.SyncAllMixin", mappingResolver.mapMethodName("intermediary", "net.minecraft.class_2806", "method_12165", "()V"));
+        String mappedMethod = ForgeMappingResolver.mapMethodName("net.minecraft.src.C_2126_", "m_62427_", "()V");
+        mixin2MethodsExcludeMap.put("com.axalotl.async.mixin.utils.SyncAllMixin", mappedMethod);
         syncAllSet.add("com.axalotl.async.mixin.utils.FastUtilsMixin");
         syncAllSet.add("com.axalotl.async.mixin.utils.SyncAllMixin");
     }

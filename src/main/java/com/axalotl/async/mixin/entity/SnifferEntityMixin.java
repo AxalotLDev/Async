@@ -2,28 +2,28 @@ package com.axalotl.async.mixin.entity;
 
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.passive.AnimalEntity;
-import net.minecraft.entity.passive.SnifferEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.world.World;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.animal.Animal;
+import net.minecraft.world.entity.animal.sniffer.Sniffer;
+import net.minecraft.world.level.Level;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
-@Mixin(SnifferEntity.class)
-public abstract class SnifferEntityMixin extends AnimalEntity {
+@Mixin(Sniffer.class)
+public abstract class SnifferEntityMixin extends Animal {
 
     @Unique
     private final AtomicBoolean breedingFlag = new AtomicBoolean(false);
 
-    protected SnifferEntityMixin(EntityType<? extends AnimalEntity> entityType, World world) {
+    protected SnifferEntityMixin(EntityType<? extends Animal> entityType, Level world) {
         super(entityType, world);
     }
 
-    @WrapMethod(method = "breed(Lnet/minecraft/server/world/ServerWorld;Lnet/minecraft/entity/passive/AnimalEntity;)V")
-    private void breed(ServerWorld world, AnimalEntity other, Operation<Void> original) {
+    @WrapMethod(method = "spawnChildFromBreeding")
+    private void breed(ServerLevel world, Animal other, Operation<Void> original) {
         if (this.getId() > other.getId()) return;
         SnifferEntityMixin otherMixin = (SnifferEntityMixin) other;
         if (this.breedingFlag.compareAndSet(false, true) && otherMixin.breedingFlag.compareAndSet(false, true)) {

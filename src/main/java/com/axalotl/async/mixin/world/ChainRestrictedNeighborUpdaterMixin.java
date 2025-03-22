@@ -2,9 +2,9 @@ package com.axalotl.async.mixin.world;
 
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.block.ChainRestrictedNeighborUpdater;
-import net.minecraft.world.block.NeighborUpdater;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.redstone.CollectingNeighborUpdater;
+import net.minecraft.world.level.redstone.NeighborUpdater;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Mutable;
@@ -13,16 +13,17 @@ import org.spongepowered.asm.mixin.Shadow;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
-@Mixin(ChainRestrictedNeighborUpdater.class)
+@Mixin(CollectingNeighborUpdater.class)
 public abstract class ChainRestrictedNeighborUpdaterMixin implements NeighborUpdater {
 
     @Shadow
     @Final
     @Mutable
-    private List<ChainRestrictedNeighborUpdater.Entry> pending = new CopyOnWriteArrayList<>();
+    private List<CollectingNeighborUpdater.NeighborUpdates> addedThisLayer = new CopyOnWriteArrayList<>();
 
-    @WrapMethod(method = "enqueue")
-    private synchronized void syncEnqueue(BlockPos pos, ChainRestrictedNeighborUpdater.Entry entry, Operation<Void> original) {
+    @WrapMethod(method = "addAndRun")
+    private synchronized void syncEnqueue(BlockPos pos, CollectingNeighborUpdater.NeighborUpdates entry, Operation<Void> original) {
         original.call(pos, entry);
     }
+
 }

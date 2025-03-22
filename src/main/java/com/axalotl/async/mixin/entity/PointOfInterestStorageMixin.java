@@ -2,69 +2,71 @@ package com.axalotl.async.mixin.entity;
 
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
-import net.minecraft.registry.entry.RegistryEntry;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.ChunkPos;
-import net.minecraft.util.math.random.Random;
-import net.minecraft.world.poi.PointOfInterest;
-import net.minecraft.world.poi.PointOfInterestStorage;
-import net.minecraft.world.poi.PointOfInterestType;
-import org.spongepowered.asm.mixin.*;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Holder;
+import net.minecraft.core.RegistryAccess;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.entity.ai.village.poi.PoiManager;
+import net.minecraft.world.entity.ai.village.poi.PoiRecord;
+import net.minecraft.world.entity.ai.village.poi.PoiType;
+import net.minecraft.world.level.ChunkPos;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Unique;
 
 import java.util.Optional;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
-@Mixin(PointOfInterestStorage.class)
+@Mixin(PoiManager.class)
 public class PointOfInterestStorageMixin {
     @Unique
     private static final ReentrantLock lock = new ReentrantLock();
 
     @WrapMethod(method = "getInSquare")
-    private Stream<PointOfInterest> getInSquare(Predicate<RegistryEntry<PointOfInterestType>> typePredicate, BlockPos pos, int radius, PointOfInterestStorage.OccupationStatus occupationStatus, Operation<Stream<PointOfInterest>> original) {
+    private Stream<PoiRecord> getInSquare(Predicate<RegistryAccess.RegistryEntry<PoiType>> typePredicate, BlockPos pos, int radius, PoiManager.Occupancy occupationStatus, Operation<Stream<PoiRecord>> original) {
         synchronized (lock) {
             return original.call(typePredicate, pos, radius, occupationStatus);
         }
     }
 
-    @WrapMethod(method = "getInCircle")
-    private Stream<PointOfInterest> getInCircle(Predicate<RegistryEntry<PointOfInterestType>> typePredicate, BlockPos pos, int radius, PointOfInterestStorage.OccupationStatus occupationStatus, Operation<Stream<PointOfInterest>> original) {
+    @WrapMethod(method = "getInRange")
+    private Stream<PoiRecord> getInRange(Predicate<RegistryAccess.RegistryEntry<PoiType>> typePredicate, BlockPos pos, int radius, PoiManager.Occupancy occupationStatus, Operation<Stream<PoiRecord>> original) {
         synchronized (lock) {
             return original.call(typePredicate, pos, radius, occupationStatus);
         }
     }
 
     @WrapMethod(method = "getInChunk")
-    private Stream<PointOfInterest> getInChunk(Predicate<RegistryEntry<PointOfInterestType>> typePredicate, ChunkPos chunkPos, PointOfInterestStorage.OccupationStatus occupationStatus, Operation<Stream<PointOfInterest>> original) {
+    private Stream<PoiRecord> getInChunk(Predicate<RegistryAccess.RegistryEntry<PoiType>> typePredicate, ChunkPos chunkPos, PoiManager.Occupancy occupationStatus, Operation<Stream<PoiRecord>> original) {
         synchronized (lock) {
             return original.call(typePredicate, chunkPos, occupationStatus);
         }
     }
 
-    @WrapMethod(method = "count")
-    private long getInChunk(Predicate<RegistryEntry<PointOfInterestType>> typePredicate, BlockPos pos, int radius, PointOfInterestStorage.OccupationStatus occupationStatus, Operation<Long> original) {
+    @WrapMethod(method = "getCountInRange")
+    private long getInChunk(Predicate<RegistryAccess.RegistryEntry<PoiType>> typePredicate, BlockPos pos, int radius, PoiManager.Occupancy occupationStatus, Operation<Long> original) {
         synchronized (lock) {
             return original.call(typePredicate, pos, radius, occupationStatus);
         }
     }
 
-    @WrapMethod(method = "getNearestPosition(Ljava/util/function/Predicate;Lnet/minecraft/util/math/BlockPos;ILnet/minecraft/world/poi/PointOfInterestStorage$OccupationStatus;)Ljava/util/Optional;")
-    private Optional<BlockPos> getNearestPosition(Predicate<RegistryEntry<PointOfInterestType>> typePredicate, BlockPos pos, int radius, PointOfInterestStorage.OccupationStatus occupationStatus, Operation<Optional<BlockPos>> original) {
+    @WrapMethod(method = "findClosest(Ljava/util/function/Predicate;Lnet/minecraft/core/BlockPos;ILnet/minecraft/world/entity/ai/village/poi/PoiManager$Occupancy;)Ljava/util/Optional;")
+    private Optional<BlockPos> getNearestPosition(Predicate<RegistryAccess.RegistryEntry<PoiType>> typePredicate, BlockPos pos, int radius, PoiManager.Occupancy occupationStatus, Operation<Optional<BlockPos>> original) {
         synchronized (lock) {
             return original.call(typePredicate, pos, radius, occupationStatus);
         }
     }
 
-    @WrapMethod(method = "getNearestPosition(Ljava/util/function/Predicate;Ljava/util/function/Predicate;Lnet/minecraft/util/math/BlockPos;ILnet/minecraft/world/poi/PointOfInterestStorage$OccupationStatus;)Ljava/util/Optional;")
-    private Optional<BlockPos> getNearestPosition(Predicate<RegistryEntry<PointOfInterestType>> typePredicate, Predicate<BlockPos> posPredicate, BlockPos pos, int radius, PointOfInterestStorage.OccupationStatus occupationStatus, Operation<Optional<BlockPos>> original) {
+    @WrapMethod(method = "findClosest(Ljava/util/function/Predicate;Ljava/util/function/Predicate;Lnet/minecraft/core/BlockPos;ILnet/minecraft/world/entity/ai/village/poi/PoiManager$Occupancy;)Ljava/util/Optional;")
+    private Optional<BlockPos> getNearestPosition(Predicate<RegistryAccess.RegistryEntry<PoiType>> typePredicate, Predicate<BlockPos> posPredicate, BlockPos pos, int radius, PoiManager.Occupancy occupationStatus, Operation<Optional<BlockPos>> original) {
         synchronized (lock) {
             return original.call(typePredicate, posPredicate, pos, radius, occupationStatus);
         }
     }
 
-    @WrapMethod(method = "getPosition(Ljava/util/function/Predicate;Ljava/util/function/Predicate;Lnet/minecraft/world/poi/PointOfInterestStorage$OccupationStatus;Lnet/minecraft/util/math/BlockPos;ILnet/minecraft/util/math/random/Random;)Ljava/util/Optional;")
-    private Optional<BlockPos> getNearestPosition(Predicate<RegistryEntry<PointOfInterestType>> typePredicate, Predicate<BlockPos> positionPredicate, PointOfInterestStorage.OccupationStatus occupationStatus, BlockPos pos, int radius, Random random, Operation<Optional<BlockPos>> original) {
+    @WrapMethod(method = "getRandom(Ljava/util/function/Predicate;Ljava/util/function/Predicate;Lnet/minecraft/world/entity/ai/village/poi/PoiManager$Occupancy;Lnet/minecraft/core/BlockPos;ILnet/minecraft/util/RandomSource;)Ljava/util/Optional;")
+    private Optional<BlockPos> getNearestPosition(Predicate<Holder<PoiType>> typePredicate, Predicate<BlockPos> positionPredicate, PoiManager.Occupancy occupationStatus, BlockPos pos, int radius, RandomSource random, Operation<Optional<BlockPos>> original) {
         synchronized (lock) {
             return original.call(typePredicate, positionPredicate, occupationStatus, pos, radius, random);
         }

@@ -4,32 +4,33 @@ import com.axalotl.async.parallelised.fastutil.ConcurrentLongLinkedOpenHashSet;
 import com.axalotl.async.parallelised.fastutil.Long2ObjectConcurrentHashMap;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
-import it.unimi.dsi.fastutil.longs.*;
-import net.minecraft.util.math.ChunkPos;
-import net.minecraft.world.storage.SerializingRegionBasedStorage;
+import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
+import it.unimi.dsi.fastutil.longs.LongLinkedOpenHashSet;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.chunk.storage.SectionStorage;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Mutable;
 import org.spongepowered.asm.mixin.Shadow;
 
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
 
-@Mixin(SerializingRegionBasedStorage.class)
-public abstract class SerializingRegionBasedStorageMixin<R, P> implements AutoCloseable {
-    @Shadow
-    @Mutable
-    private final Long2ObjectMap<Optional<R>> loadedElements = new Long2ObjectConcurrentHashMap<>();
-    @Shadow
-    @Mutable
-    private final LongLinkedOpenHashSet unsavedElements = new ConcurrentLongLinkedOpenHashSet();
-    @Shadow
-    @Mutable
-    private final Long2ObjectMap<CompletableFuture<Optional<SerializingRegionBasedStorage.LoadResult<P>>>> pendingLoads = new Long2ObjectConcurrentHashMap<>();
-    @Shadow
-    @Mutable
-    private final LongSet loadedChunks = new ConcurrentLongLinkedOpenHashSet();
 
-    @WrapMethod(method = "loadAndWait")
+@Mixin(SectionStorage.class)
+public abstract class SerializingRegionBasedStorageMixin<R> implements AutoCloseable {
+
+    @Shadow
+    @Mutable
+    private final Long2ObjectMap<Optional<R>> storage = new Long2ObjectConcurrentHashMap<>();
+
+    @Shadow
+    @Mutable
+    private final LongLinkedOpenHashSet dirty = new ConcurrentLongLinkedOpenHashSet();
+
+    //pendingLoads doesn't exist in 1.20.1
+    //loadedChunks doesn't exist in 1.20.1
+
+    //Experimental
+    @WrapMethod(method = "readColumn(Lnet/minecraft/world/level/ChunkPos;)V")
     private synchronized void release(ChunkPos chunkPos, Operation<Void> original) {
         original.call(chunkPos);
     }

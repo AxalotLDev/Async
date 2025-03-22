@@ -2,25 +2,23 @@ package com.axalotl.async.mixin.entity;
 
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
-import net.minecraft.entity.InventoryOwner;
-import net.minecraft.entity.ItemEntity;
-import net.minecraft.entity.passive.AllayEntity;
-import net.minecraft.server.world.ServerWorld;
+import net.minecraft.world.entity.animal.allay.Allay;
+import net.minecraft.world.entity.item.ItemEntity;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 
 import java.util.concurrent.locks.ReentrantLock;
 
-@Mixin(AllayEntity.class)
-public abstract class AllayEntityMixin implements InventoryOwner {
+@Mixin(Allay.class)
+public abstract class AllayEntityMixin {
     @Unique
     private static final ReentrantLock lock = new ReentrantLock();
 
-    @WrapMethod(method = "loot")
-    private void loot(ServerWorld world, ItemEntity itemEntity, Operation<Void> original) {
+    @WrapMethod(method = "pickUpItem")
+    private void loot(ItemEntity itemEntity, Operation<Void> original) {
         synchronized (lock) {
             if (!itemEntity.isRemoved()) {
-                original.call(world, itemEntity);
+                original.call(itemEntity);
             }
         }
     }

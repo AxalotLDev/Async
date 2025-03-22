@@ -3,8 +3,8 @@ package com.axalotl.async.mixin.entity;
 import com.axalotl.async.parallelised.ConcurrentCollections;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
-import net.minecraft.entity.raid.RaiderEntity;
-import net.minecraft.village.raid.Raid;
+import net.minecraft.world.entity.raid.Raid;
+import net.minecraft.world.entity.raid.Raider;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
@@ -19,26 +19,26 @@ import java.util.function.Function;
 @Mixin(Raid.class)
 public class RaidMixin {
     @Shadow
-    private final Map<Integer, Set<RaiderEntity>> waveToRaiders = ConcurrentCollections.newHashMap();
+    private final Map<Integer, Set<Raider>> groupRaiderMap = ConcurrentCollections.newHashMap();
     @Unique
     private static final ReentrantLock lock = new ReentrantLock();
 
-    @WrapMethod(method = "addToWave(ILnet/minecraft/entity/raid/RaiderEntity;)Z")
-    private boolean addToWave(int wave, RaiderEntity entity, Operation<Boolean> original) {
+    @WrapMethod(method = "addWaveMob(ILnet/minecraft/world/entity/raid/Raider;)Z")
+    private boolean addWaveMob(int wave, Raider entity, Operation<Boolean> original) {
         synchronized (lock) {
             return original.call(wave, entity);
         }
     }
 
-    @WrapMethod(method = "addToWave(ILnet/minecraft/entity/raid/RaiderEntity;Z)Z")
-    private boolean addToWave(int wave, RaiderEntity entity, boolean countHealth, Operation<Boolean> original) {
+    @WrapMethod(method = "addWaveMob(ILnet/minecraft/world/entity/raid/Raider;Z)Z")
+    private boolean addWaveMob(int wave, Raider entity, boolean countHealth, Operation<Boolean> original) {
         synchronized (lock) {
             return original.call(wave, entity, countHealth);
         }
     }
 
-    @Redirect(method = "addToWave(ILnet/minecraft/entity/raid/RaiderEntity;Z)Z", at = @At(value = "INVOKE", target = "Ljava/util/Map;computeIfAbsent(Ljava/lang/Object;Ljava/util/function/Function;)Ljava/lang/Object;"))
-    private Object redirectComputeIfAbsent(Map<Integer, Set<RaiderEntity>> instance, Object k, Function<?, ?> key) {
+    @Redirect(method = "addWaveMob(ILnet/minecraft/world/entity/raid/Raider;Z)Z", at = @At(value = "INVOKE", target = "Ljava/util/Map;computeIfAbsent(Ljava/lang/Object;Ljava/util/function/Function;)Ljava/lang/Object;"))
+    private Object redirectComputeIfAbsent(Map<Integer, Set<Raider>> instance, Object k, Function<?, ?> key) {
         return instance.computeIfAbsent((Integer) k, wave -> ConcurrentCollections.newHashSet());
     }
 }

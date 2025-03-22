@@ -1,84 +1,149 @@
-plugins {
-    id 'fabric-loom' version '1.10-SNAPSHOT'
-    id 'maven-publish'
+buildscript {
+    repositories {
+        maven { url = 'https://repo.spongepowered.org/repository/maven-public/' }
+    }
+    dependencies {
+        classpath 'org.spongepowered:mixingradle:0.7-SNAPSHOT'
+    }
 }
 
-version = project.mod_version
-group = project.maven_group
+plugins {
+    id 'eclipse'
+    id 'idea'
+    id 'net.minecraftforge.gradle' version '[6.0.16,6.2)'
+    id 'org.parchmentmc.librarian.forgegradle' version '1.+'
+}
+
+apply plugin: 'org.spongepowered.mixin'
+
+group = mod_group_id
+version = mod_version
 
 base {
-    archivesName = project.archives_base_name
+    archivesName = mod_id
 }
+
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(17)
+}
+
+minecraft {
+    mappings channel: mapping_channel, version: mapping_version
+    copyIdeResources = true
+    accessTransformer = 'src/main/resources/META-INF/accesstransformer.cfg'
+
+    runs {
+        configureEach {
+            workingDirectory project.file('run')
+
+            property 'forge.logging.markers', 'REGISTRIES'
+            property 'forge.logging.console.level', 'debug'
+
+            mods {
+                "${mod_id}" {
+                    source sourceSets.main
+                }
+            }
+        }
+
+        client {
+            property 'forge.enabledGameTestNamespaces', mod_id
+        }
+
+        server {
+            property 'forge.enabledGameTestNamespaces', mod_id
+            args '--nogui'
+        }
+
+        gameTestServer {
+            property 'forge.enabledGameTestNamespaces', mod_id
+        }
+
+        data {
+            workingDirectory project.file('run-data')
+            args '--mod', mod_id, '--all', '--output', file('src/generated/resources/'), '--existing', file('src/main/resources/')
+        }
+    }
+}
+
+mixin {
+    add sourceSets.main, "${mod_id}.refmap.json"
+
+    config "${mod_id}.mixins.json"
+}
+
+sourceSets.main.resources { srcDir 'src/generated/resources' }
 
 repositories {
     maven { url = "https://maven.shedaniel.me/" }
+    maven { url = "https://maven.bawnorton.com/releases" }
     maven { url = "https://maven.terraformersmc.com/releases/" }
     maven { url = "https://jitpack.io" }
-    maven { url = "https://maven.bawnorton.com/releases" }
+    maven {
+        name = "MixinExtras"
+        url = "https://repo.advntr.dev/"
+    }
     mavenCentral()
 }
 
 dependencies {
-    // Minecraft
-    minecraft "com.mojang:minecraft:${project.minecraft_version}"
-    mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
-    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
-    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
-    // Utils
+    //Minecraft
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+    // Lombok (Getters/Setters)
     compileOnly 'org.projectlombok:lombok:1.18.32'
     annotationProcessor 'org.projectlombok:lombok:1.18.32'
-    include(implementation(annotationProcessor("com.github.bawnorton.mixinsquared:mixinsquared-fabric:0.2.0")))
-    modImplementation 'com.electronwill.night-config:toml:3.8.1'
-    include group: 'com.electronwill.night-config', name: 'toml', version: '3.8.1'
-    include group: 'com.electronwill.night-config', name: 'core', version: '3.8.1'
+
+    //Mixin Extras
+    compileOnly(annotationProcessor("io.github.llamalad7:mixinextras-common:0.4.1"))
+    implementation(jarJar("io.github.llamalad7:mixinextras-forge:0.4.1")) {
+        jarJar.ranged(it, "[0.4.1,)")
+    }
+
+    //Mixin Squared
+    compileOnly(annotationProcessor("com.github.bawnorton.mixinsquared:mixinsquared-common:0.2.0"))
+    implementation(jarJar("com.github.bawnorton.mixinsquared:mixinsquared-forge:0.2.0")) {
+        jarJar.ranged(it, "[0.2.0,)")
+    }
+
+    //Mixin
+    annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
+
+    // Mods
+    compileOnly files('C:/minecraftdev/c2me-fixes-general-threading-issues-mc1.20.1-0.2.0+alpha.11.goofy.jar')
+    compileOnly files('C:/minecraftdev/c2me-fixes-worldgen-threading-issues-mc1.20.1-0.2.0+alpha.11.goofy.jar')
+    compileOnly files('C:/minecraftdev/c2me-opts-chunk-access-mc1.20.1-0.2.0+alpha.11.goofy.jar')
+
 }
 
-processResources {
-    inputs.property "version", project.version
+tasks.named('processResources', ProcessResources).configure {
+    var replaceProperties = [minecraft_version   : minecraft_version, minecraft_version_range: minecraft_version_range,
+                             forge_version       : forge_version, forge_version_range: forge_version_range,
+                             loader_version_range: loader_version_range,
+                             mod_id              : mod_id, mod_name: mod_name, mod_license: mod_license, mod_version: mod_version,
+                             mod_authors         : mod_authors, mod_description: mod_description,]
 
-    filesMatching("fabric.mod.json") {
-        expand "version": project.version
+    inputs.properties replaceProperties
+
+    filesMatching(['META-INF/mods.toml', 'pack.mcmeta']) {
+        expand replaceProperties + [project: project]
     }
 }
+
+// tasks.named('jar', Jar).configure {
+//     manifest {
+//         attributes(["Specification-Title"     : mod_id,
+//                     "Specification-Vendor"    : mod_authors,
+//                     "Specification-Version"   : "1", // We are version 1 of ourselves
+//                     "Implementation-Title"    : project.name,
+//                     "Implementation-Version"  : project.jar.archiveVersion,
+//                     "Implementation-Vendor"   : mod_authors,
+//                     "Implementation-Timestamp": new Date().format("yyyy-MM-dd'T'HH:mm:ssZ")])
+//     }
+
+//     finalizedBy 'reobfJar'
+//     enabled = false
+// }
 
 tasks.withType(JavaCompile).configureEach {
-    it.options.release = 21
-}
-
-java {
-    // Loom will automatically attach sourcesJar to a RemapSourcesJar task and to the "build" task
-    // if it is present.
-    // If you remove this line, sources will not be generated.
-    withSourcesJar()
-
-    sourceCompatibility = JavaVersion.VERSION_21
-    targetCompatibility = JavaVersion.VERSION_21
-}
-
-loom {
-    accessWidenerPath = file("src/main/resources/async.accesswidener")
-}
-
-jar {
-    from("LICENSE") {
-        rename { "${it}_${project.archivesBaseName}" }
-    }
-}
-
-// configure the maven publication
-publishing {
-    publications {
-        create("mavenJava", MavenPublication) {
-            artifactId = project.archives_base_name
-            from components.java
-        }
-    }
-
-    // See https://docs.gradle.org/current/userguide/publishing_maven.html for information on how to set up publishing.
-    repositories {
-        // Add repositories to publish to here.
-        // Notice: This block does NOT have the same function as the block in the top level.
-        // The repositories here will be used for publishing your artifact, not for
-        // retrieving dependencies.
-    }
+    options.encoding = 'UTF-8'
 }

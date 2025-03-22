@@ -3,14 +3,14 @@ package com.axalotl.async.mixin.entity;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
 import it.unimi.dsi.fastutil.ints.IntSets;
-import net.minecraft.entity.mob.MobVisibilityCache;
+import net.minecraft.world.entity.ai.sensing.Sensing;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 
-@Mixin(MobVisibilityCache.class)
+@Mixin(Sensing.class)
 public class MobVisibilityCacheMixin {
     @Shadow
-    private final IntSet visibleEntities = IntSets.synchronize(new IntOpenHashSet());
+    private final IntSet seen = IntSets.synchronize(new IntOpenHashSet());
     @Shadow
-    private final IntSet invisibleEntities = IntSets.synchronize(new IntOpenHashSet());
+    private final IntSet unseen = IntSets.synchronize(new IntOpenHashSet());
 }

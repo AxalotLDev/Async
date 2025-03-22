@@ -2,35 +2,37 @@ package com.axalotl.async.mixin.entity;
 
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.passive.AnimalEntity;
-import net.minecraft.entity.passive.FrogEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.world.World;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.animal.Animal;
+import net.minecraft.world.entity.animal.frog.Frog;
+import net.minecraft.world.level.Level;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
-@Mixin(FrogEntity.class)
-public abstract class FrogEntityMixin extends AnimalEntity {
+@Mixin(Frog.class)
+public abstract class FrogEntityMixin extends Animal {
     @Unique
-    private final AtomicBoolean breedingFlag = new AtomicBoolean(false);
+    private final AtomicBoolean async$breedingFlag = new AtomicBoolean(false);
 
-    protected FrogEntityMixin(EntityType<? extends AnimalEntity> entityType, World world) {
+    protected FrogEntityMixin(EntityType<? extends Animal> entityType, Level world) {
         super(entityType, world);
     }
 
-    @WrapMethod(method = "breed(Lnet/minecraft/server/world/ServerWorld;Lnet/minecraft/entity/passive/AnimalEntity;)V")
-    private void breed(ServerWorld world, AnimalEntity other, Operation<Void> original) {
-        if (this.getId() > other.getId()) return;
+    @WrapMethod(method = "spawnChildFromBreeding")
+    private void breed(ServerLevel world, Animal other, Operation<Void> original) {
+        if (this.getId() > other.getId()) {
+            return;
+        }
         FrogEntityMixin otherMixin = (FrogEntityMixin) other;
-        if (this.breedingFlag.compareAndSet(false, true) && otherMixin.breedingFlag.compareAndSet(false, true)) {
+        if (this.async$breedingFlag.compareAndSet(false, true) && otherMixin.async$breedingFlag.compareAndSet(false, true)) {
             try {
                 original.call(world, other);
             } finally {
-                this.breedingFlag.set(false);
-                otherMixin.breedingFlag.set(false);
+                this.async$breedingFlag.set(false);
+                otherMixin.async$breedingFlag.set(false);
             }
         }
     }

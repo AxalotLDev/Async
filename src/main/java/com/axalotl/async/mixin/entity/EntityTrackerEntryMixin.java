@@ -1,16 +1,15 @@
 package com.axalotl.async.mixin.entity;
-
-import net.minecraft.entity.Entity;
-import net.minecraft.server.network.EntityTrackerEntry;
+import net.minecraft.server.level.ServerEntity;
+import net.minecraft.world.entity.Entity;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
 
-@Mixin(value = EntityTrackerEntry.class, priority = 1500)
+@Mixin(value = ServerEntity.class, priority = 1500)
 public class EntityTrackerEntryMixin {
 
-     //TODO Fix removed entity warn
-    @Redirect(method = "sendPackets", at = @At(value = "INVOKE", target = "Lnet/minecraft/entity/Entity;isRemoved()Z"))
+    //TODO Fix removed entity warn
+    @Redirect(method = "sendPairingData", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/Entity;isRemoved()Z"))
     private boolean skipWarnRemovedEntityPacked(Entity instance) {
         return false;
     }

@@ -10,20 +10,20 @@ import org.spongepowered.asm.mixin.Unique;
 import java.util.concurrent.locks.ReentrantLock;
 
 @Mixin(PersistentEntitySectionManager.Callback.class)
-public abstract class ServerEntityManagerListenerMixin implements AutoCloseable {
+public abstract class CallbackMixin implements AutoCloseable {
     @Unique
-    private static final ReentrantLock lock = new ReentrantLock();
+    private static final ReentrantLock async$lock = new ReentrantLock();
 
     @WrapMethod(method = "onMove")
-    private void updateEntityPosition(Operation<Void> original) {
-        synchronized (lock) {
+    private void onMove(Operation<Void> original) {
+        synchronized (async$lock) {
             original.call();
         }
     }
 
     @WrapMethod(method = "onRemove")
-    private void remove(Entity.RemovalReason reason, Operation<Void> original) {
-        synchronized (lock) {
+    private void onRemove(Entity.RemovalReason reason, Operation<Void> original) {
+        synchronized (async$lock) {
             original.call(reason);
         }
     }

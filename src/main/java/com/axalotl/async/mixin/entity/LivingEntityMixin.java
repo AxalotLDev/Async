@@ -2,13 +2,11 @@ package com.axalotl.async.mixin.entity;
 
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
-import net.minecraft.block.BlockState;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.damage.DamageSource;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.world.World;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.level.Level;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
@@ -22,37 +20,36 @@ public abstract class LivingEntityMixin extends Entity {
     @Unique
     private static final ReentrantLock lock = new ReentrantLock();
 
-    public LivingEntityMixin(EntityType<?> type, World world) {
+    public LivingEntityMixin(EntityType<?> type, Level world) {
         super(type, world);
     }
 
-    @WrapMethod(method = "onDeath")
+    @WrapMethod(method = "die")
     private synchronized void onDeath(DamageSource damageSource, Operation<Void> original) {
         original.call(damageSource);
     }
 
-    @WrapMethod(method = "dropLoot")
-    private synchronized void dropLoot(ServerWorld world, DamageSource damageSource, boolean causedByPlayer, Operation<Void> original) {
-        original.call(world, damageSource, causedByPlayer);
+    @WrapMethod(method = "dropFromLootTable")
+    private synchronized void dropLoot(DamageSource damageSource, boolean causedByPlayer, Operation<Void> original) {
+        original.call(damageSource, causedByPlayer);
     }
 
-    @WrapMethod(method = "knockback")
+    @WrapMethod(method = "blockedByShield")
     private void knockback(LivingEntity target, Operation<Void> original) {
         synchronized (lock) {
             original.call(target);
         }
     }
 
-    @WrapMethod(method = "tickStatusEffects")
+    @WrapMethod(method = "tickEffects")
     private void tickStatusEffects(Operation<Void> original) {
         synchronized (lock) {
             original.call();
         }
     }
 
-    @Inject(method = "isClimbing", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "onClimbable", at = @At("HEAD"), cancellable = true)
     private void isClimbing(CallbackInfoReturnable<Boolean> cir) {
-        BlockState blockState = this.getBlockStateAtPos();
-        if (blockState == null) cir.setReturnValue(false);
+        cir.setReturnValue(false);
     }
 }

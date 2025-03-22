@@ -4,15 +4,17 @@ import com.axalotl.async.config.AsyncConfig;
 import com.axalotl.async.parallelised.ConcurrentCollections;
 import lombok.Getter;
 import lombok.Setter;
-import net.minecraft.entity.*;
-import net.minecraft.entity.projectile.ProjectileEntity;
-import net.minecraft.entity.vehicle.*;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.util.crash.CrashReport;
-import net.minecraft.world.SpawnHelper;
-import net.minecraft.world.chunk.WorldChunk;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.item.FallingBlockEntity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.projectile.Projectile;
+import net.minecraft.world.entity.vehicle.AbstractMinecart;
+import net.minecraft.world.level.NaturalSpawner;
+import net.minecraft.world.level.chunk.LevelChunk;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -31,12 +33,14 @@ public class ParallelProcessor {
     public static final AtomicInteger currentEntities = new AtomicInteger();
     private static final AtomicInteger threadPoolID = new AtomicInteger();
     private static ExecutorService tickPool;
-    private static final Queue<CompletableFuture<?>> taskQueue = new ConcurrentLinkedQueue<>();
+    private static final Queue<CompletableFuture<Void>> taskQueue = new ConcurrentLinkedQueue<>();
     private static final Set<UUID> blacklistedEntity = ConcurrentHashMap.newKeySet();
     private static final ConcurrentHashMap<UUID, Integer> portalTickSyncMap = new ConcurrentHashMap<>();
     private static final Map<String, Set<Thread>> mcThreadTracker = ConcurrentCollections.newHashMap();
-    private static final Set<Class<?>> specialEntities = Set.of(
-            FallingBlockEntity.class
+    public static final Set<Class<?>> specialEntities = Set.of(
+            FallingBlockEntity.class,
+            Player.class,
+            ServerPlayer.class
     );
 
     public static void setupThreadPool(int parallelism) {
@@ -77,7 +81,7 @@ public class ParallelProcessor {
                 ).exceptionally(e -> {
                     logEntityError("Error in async tick, switching to synchronous", entity, e);
                     tickSynchronously(tickConsumer, entity);
-                    blacklistedEntity.add(entity.getUuid());
+                    blacklistedEntity.add(entity.getUUID());
                     return null;
                 });
                 taskQueue.add(future);
@@ -89,37 +93,26 @@ public class ParallelProcessor {
     }
 
     public static boolean shouldTickSynchronously(Entity entity) {
-        UUID entityId = entity.getUuid();
+        UUID entityId = entity.getUUID();
         boolean requiresSyncTick = AsyncConfig.disabled ||
-                entity instanceof ProjectileEntity ||
-                entity instanceof AbstractMinecartEntity ||
-                entity instanceof ServerPlayerEntity ||
+                entity instanceof Projectile ||
+                entity instanceof AbstractMinecart ||
+                entity instanceof ServerPlayer ||
                 specialEntities.contains(entity.getClass()) ||
                 blacklistedEntity.contains(entityId) ||
-                AsyncConfig.synchronizedEntities.contains(EntityType.getId(entity.getType())) ||
-                entity.hasPlayerRider();
+                AsyncConfig.synchronizedEntities.contains(EntityType.getKey(entity.getType())) ||
+                entity.hasExactlyOnePlayerPassenger();
         if (requiresSyncTick) {
             return true;
         }
-        if (portalTickSyncMap.containsKey(entityId)) {
-            int ticksLeft = portalTickSyncMap.get(entityId);
-            if (ticksLeft > 0) {
-                portalTickSyncMap.put(entityId, ticksLeft - 1);
-                return true;
-            } else {
-                portalTickSyncMap.remove(entityId);
-            }
-        }
-        if (isPortalTickRequired(entity)) {
-            portalTickSyncMap.put(entityId, 39);
-            return true;
-        }
-        return false;
+        return isPortalTickRequired(entity);
     }
 
-
     private static boolean isPortalTickRequired(Entity entity) {
-        return entity.portalManager != null && entity.portalManager.isInPortal();
+        if (entity.isInsidePortal) {
+            return true;
+        }
+        return entity instanceof Projectile;
     }
 
     private static void tickSynchronously(Consumer<Entity> tickConsumer, Entity entity) {
@@ -132,53 +125,80 @@ public class ParallelProcessor {
 
     private static void performAsyncEntityTick(Consumer<Entity> tickConsumer, Entity entity) {
         currentEntities.incrementAndGet();
+        acceptWithTimeout(tickConsumer, entity, 1, TimeUnit.SECONDS);
+    }
+
+    public static void acceptWithTimeout(Consumer<Entity> consumer, Entity argument, long timeout, TimeUnit timeUnit) {
+        Future<?> future = tickPool.submit(() -> consumer.accept(argument));
         try {
-            tickConsumer.accept(entity);
-        } finally {
+            future.get(timeout, timeUnit);
+        } catch (TimeoutException | ExecutionException | InterruptedException e) {
             currentEntities.decrementAndGet();
+            System.out.println("Async mod exception: falling back to synchronous tick for " + argument.toString());
+            tickSynchronously(consumer, argument);
+            future.cancel(true); // Interrupt the task if it times out
         }
     }
 
-    public static void asyncSpawn(ServerWorld world, WorldChunk worldChunk, SpawnHelper.Info info, List<SpawnGroup> spawnableGroups) {
+    public static void asyncSpawn(ServerLevel world, LevelChunk worldChunk, NaturalSpawner.SpawnState info, boolean spawnFriendlies, boolean spawnMonsters, boolean forcedDespawn) {
         if (AsyncConfig.enableAsyncSpawn) {
             CompletableFuture<Void> future = CompletableFuture.runAsync(() ->
-                    SpawnHelper.spawn(world, worldChunk, info, spawnableGroups), tickPool
+                    NaturalSpawner.spawnForChunk(world, worldChunk, info, spawnFriendlies, spawnMonsters, forcedDespawn), tickPool
             ).exceptionally(e -> {
                 LOGGER.error("Error in async spawn tick, switching to synchronous", e);
-                SpawnHelper.spawn(world, worldChunk, info, spawnableGroups);
+                NaturalSpawner.spawnForChunk(world, worldChunk, info, spawnFriendlies, spawnMonsters, forcedDespawn);
                 return null;
             });
             taskQueue.add(future);
         } else {
-            SpawnHelper.spawn(world, worldChunk, info, spawnableGroups);
+            NaturalSpawner.spawnForChunk(world, worldChunk, info, spawnFriendlies, spawnMonsters, forcedDespawn);
         }
     }
 
     public static void postEntityTick() {
-        if (!AsyncConfig.disabled) {
-            try {
-                List<CompletableFuture<?>> futuresList = new ArrayList<>();
-                CompletableFuture<?> future;
-                while ((future = taskQueue.poll()) != null) {
-                    futuresList.add(future);
+        if (AsyncConfig.disabled) {
+            return;
+        }
+
+        List<CompletableFuture<Void>> futuresList = new ArrayList<>(taskQueue);
+        if (futuresList.isEmpty()) {
+            return;
+        }
+        taskQueue.clear();
+
+        try {
+            CompletableFuture<Void> allTasks = CompletableFuture.allOf(
+                    futuresList.toArray(new CompletableFuture[0])
+            );
+            allTasks.orTimeout(3, TimeUnit.SECONDS).exceptionally(ex -> {
+                List<CompletableFuture<Void>> incompleteFutures = futuresList.stream()
+                        .filter(future -> !future.isDone())
+                        .toList();
+
+                if (incompleteFutures.isEmpty()) {
+                    LOGGER.error("Other exception when trying to tick entities. Clearing all of it...", ex);
+                    allTasks.cancel(true);
+                    return null;
                 }
 
-                CompletableFuture<?> allTasks = CompletableFuture.allOf(
-                        futuresList.toArray(new CompletableFuture[0])
-                );
+                for (CompletableFuture<Void> incompleteFuture : incompleteFutures) {
+                    incompleteFuture.completeExceptionally(new RuntimeException("Future timed out and was abandoned."));
+                }
 
-                allTasks.orTimeout(120, TimeUnit.SECONDS).exceptionally(ex -> {
-                    server.setCrashReport(new CrashReport("Timeout during entity tick processing", ex));
-                    return null;
-                });
+                LOGGER.error("Timeout during entity tick processing", ex);
+                return null;
+            });
 
-                server.getWorlds().forEach(world -> {
-                    world.getChunkManager().executeQueuedTasks();
-                    world.getChunkManager().mainThreadExecutor.runTasks(allTasks::isDone);
-                });
-            } catch (CompletionException e) {
-                server.setCrashReport(new CrashReport("Critical error during entity tick processing", e));
-                server.shutdown();
+            server.getAllLevels().forEach(world -> {
+                world.getChunkSource().pollTask();
+                world.getChunkSource().mainThreadProcessor.managedBlock(allTasks::isDone);
+            });
+
+        } catch (CompletionException e) {
+            LOGGER.error("Critical error during entity tick processing", e);
+
+            for (CompletableFuture<Void> future : futuresList) {
+                future.completeExceptionally(new RuntimeException("Async processing failed critically, executing synchronously."));
             }
         }
     }
@@ -198,6 +218,6 @@ public class ParallelProcessor {
     }
 
     private static void logEntityError(String message, Entity entity, Throwable e) {
-        LOGGER.error("{} Entity Type: {}, UUID: {}", message, entity.getType().getName(), entity.getUuid(), e);
+        LOGGER.error("{} Entity Type: {}, UUID: {}", message, entity.getType().getDescription(), entity.getUUID(), e);
     }
 }

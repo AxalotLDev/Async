@@ -1,31 +1,31 @@
 package com.axalotl.async.mixin.entity;
 
-import net.minecraft.entity.ai.goal.AnimalMateGoal;
-import net.minecraft.entity.passive.AnimalEntity;
-import net.minecraft.entity.passive.TurtleEntity;
+import net.minecraft.world.entity.ai.goal.BreedGoal;
+import net.minecraft.world.entity.animal.Animal;
+import net.minecraft.world.entity.animal.Turtle;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
 
-@Mixin(TurtleEntity.MateGoal.class)
-public abstract class TurtleEntityMixin extends AnimalMateGoal {
+@Mixin(targets = "net.minecraft.world.entity.animal.Turtle$TurtleBreedGoal")
+public abstract class TurtleEntityMixin extends BreedGoal {
     @Shadow
     @Final
-    private TurtleEntity turtle;
+    private Turtle turtle;
 
-    public TurtleEntityMixin(AnimalEntity animal, double speed) {
+    public TurtleEntityMixin(Animal animal, double speed) {
         super(animal, speed);
     }
 
-    @Redirect(method = "breed()V", at = @At(value = "INVOKE", target = "Lnet/minecraft/entity/passive/TurtleEntity;setHasEgg(Z)V"))
-    private void redirectSetHasEgg(TurtleEntity instance, boolean value) {
-        if (this.mate != null && !this.turtle.hasEgg() && !((TurtleEntity) this.mate).hasEgg()) {
+    @Redirect(method = "breed()V", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/animal/Turtle;setHasEgg(Z)V"))
+    private void redirectSetHasEgg(Turtle instance, boolean value) {
+        if (this.partner != null && !this.turtle.hasEgg() && !((Turtle) this.partner).hasEgg()) {
             if (this.turtle.getRandom().nextBoolean()) {
                 this.turtle.setHasEgg(true);
             } else {
-                ((TurtleEntity) this.mate).setHasEgg(true);
+                ((Turtle) this.partner).setHasEgg(true);
             }
         }
     }

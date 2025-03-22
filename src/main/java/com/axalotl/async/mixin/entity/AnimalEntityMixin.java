@@ -2,30 +2,30 @@ package com.axalotl.async.mixin.entity;
 
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.passive.AnimalEntity;
-import net.minecraft.entity.passive.PassiveEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.world.World;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.AgeableMob;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.animal.Animal;
+import net.minecraft.world.level.Level;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
-@Mixin(AnimalEntity.class)
+@Mixin(Animal.class)
 public abstract class AnimalEntityMixin extends Entity {
     @Unique
     private final AtomicBoolean breedingFlag = new AtomicBoolean(false);
     @Unique
     private final AtomicBoolean breedingBabyFlag = new AtomicBoolean(false);
 
-    public AnimalEntityMixin(EntityType<?> type, World world) {
-        super(type, world);
+    public AnimalEntityMixin(EntityType<?> entityType, Level level) {
+        super(entityType, level);
     }
 
-    @WrapMethod(method = "breed(Lnet/minecraft/server/world/ServerWorld;Lnet/minecraft/entity/passive/AnimalEntity;)V")
-    private void breed(ServerWorld world, AnimalEntity other, Operation<Void> original) {
+    @WrapMethod(method = "spawnChildFromBreeding")
+    private void breed(ServerLevel world, Animal other, Operation<Void> original) {
         if (this.getId() > other.getId()) return;
         AnimalEntityMixin otherMixin = (AnimalEntityMixin) (Object) other;
         if (this.breedingFlag.compareAndSet(false, true) && otherMixin.breedingFlag.compareAndSet(false, true)) {
@@ -38,8 +38,8 @@ public abstract class AnimalEntityMixin extends Entity {
         }
     }
 
-    @WrapMethod(method = "breed(Lnet/minecraft/server/world/ServerWorld;Lnet/minecraft/entity/passive/AnimalEntity;Lnet/minecraft/entity/passive/PassiveEntity;)V")
-    private void breed(ServerWorld world, AnimalEntity other, PassiveEntity baby, Operation<Void> original) {
+    @WrapMethod(method = "finalizeSpawnChildFromBreeding")
+    private void breed(ServerLevel world, Animal other, AgeableMob baby, Operation<Void> original) {
         if (this.getId() > other.getId()) return;
         AnimalEntityMixin otherMixin = (AnimalEntityMixin) (Object) other;
         if (this.breedingBabyFlag.compareAndSet(false, true) && otherMixin.breedingBabyFlag.compareAndSet(false, true)) {

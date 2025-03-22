@@ -1,65 +1,77 @@
 package com.axalotl.async.mixin.world;
 
+import com.axalotl.async.parallelised.fastutil.ConcurrentLongLinkedOpenHashSet;
 import com.axalotl.async.parallelised.fastutil.Int2ObjectConcurrentHashMap;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.mojang.datafixers.DataFixer;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
-import net.minecraft.entity.Entity;
-import net.minecraft.server.world.ChunkHolder;
-import net.minecraft.server.world.ServerChunkLoadingManager;
-import net.minecraft.world.ChunkLoadingManager;
-import net.minecraft.world.chunk.AbstractChunkHolder;
-import net.minecraft.world.chunk.ChunkLoader;
-import net.minecraft.world.storage.StorageKey;
-import net.minecraft.world.storage.VersionedChunkStorage;
-import org.spongepowered.asm.mixin.*;
+import it.unimi.dsi.fastutil.longs.Long2ObjectLinkedOpenHashMap;
+import it.unimi.dsi.fastutil.longs.LongSet;
+import net.minecraft.server.level.ChunkHolder;
+import net.minecraft.server.level.ChunkMap;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.level.chunk.storage.ChunkStorage;
+import org.spongepowered.asm.mixin.Final;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Mutable;
+import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.nio.file.Path;
-import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
 
-@Mixin(value = ServerChunkLoadingManager.class, priority = 1500)
-public abstract class ServerChunkLoadingManagerMixin extends VersionedChunkStorage implements ChunkHolder.PlayersWatchingChunkProvider, ChunkLoadingManager {
+@Mixin(value = ChunkMap.class, priority = 1500)
+public abstract class ServerChunkLoadingManagerMixin extends ChunkStorage implements ChunkHolder.PlayerProvider {
     @Shadow
     @Final
     @Mutable
-    private Int2ObjectMap<ServerChunkLoadingManager.EntityTracker> entityTrackers;
+    private Int2ObjectMap<ChunkMap.TrackedEntity> entityMap;
 
     @Shadow
     @Final
     @Mutable
-    private List<ChunkLoader> loaders;
+    private LongSet entitiesInLevel;
 
-    public ServerChunkLoadingManagerMixin(StorageKey storageKey, Path directory, DataFixer dataFixer, boolean dsync) {
-        super(storageKey, directory, dataFixer, dsync);
+    @Shadow
+    @Final
+    @Mutable
+    private Long2ObjectLinkedOpenHashMap<ChunkHolder> updatingChunkMap;
+
+    @Shadow
+    @Mutable
+    private volatile Long2ObjectLinkedOpenHashMap<ChunkHolder> visibleChunkMap;
+
+    @Shadow
+    @Final
+    @Mutable
+    private Long2ObjectLinkedOpenHashMap<ChunkHolder> pendingUnloads;
+
+    public ServerChunkLoadingManagerMixin(Path directory, DataFixer dataFixer, boolean dsync) {
+        super(directory, dataFixer, dsync);
     }
 
     @Inject(method = "<init>", at = @At("TAIL"))
     private void replaceConVars(CallbackInfo ci) {
-        entityTrackers = new Int2ObjectConcurrentHashMap<>();
-        loaders = new CopyOnWriteArrayList<>();
+        entityMap = new Int2ObjectConcurrentHashMap<>();
+        entitiesInLevel = new ConcurrentLongLinkedOpenHashSet();
+        updatingChunkMap = new Long2ObjectLinkedOpenHashMap<>();
     }
 
-    @WrapMethod(method = "release")
-    private synchronized void release(AbstractChunkHolder chunkHolder, Operation<Void> original) {
-        original.call(chunkHolder);
-    }
+    //"releaseGeneration" method doesn't exist in 1.20.1
 
-    @WrapMethod(method = "loadEntity")
-    private synchronized void loadEntity(Entity entity, Operation<Void> original) {
+    @WrapMethod(method = "addEntity")
+    private synchronized void addEntity(Entity entity, Operation<Void> original) {
         original.call(entity);
     }
 
-    @WrapMethod(method = "unloadEntity")
-    private synchronized void unloadEntity(Entity entity, Operation<Void> original) {
+    @WrapMethod(method = "removeEntity")
+    private synchronized void removeEntity(Entity entity, Operation<Void> original) {
         original.call(entity);
     }
 
-    @Inject(method = "loadEntity", at = @At(value = "INVOKE", target = "Lnet/minecraft/util/Util;getFatalOrPause(Ljava/lang/Throwable;)Ljava/lang/Throwable;"), cancellable = true)
+    @Inject(method = "addEntity", at = @At(value = "INVOKE", target = "Lnet/minecraft/Util;pauseInIde(Ljava/lang/Throwable;)Ljava/lang/Throwable;"), cancellable = true)
     private void skipThrowLoadEntity(Entity entity, CallbackInfo ci) {
         ci.cancel();
     }
