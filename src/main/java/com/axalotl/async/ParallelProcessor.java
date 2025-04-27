@@ -166,41 +166,46 @@ public class ParallelProcessor {
     }
 
     public static void postEntityTick() {
-        if (!AsyncConfig.disabled) {
-            try {
-                List<CompletableFuture<?>> futuresList = new ArrayList<>();
-                CompletableFuture<?> future;
-                while ((future = taskQueue.poll()) != null) {
-                    futuresList.add(future);
-                }
-
-                CompletableFuture<?> allTasks = CompletableFuture.allOf(
-                        futuresList.toArray(new CompletableFuture[0])
-                );
-
-                allTasks
-                        .orTimeout(((MinecraftDedicatedServer) server).getMaxTickTime(), TimeUnit.MILLISECONDS)
-                        .exceptionally(ex -> {
-                            Throwable cause = ex instanceof CompletionException && ex.getCause() != null
-                                    ? ex.getCause()
-                                    : ex;
-
-                            if (cause instanceof TimeoutException) {
-                                crash("Timeout during entity tick processing", cause);
-                            } else {
-                                LOGGER.error("Error during entity tick processing", cause);
-                            }
-                            return null;
-                        });
-
-                server.getWorlds().forEach(world -> {
-                    world.getChunkManager().executeQueuedTasks();
-                    world.getChunkManager().mainThreadExecutor.runTasks(allTasks::isDone);
-                });
-            } catch (CompletionException e) {
-                crash("Critical error during entity tick processing: ", e);
-            }
+        if (AsyncConfig.disabled) {
+            return;
         }
+
+        List<CompletableFuture<?>> futuresList = new ArrayList<>();
+        CompletableFuture<?> future;
+        while ((future = taskQueue.poll()) != null) {
+            futuresList.add(future);
+        }
+
+        if (futuresList.isEmpty()) {
+            return;
+        }
+
+        CompletableFuture<Void> allTasks = CompletableFuture.allOf(
+                futuresList.toArray(new CompletableFuture[0])
+        );
+
+        long timeout = ((MinecraftDedicatedServer) server).getMaxTickTime();
+
+        try {
+            if (timeout > 0) {
+                allTasks.get(timeout, TimeUnit.MILLISECONDS);
+            } else {
+                allTasks.join();
+            }
+        } catch (TimeoutException e) {
+            crash("Timeout during entity tick processing", e);
+        } catch (ExecutionException e) {
+            Throwable cause = e.getCause() != null ? e.getCause() : e;
+            LOGGER.error("Error during entity tick processing", cause);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            LOGGER.error("Interrupted during entity tick processing", e);
+        }
+
+        server.getWorlds().forEach(world -> {
+            world.getChunkManager().executeQueuedTasks();
+            world.getChunkManager().mainThreadExecutor.runTasks(allTasks::isDone);
+        });
     }
 
 
