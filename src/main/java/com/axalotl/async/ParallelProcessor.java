@@ -210,14 +210,6 @@ public class ParallelProcessor {
     public static void stop() {
         if (tickPool != null && !tickPool.isShutdown()) {
             tickPool.shutdown();
-            try {
-                if (!tickPool.awaitTermination(10, TimeUnit.SECONDS)) {
-                    tickPool.shutdownNow();
-                }
-            } catch (InterruptedException e) {
-                tickPool.shutdownNow();
-                Thread.currentThread().interrupt();
-            }
         }
     }
 
