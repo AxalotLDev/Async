@@ -1,0 +1,46 @@
+plugins {
+    id 'net.neoforged.moddev'
+}
+
+neoForge {
+    neoFormVersion = neo_form_version
+    // Automatically enable AccessTransformers if the file exists
+    def at = file('src/main/resources/META-INF/accesstransformer.cfg')
+    if (at.exists()) {
+        accessTransformers.from(at.absolutePath)
+    }
+    parchment {
+        minecraftVersion = parchment_minecraft
+        mappingsVersion = parchment_version
+    }
+}
+
+repositories {
+    maven { url = 'https://maven.bawnorton.com/releases' }
+}
+
+dependencies {
+    implementation("io.github.llamalad7:mixinextras-common:${mixinextras_version}")
+    annotationProcessor("io.github.llamalad7:mixinextras-common:${mixinextras_version}")
+    compileOnly("org.spongepowered:mixin:${mixin_version}")
+    implementation(annotationProcessor("com.github.bawnorton.mixinsquared:mixinsquared-common:${mixinsquared_version}"))
+
+    implementation("org.ow2.asm:asm:9.5")
+    implementation("org.ow2.asm:asm-tree:9.5")
+}
+
+configurations {
+    commonJava {
+        canBeResolved = false
+        canBeConsumed = true
+    }
+    commonResources {
+        canBeResolved = false
+        canBeConsumed = true
+    }
+}
+
+artifacts {
+    commonJava sourceSets.main.java.sourceDirectories.singleFile
+    commonResources sourceSets.main.resources.sourceDirectories.singleFile
+}

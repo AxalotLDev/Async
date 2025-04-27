@@ -1,0 +1,16 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "com.axalotl.async.neoforge.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "entity.CommonHooksMixin",
+    "utils.ClassInstanceMultiMapMixin",
+    "utils.UtilMixin"
+  ],
+  "client": [],
+  "server": [],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
