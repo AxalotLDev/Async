@@ -178,24 +178,20 @@ public class ParallelProcessor {
                         futuresList.toArray(new CompletableFuture[0])
                 );
 
-                allTasks.orTimeout(((MinecraftDedicatedServer) server).getMaxTickTime(), TimeUnit.MILLISECONDS).exceptionally(ex -> {
-                    List<CompletableFuture<?>> incompleteFutures = futuresList.stream()
-                            .filter(doneFuture -> !doneFuture.isDone())
-                            .toList();
+                allTasks
+                        .orTimeout(((MinecraftDedicatedServer) server).getMaxTickTime(), TimeUnit.MILLISECONDS)
+                        .exceptionally(ex -> {
+                            Throwable cause = ex instanceof CompletionException && ex.getCause() != null
+                                    ? ex.getCause()
+                                    : ex;
 
-                    if (incompleteFutures.isEmpty()) {
-                        LOGGER.error("Other exception when trying to tick entities. Clearing all of it...", ex);
-                        allTasks.cancel(true);
-                        return null;
-                    }
-
-                    for (CompletableFuture<?> incompleteFuture : incompleteFutures) {
-                        incompleteFuture.completeExceptionally(new RuntimeException("Future timed out and was abandoned."));
-                    }
-
-                    LOGGER.error("Timeout during entity tick processing", ex);
-                    return null;
-                });
+                            if (cause instanceof TimeoutException) {
+                                crash("Timeout during entity tick processing", cause);
+                            } else {
+                                LOGGER.error("Error during entity tick processing", cause);
+                            }
+                            return null;
+                        });
 
                 server.getWorlds().forEach(world -> {
                     world.getChunkManager().executeQueuedTasks();
@@ -206,6 +202,7 @@ public class ParallelProcessor {
             }
         }
     }
+
 
     public static void stop() {
         if (tickPool != null && !tickPool.isShutdown()) {
