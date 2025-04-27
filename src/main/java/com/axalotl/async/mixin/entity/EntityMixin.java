@@ -6,7 +6,11 @@ import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
 import net.minecraft.entity.Entity;
+import net.minecraft.entity.ItemEntity;
 import net.minecraft.entity.MovementType;
+import net.minecraft.item.ItemConvertible;
+import net.minecraft.item.ItemStack;
+import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.math.Vec3d;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
@@ -55,6 +59,20 @@ public abstract class EntityMixin {
     private void setRemoved(Entity.RemovalReason reason, Operation<Void> original) {
         synchronized (lock) {
             original.call(reason);
+        }
+    }
+
+    @WrapMethod(method = "dropStack(Lnet/minecraft/server/world/ServerWorld;Lnet/minecraft/item/ItemStack;F)Lnet/minecraft/entity/ItemEntity;")
+    private ItemEntity dropStack(ServerWorld world, ItemStack stack, float yOffset, Operation<ItemEntity> original) {
+        synchronized (lock) {
+            return original.call(world, stack, yOffset);
+        }
+    }
+
+    @WrapMethod(method = "dropItem(Lnet/minecraft/server/world/ServerWorld;Lnet/minecraft/item/ItemConvertible;I)Lnet/minecraft/entity/ItemEntity;")
+    private ItemEntity dropStack(ServerWorld world, ItemConvertible item, int offsetY, Operation<ItemEntity> original) {
+        synchronized (lock) {
+            return original.call(world, item, offsetY);
         }
     }
 
