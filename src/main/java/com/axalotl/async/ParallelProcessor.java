@@ -177,18 +177,28 @@ public class ParallelProcessor {
                     futuresList.toArray(new CompletableFuture[0])
             );
 
-            allTasks.orTimeout(((MinecraftDedicatedServer) server).getMaxTickTime(), TimeUnit.MILLISECONDS).exceptionally(ex -> {
-                if (ex != null) {
+            long maxTickTime = ((MinecraftDedicatedServer) server).getMaxTickTime();
+            if (maxTickTime > 0) {
+                allTasks
+                        .orTimeout(maxTickTime, TimeUnit.MILLISECONDS)
+                        .exceptionally(ex -> {
+                            Throwable cause = ex instanceof java.util.concurrent.CompletionException
+                                    ? ex.getCause() : ex;
+                            if (cause instanceof TimeoutException) {
+                                crash("Timeout during entity tick processing: ", cause);
+                            } else {
+                                LOGGER.error("Error during entity tick processing: ", cause);
+                            }
+                            return null;
+                        });
+            } else {
+                allTasks.exceptionally(ex -> {
                     Throwable cause = ex instanceof java.util.concurrent.CompletionException
                             ? ex.getCause() : ex;
-                    if (cause instanceof TimeoutException) {
-                        crash("Timeout during entity tick processing: ", cause);
-                    } else {
-                        LOGGER.error("Error during entity tick processing: ", cause);
-                    }
-                }
-                return null;
-            });
+                    LOGGER.error("Error during entity tick processing: ", cause);
+                    return null;
+                });
+            }
 
             server.getWorlds().forEach(world -> {
                 world.getChunkManager().executeQueuedTasks();
@@ -196,7 +206,6 @@ public class ParallelProcessor {
             });
         }
     }
-
 
     public static void stop() {
         if (tickPool != null && !tickPool.isShutdown()) {
