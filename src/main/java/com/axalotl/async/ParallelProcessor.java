@@ -179,7 +179,21 @@ public class ParallelProcessor {
                 );
 
                 allTasks.orTimeout(((MinecraftDedicatedServer) server).getMaxTickTime(), TimeUnit.MILLISECONDS).exceptionally(ex -> {
-                    crash("Timeout during entity tick processing: ", ex);
+                    List<CompletableFuture<?>> incompleteFutures = futuresList.stream()
+                            .filter(doneFuture -> !doneFuture.isDone())
+                            .toList();
+
+                    if (incompleteFutures.isEmpty()) {
+                        LOGGER.error("Other exception when trying to tick entities. Clearing all of it...", ex);
+                        allTasks.cancel(true);
+                        return null;
+                    }
+
+                    for (CompletableFuture<?> incompleteFuture : incompleteFutures) {
+                        incompleteFuture.completeExceptionally(new RuntimeException("Future timed out and was abandoned."));
+                    }
+
+                    LOGGER.error("Timeout during entity tick processing", ex);
                     return null;
                 });
 
