@@ -1,70 +1,57 @@
-[![Issues](https://img.shields.io/github/issues/AxalotLDev/Async?style=for-the-badge)](https://github.com/AxalotLDev/Async/issues)
-<img width="100" src="https://github.com/AxalotLDev/Async/raw/ver/1.21.1/src/main/resources/assets/async/icon.png" alt="Async icon" align="right">
 <div align="left">
-<h1>Async - Minecraft Entity Multi-Threading Mod</h1>
-<h3>Async is a Fabric mod designed to improve entity performance by processing them in parallel using multiple CPU cores and threads.</h3>
+<h1>Async Multiloader Edition!</h1>
 </div>
 
 ## Important❗
 
-Async is currently in alpha testing and is experimental. Its use may lead to incorrect entity behavior and crashes.
+I thought this would be a good place to go over what I changed against the main branch of Async.
 
-## What is Async? 🤔
+## Mappings Changes
 
-Async is a Fabric mod that enhances the performance of entity processing. The mod leverages multithreading, which allows multiple CPU cores to improve performance when handling a large number of entities.
+I changed all the mappings for the mixins from Yarn over to the official Mojang mappings. I eventually found the following as the best resource for accomplishing this: https://linkie.shedaniel.dev/mappings
 
-### 💡 Key Benefits:
+## Common Module Limitations
 
-- ⚡ **Improved TPS**: Maintains stable tick times even with a large number of entities.
-- 🚀 **Multithreading**: Utilizes multiple CPU cores for parallel entity processing.
+I was unable to find a way (at least a clean way) to move the couple mixins that rely on totally obfuscated target values, to the common module. So to make it as crisp as I could, I decided that any mixin which contains anything like this will (in their entirety) exist only in platform-specific modules, and not in the common module.
 
-### 📊 Performance Comparison (9000 Villagers)
+## Build System Quirks
 
-| Configuration           | TPS  | MSPT   |
-| ----------------------- | ---- | ------ |
-| **Lithium + Async**     | 20   | 41.8   |
-| **Lithium (without Async)** | 4.4  | 225.4  |
-| **Purpur**              | 5.72 | 176.18 |
+I've made an attempt to have all build values (identifiers, version numbers, etc.) cleanly contained within the gradle.properties. I've left the rest of the info here pretty much defaulted.
 
-### 🛠️ Test Configuration
+In the mixins.json files you may notice the "package" variable is hard-coded. This is to allow the Minecraft Dev Intellij plugin to properly detect the mixin package and provide autocomplete etc.
 
-- **Processor**: AMD Ryzen 9 7950X3D
-- **RAM**: 64 GB (16 GB allocated to the server)
-- **Minecraft Version**: 1.21.4
-- **Number of Entities**: 9000
-- **Entity Type**: Villagers
+For some unholy reason I had to dump the Bawnorton maven repository in multiloader-common and common/build. 
 
-<details>
-<summary>Mod List</summary>
+## Config System
 
-Concurrent Chunk Management Engine, Fabric API, FerriteCore, Lithium, ScalableLux, ServerCore, StackDeobfuscator, TT20 (TPS Fixer), Tectonic, Very Many Players, Fabric Carpet.
+To get the config commands moved over to the common module, I made a platform event bus to allow platform-specific config code to fire when needed.
 
-</details>
+To clean up repeated hard-coded strings, I've set the config values to be key-value sets, so changes to their names can be made globally, and this will prevent typo mistakes etc.
 
-## 🔧 Commands
-- `/async config toggle` — Enables or disables the mod in-game (no server restart required). Use this command to instantly see how Async improves your server.
-- `/async config setEntityMoveSync` — Disables parallel processing of entity movement. Useful for preventing potential desynchronization with vanilla logic (disabled by default). Always enabled for items.
-- `/async config synchronizedEntities add` — Adds selected entity to synchronized processing.
-- `/async config synchronizedEntities remove` — Removes selected entity from synchronized processing.
-- `/async stats` — Displays the number of threads in use.
-- `/async stats entity` — Shows the number of entities processed by Async in various worlds.
+## SynchronizePlugin
 
-## 📥 Download
+To remove the platform dependency on fabric, I decomposed the code I saw on the neoforge branch for the mixin2methodsexlude map building, and just dumped in the hard value.
 
-The mod is available on [Modrinth](https://modrinth.com/mod/async)
+I noticed that with the main release of the mod, I wasn't seeing synchronize bits being set any longer with the most recent version. I'm not sure if I'm just wrong here, but I put in a version that seems to work.
 
-## 🔄 Minecraft Version Support
+## ParallelProcessor
 
-Full support is provided only for the latest version of Minecraft. Older versions receive critical fixes only. Support for older Minecraft snapshots is not planned.
+I added in a new "feature" behind a config value to the effect that the processor will more or less ignore ticking errors. What I have it set to try to do is recover the best it can and complete everything remaining either synchronously, or simply dump the current set of tasks if it has to. I personally feel this is preferable to hard crashing a server, and it is easily behind a config value so it poses no harm.
 
-## 📭 Feedback
 
-Our tracker for feedback and bug reports is available on GitHub:
-[![Report issues on GitHub](https://img.shields.io/badge/Report%20issues%20on-GitHub-lightgrey)](https://github.com/AxalotLDev/Async/issues)
+## pickUpItem
 
-You can also chat with us on Discord:
-[![Chat with us on Discord](https://img.shields.io/badge/Chat%20with%20us%20on-Discord-blue)](https://discord.com/invite/scvCQ2qKS3)
+I added a synchro mixin for this method in MobMixin. I'm not sure why it wasn't put upstream here at the beginning, but I see it implemented in some mob mixins downstream, like for allays. I will also look around in the source code for any container entity that may call this function or something similar. There are a lot of possibilities for picking up items. I might try and look at a way of accomplishing this synchronization in the item entity itself.
+
+## Final Thoughts
+
+I hope there is nothing I missed, I was playing around a bit as I was building this so you may see some commits where I'm cleaning up garbage I left behind.
+
+
+
 
 ## 🙌 Acknowledgements
 
 This mod is based on code from [MCMTFabric](https://modrinth.com/mod/mcmtfabric), which in turn was based on [JMT-MCMT](https://github.com/jediminer543/JMT-MCMT). Huge thanks to Grider and jediminer543 for their invaluable contributions!
+You can also chat with us on Discord:
+[![Chat with us on Discord](https://img.shields.io/badge/Chat%20with%20us%20on-Discord-blue)](https://discord.com/invite/scvCQ2qKS3)

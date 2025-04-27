@@ -1,0 +1,27 @@
+accessWidener   v1  named
+accessible field net/minecraft/server/level/ChunkMap poiManager Lnet/minecraft/world/entity/ai/village/poi/PoiManager;
+accessible field net/minecraft/server/level/ChunkMap$TrackedEntity entity Lnet/minecraft/world/entity/Entity;
+accessible method net/minecraft/server/level/ChunkMap anyPlayerCloseEnoughForSpawning (Lnet/minecraft/world/level/ChunkPos;)Z
+accessible class net/minecraft/server/level/ChunkMap$TrackedEntity
+accessible field net/minecraft/server/level/ServerChunkCache mainThreadProcessor Lnet/minecraft/server/level/ServerChunkCache$MainThreadExecutor;
+accessible method net/minecraft/server/level/ServerChunkCache getVisibleChunkIfPresent (J)Lnet/minecraft/server/level/ChunkHolder;
+accessible class net/minecraft/server/level/ServerChunkCache$ChunkAndHolder
+accessible method net/minecraft/server/level/ServerChunkCache$MainThreadExecutor pollTask ()Z
+accessible class net/minecraft/server/level/ServerChunkCache$MainThreadExecutor
+accessible class net/minecraft/server/level/ServerLevel
+accessible field net/minecraft/server/level/ServerLevel entityTickList Lnet/minecraft/world/level/entity/EntityTickList;
+accessible method net/minecraft/server/level/ServerLevel doBlockEvent (Lnet/minecraft/world/level/BlockEventData;)Z
+accessible class net/minecraft/server/level/ServerLevel$EntityCallbacks
+accessible class net/minecraft/world/entity/ai/gossip/GossipContainer$EntityGossips
+accessible method net/minecraft/world/entity/animal/Turtle setHasEgg (Z)V
+accessible class net/minecraft/world/entity/animal/Turtle$TurtleBreedGoal
+accessible class net/minecraft/world/level/PotentialCalculator$PointCharge
+accessible method net/minecraft/world/level/Level tickBlockEntities ()V
+accessible class net/minecraft/world/level/block/entity/BeehiveBlockEntity$BeeData
+accessible field net/minecraft/world/level/chunk/LevelChunk$BoundTickingBlockEntity blockEntity Lnet/minecraft/world/level/block/entity/BlockEntity;
+accessible class net/minecraft/world/level/chunk/LevelChunk$BoundTickingBlockEntity
+accessible field net/minecraft/world/level/chunk/LevelChunk$RebindableTickingBlockEntityWrapper ticker Lnet/minecraft/world/level/block/entity/TickingBlockEntity;
+accessible class net/minecraft/world/level/chunk/LevelChunk$RebindableTickingBlockEntityWrapper
+accessible class net/minecraft/world/level/entity/PersistentEntitySectionManager$Callback
+accessible class net/minecraft/world/level/redstone/CollectingNeighborUpdater$NeighborUpdates
+accessible class net/minecraft/world/scores/PlayerScores
