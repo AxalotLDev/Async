@@ -1,9 +1,6 @@
 package com.axalotl.async.mixin.entity;
 
 import com.axalotl.async.parallelised.ConcurrentCollections;
-import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
-import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
-import net.minecraft.entity.ai.goal.Goal;
 import net.minecraft.entity.ai.goal.GoalSelector;
 import net.minecraft.entity.ai.goal.PrioritizedGoal;
 import org.spongepowered.asm.mixin.*;
@@ -12,8 +9,6 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.util.Set;
-import java.util.concurrent.locks.ReentrantLock;
-import java.util.function.Predicate;
 
 @Mixin(GoalSelector.class)
 public abstract class GoalSelectorMixin {
@@ -22,32 +17,8 @@ public abstract class GoalSelectorMixin {
     @Final
     private Set<PrioritizedGoal> goals;
 
-    @Unique
-    private static final ReentrantLock lock = new ReentrantLock();
-
     @Inject(method = "<init>", at = @At("RETURN"))
     private void onInit(CallbackInfo ci) {
         this.goals = ConcurrentCollections.newHashSet();
-    }
-
-    @WrapMethod(method = "remove")
-    private void remove(Goal goal, Operation<Void> original) {
-        synchronized (lock) {
-            original.call(goal);
-        }
-    }
-
-    @WrapMethod(method = "add")
-    private void add(int priority, Goal goal, Operation<Void> original) {
-        synchronized (lock) {
-            original.call(priority, goal);
-        }
-    }
-
-    @WrapMethod(method = "clear")
-    private void clear(Predicate<Goal> predicate, Operation<Void> original) {
-        synchronized (lock) {
-            original.call(predicate);
-        }
     }
 }
