@@ -177,7 +177,14 @@ public class ParallelProcessor {
                     futuresList.toArray(new CompletableFuture[0])
             );
 
-            long maxTickTime = ((MinecraftDedicatedServer) server).getMaxTickTime();
+            long maxTickTime;
+
+            if (server instanceof MinecraftDedicatedServer dedicatedServer) {
+                maxTickTime = dedicatedServer.getMaxTickTime();
+            } else {
+                maxTickTime = 60000;
+            }
+
             if (maxTickTime > 0) {
                 allTasks
                         .orTimeout(maxTickTime, TimeUnit.MILLISECONDS)
