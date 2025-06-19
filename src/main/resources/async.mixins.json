@@ -12,7 +12,6 @@
     "entity.DamageTrackerMixin",
     "entity.DolphinEntityMixin",
     "entity.EntityIndexMixin",
-    "entity.EntityListMixin",
     "entity.EntityMixin",
     "entity.EntityTrackerEntryMixin",
     "entity.EntityTrackingSectionMixin",
