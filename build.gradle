@@ -21,6 +21,8 @@ modrinth {
     uploadFile = remapJar
     gameVersions = ["1.21.6"]
     loaders = ["fabric", "quilt"]
+    optional = ["lithium", "c2me-fabric"]
+    incompatible = ["moonrise-opt"]
     changelog = """
 
                 """
