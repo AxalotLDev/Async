@@ -1,6 +1,7 @@
 plugins {
     id 'fabric-loom' version '1.10-SNAPSHOT'
     id 'maven-publish'
+    id "com.modrinth.minotaur" version "2.+"
 }
 
 version = project.mod_version
@@ -8,6 +9,21 @@ group = project.maven_group
 
 base {
     archivesName = project.archives_base_name
+}
+
+apply plugin: 'com.modrinth.minotaur'
+modrinth {
+    token = System.getenv("MODRINTH_TOKEN")
+    projectId = "async"
+    versionNumber = project.mod_version
+    versionName = project.mod_version
+    versionType = "alpha"
+    uploadFile = remapJar
+    gameVersions = ["1.21.6"]
+    loaders = ["fabric", "quilt"]
+    changelog = """
+
+                """
 }
 
 repositories {
