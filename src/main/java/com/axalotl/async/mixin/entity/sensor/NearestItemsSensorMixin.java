@@ -1,4 +1,4 @@
-package com.axalotl.async.mixin.entity;
+package com.axalotl.async.mixin.entity.sensor;
 
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.ItemEntity;

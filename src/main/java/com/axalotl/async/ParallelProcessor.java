@@ -7,6 +7,7 @@ import lombok.Getter;
 import lombok.Setter;
 import net.minecraft.Bootstrap;
 import net.minecraft.entity.*;
+import net.minecraft.entity.mob.ShulkerEntity;
 import net.minecraft.entity.projectile.ProjectileEntity;
 import net.minecraft.entity.vehicle.*;
 import net.minecraft.server.MinecraftServer;
@@ -47,7 +48,9 @@ public class ParallelProcessor {
     private static final Map<UUID, Integer> portalTickSyncMap = new ConcurrentHashMap<>();
     private static final Map<String, Set<Thread>> mcThreadTracker = new ConcurrentHashMap<>();
     private static final Set<Class<?>> specialEntities = Set.of(
-            FallingBlockEntity.class
+            FallingBlockEntity.class,
+            ShulkerEntity.class,
+            BoatEntity.class
     );
 
     public static void setupThreadPool(int parallelism) {
@@ -107,8 +110,7 @@ public class ParallelProcessor {
                 entity instanceof ServerPlayerEntity ||
                 specialEntities.contains(entity.getClass()) ||
                 blacklistedEntity.contains(entityId) ||
-                AsyncConfig.synchronizedEntities.contains(EntityType.getId(entity.getType())) ||
-                entity.hasPlayerRider();
+                AsyncConfig.synchronizedEntities.contains(EntityType.getId(entity.getType()));
         if (requiresSyncTick) {
             return true;
         }
@@ -135,6 +137,7 @@ public class ParallelProcessor {
 
     private static void tickSynchronously(Consumer<Entity> tickConsumer, Entity entity) {
         try {
+            if (entity == null || entity.isRemoved()) return;
             tickConsumer.accept(entity);
         } catch (Exception e) {
             logEntityError("Error during synchronous tick", entity, e);
@@ -244,6 +247,9 @@ public class ParallelProcessor {
             }
             return sb.toString();
         });
+
+        threadDumpSection.add("Async Config", () -> "Async Spawn: " + AsyncConfig.enableAsyncSpawn +
+                "Synchronized Entities: " + AsyncConfig.synchronizedEntities);
 
         crashReportSection.add(
                 "Level stats",

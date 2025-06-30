@@ -93,23 +93,6 @@ public class ConfigCommand {
                                             cmdCtx.getSource().sendFeedback(() -> message, true);
                                             return 1;
                                         }))))
-                .then(CommandManager.literal("setEntityMoveSync").requires(cmdSrc -> cmdSrc.hasPermissionLevel(4))
-                        .executes(cmdCtx -> {
-                            boolean currentValue = AsyncConfig.enableEntityMoveSync;
-                            MutableText message = prefix.copy().append(Text.literal("Current value of entity move sync: ").styled(style -> style.withColor(Formatting.WHITE)))
-                                    .append(Text.literal(String.valueOf(currentValue)).styled(style -> style.withColor(Formatting.GREEN)));
-                            cmdCtx.getSource().sendFeedback(() -> message, false);
-                            return 1;
-                        })
-                        .then(CommandManager.argument("value", BoolArgumentType.bool()).executes(cmdCtx -> {
-                            boolean value = BoolArgumentType.getBool(cmdCtx, "value");
-                            AsyncConfig.enableEntityMoveSync = value;
-                            AsyncConfig.saveConfig();
-                            MutableText message = prefix.copy().append(Text.literal("Entity move sync set to ").styled(style -> style.withColor(Formatting.WHITE)))
-                                    .append(Text.literal(String.valueOf(value)).styled(style -> style.withColor(Formatting.GREEN)));
-                            cmdCtx.getSource().sendFeedback(() -> message, true);
-                            return 1;
-                        })))
                 .then(CommandManager.literal("setAsyncEntitySpawn").requires(cmdSrc -> cmdSrc.hasPermissionLevel(4))
                         .executes(cmdCtx -> {
                             boolean currentValue = AsyncConfig.enableAsyncSpawn;

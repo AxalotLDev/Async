@@ -25,7 +25,6 @@ public class AsyncConfig {
 
     public static boolean disabled = false;
     public static int paraMax = -1;
-    public static boolean enableEntityMoveSync = false;
     public static boolean enableAsyncSpawn = false;
     public static Set<Identifier> synchronizedEntities = new HashSet<>(Set.of(
             Identifier.ofVanilla("tnt"),
@@ -61,9 +60,6 @@ public class AsyncConfig {
         CONFIG.set("paraMax", paraMax);
         CONFIG.setComment("paraMax", "Maximum number of threads to use for parallel processing. Set to -1 to use default value. Note: If 'virtualThreads' is enabled, this setting will be ignored.");
 
-        CONFIG.set("enableEntityMoveSync", enableEntityMoveSync);
-        CONFIG.setComment("enableEntityMoveSync", "Modifies entity movement processing: true for synchronous movement (vanilla mechanics intact, less performance), false for asynchronous movement (better performance, may break mechanics).");
-
         CONFIG.set("synchronizedEntities", synchronizedEntities.stream().map(Identifier::toString).toList());
         CONFIG.setComment("synchronizedEntities", "List of entity class for sync processing.");
 
@@ -75,11 +71,10 @@ public class AsyncConfig {
     }
 
     private static void loadConfigValues() {
-        Set<String> processedKeys = new HashSet<>(List.of("disabled", "paraMax", "enableEntityMoveSync", "synchronizedEntities"));
+        Set<String> processedKeys = new HashSet<>(List.of("disabled", "paraMax", "enableAsyncSpawn", "synchronizedEntities"));
 
         disabled = CONFIG.getOrElse("disabled", false);
         paraMax = CONFIG.getOrElse("paraMax", -1);
-        enableEntityMoveSync = CONFIG.getOrElse("enableEntityMoveSync", false);
         enableAsyncSpawn = CONFIG.getOrElse("enableAsyncSpawn", false);
 
         synchronizedEntities = new HashSet<>();
@@ -114,7 +109,6 @@ public class AsyncConfig {
     private static void setDefaultValues() {
         disabled = false;
         paraMax = -1;
-        enableEntityMoveSync = false;
         enableAsyncSpawn = false;
         synchronizedEntities = new HashSet<>(Set.of(
                 Identifier.ofVanilla("tnt"),

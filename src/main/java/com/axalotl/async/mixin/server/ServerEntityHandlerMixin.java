@@ -1,4 +1,4 @@
-package com.axalotl.async.mixin.entity;
+package com.axalotl.async.mixin.server;
 
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;

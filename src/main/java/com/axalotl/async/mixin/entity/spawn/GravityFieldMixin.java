@@ -1,4 +1,4 @@
-package com.axalotl.async.mixin.entity;
+package com.axalotl.async.mixin.entity.spawn;
 
 import net.minecraft.util.math.GravityField;
 import org.spongepowered.asm.mixin.Mixin;

@@ -50,4 +50,11 @@ public abstract class TypeFilterableListMixin<T> extends AbstractCollection<T> {
             return original.call(type);
         }
     }
+
+    @WrapMethod(method = "iterator")
+    public Iterator<T> iterator(Operation<Iterator<T>> original) {
+        synchronized (lock) {
+            return original.call();
+        }
+    }
 }

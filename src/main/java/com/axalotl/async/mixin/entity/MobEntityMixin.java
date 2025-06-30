@@ -18,7 +18,9 @@ public class MobEntityMixin {
     @WrapMethod(method = "loot")
     private void loot(ServerWorld world, ItemEntity itemEntity, Operation<Void> original) {
         synchronized (lock) {
-            original.call(world, itemEntity);
+            if (!itemEntity.isRemoved()) {
+                original.call(world, itemEntity);
+            }
         }
     }
 }

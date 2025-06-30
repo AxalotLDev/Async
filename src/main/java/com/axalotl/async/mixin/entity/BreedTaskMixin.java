@@ -22,7 +22,7 @@ public abstract class BreedTaskMixin {
     @Unique
     private static final ReentrantLock lock = new ReentrantLock();
 
-    @Inject(method = "shouldKeepRunning(Lnet/minecraft/server/world/ServerWorld;Lnet/minecraft/entity/passive/AnimalEntity;J)Z", at = @At(value = "INVOKE", target = "Lnet/minecraft/entity/ai/brain/task/BreedTask;getBreedTarget(Lnet/minecraft/entity/passive/AnimalEntity;)Lnet/minecraft/entity/passive/AnimalEntity;"))
+    @Inject(method = "shouldKeepRunning(Lnet/minecraft/server/world/ServerWorld;Lnet/minecraft/entity/passive/AnimalEntity;J)Z", at = @At(value = "INVOKE", target = "Lnet/minecraft/entity/ai/brain/task/BreedTask;getBreedTarget(Lnet/minecraft/entity/passive/AnimalEntity;)Lnet/minecraft/entity/passive/AnimalEntity;"), cancellable = true)
     private void shouldKeepRunning(ServerWorld serverWorld, AnimalEntity animalEntity, long l, CallbackInfoReturnable<Boolean> cir) {
         if (this.getBreedTarget(animalEntity) == null) {
             cir.cancel();

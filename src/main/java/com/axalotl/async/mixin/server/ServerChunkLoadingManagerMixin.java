@@ -1,4 +1,4 @@
-package com.axalotl.async.mixin.world;
+package com.axalotl.async.mixin.server;
 
 import com.axalotl.async.parallelised.fastutil.Int2ObjectConcurrentHashMap;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;

@@ -1,4 +1,4 @@
-package com.axalotl.async.mixin.entity;
+package com.axalotl.async.mixin.entity.spawn;
 
 import com.axalotl.async.parallelised.ConcurrentCollections;
 import com.axalotl.async.parallelised.fastutil.Long2ObjectConcurrentHashMap;
