@@ -33,7 +33,7 @@ public class AsyncNeoForge {
         NeoForgePlatformEvents.init();
         LOGGER.info("Initializing Async Config...");
         container.registerConfig(ModConfig.Type.COMMON, SPEC, "async.toml");
-        LOGGER.info("Async Initialized successfully");
+        LOGGER.info("Async Initialized Successfully!");
     }
 
     @SubscribeEvent
