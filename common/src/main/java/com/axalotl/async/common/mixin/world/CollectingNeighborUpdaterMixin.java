@@ -25,5 +25,4 @@ public abstract class CollectingNeighborUpdaterMixin implements NeighborUpdater 
     private synchronized void syncAddAndRun(BlockPos pos, CollectingNeighborUpdater.NeighborUpdates entry, Operation<Void> original) {
         original.call(pos, entry);
     }
-
 }

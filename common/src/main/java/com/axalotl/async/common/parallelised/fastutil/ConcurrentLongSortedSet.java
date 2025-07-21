@@ -1,10 +1,6 @@
 package com.axalotl.async.common.parallelised.fastutil;
 
-import it.unimi.dsi.fastutil.longs.LongBidirectionalIterator;
-import it.unimi.dsi.fastutil.longs.LongCollection;
-import it.unimi.dsi.fastutil.longs.LongComparator;
-import it.unimi.dsi.fastutil.longs.LongIterator;
-import it.unimi.dsi.fastutil.longs.LongSortedSet;
+import it.unimi.dsi.fastutil.longs.*;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Collection;
@@ -22,8 +18,7 @@ public final class ConcurrentLongSortedSet implements LongSortedSet {
     /**
      * Creates a new empty concurrent sorted set
      */
-    public ConcurrentLongSortedSet() {
-    }
+    public ConcurrentLongSortedSet() {}
 
     /**
      * Creates a new concurrent sorted set containing elements from the given collection

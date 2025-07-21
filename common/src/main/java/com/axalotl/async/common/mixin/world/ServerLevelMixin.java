@@ -17,6 +17,7 @@ import net.minecraft.world.level.WorldGenLevel;
 import net.minecraft.world.level.dimension.DimensionType;
 import net.minecraft.world.level.entity.EntityTickList;
 import net.minecraft.world.level.storage.WritableLevelData;
+import org.jetbrains.annotations.NotNull;
 import org.objectweb.asm.Opcodes;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
@@ -59,10 +60,10 @@ public abstract class ServerLevelMixin extends Level implements WorldGenLevel {
     }
 
     @Shadow
-    public abstract void tickNonPassenger(Entity entity);
+    protected abstract boolean shouldDiscardEntity(Entity entity);
 
     @Shadow
-    protected abstract boolean shouldDiscardEntity(Entity entity);
+    public abstract @NotNull ServerLevel getLevel();
 
     @Inject(method = "<init>", at = @At("RETURN"))
     private void init(CallbackInfo ci) {
@@ -79,7 +80,7 @@ public abstract class ServerLevelMixin extends Level implements WorldGenLevel {
                     entity.discard();
                 } else if (!this.tickRateManager().isEntityFrozen(entity)) {
                     profiler.push("checkDespawn");
-                    entity.checkDespawn();
+                    ParallelProcessor.asyncDespawn(entity);
                     profiler.pop();
                     if (this.chunkSource.chunkMap.getDistanceManager().inEntityTickingRange(entity.chunkPosition().toLong())) {
                         Entity entity2 = entity.getVehicle();
@@ -90,7 +91,7 @@ public abstract class ServerLevelMixin extends Level implements WorldGenLevel {
                             entity.stopRiding();
                         }
                         profiler.push("tick");
-                        ParallelProcessor.callEntityTick(this::tickNonPassenger, entity);
+                        ParallelProcessor.callEntityTick(this.getLevel(), entity);
                         profiler.pop();
                     }
                 }
@@ -101,28 +102,27 @@ public abstract class ServerLevelMixin extends Level implements WorldGenLevel {
         profiler.pop();
     }
 
-    // fabric compilation will warn it can't find these method mappings, but they work fine
-    @Redirect(method = "blockEvent", at = @At(value = "INVOKE", target = "Lit/unimi/dsi/fastutil/objects/ObjectLinkedOpenHashSet;add(Ljava/lang/Object;)Z"))
+    @Redirect(method = "blockEvent", at = @At(value = "INVOKE", target = "Lit/unimi/dsi/fastutil/objects/ObjectLinkedOpenHashSet;add(Ljava/lang/Object;)Z"), remap = false)
     private boolean overwriteQueueAdd(ObjectLinkedOpenHashSet<BlockEventData> objectLinkedOpenHashSet, Object object) {
         return async$syncedBlockEventQueue.add((BlockEventData) object);
     }
 
-    @Redirect(method = "clearBlockEvents", at = @At(value = "INVOKE", target = "Lit/unimi/dsi/fastutil/objects/ObjectLinkedOpenHashSet;removeIf(Ljava/util/function/Predicate;)Z"))
+    @Redirect(method = "clearBlockEvents", at = @At(value = "INVOKE", target = "Lit/unimi/dsi/fastutil/objects/ObjectLinkedOpenHashSet;removeIf(Ljava/util/function/Predicate;)Z"), remap = false)
     private boolean overwriteQueueRemoveIf(ObjectLinkedOpenHashSet<BlockEventData> objectLinkedOpenHashSet, Predicate<BlockEventData> filter) {
         return async$syncedBlockEventQueue.removeIf(filter);
     }
 
-    @Redirect(method = "runBlockEvents", at = @At(value = "INVOKE", target = "Lit/unimi/dsi/fastutil/objects/ObjectLinkedOpenHashSet;isEmpty()Z"))
+    @Redirect(method = "runBlockEvents", at = @At(value = "INVOKE", target = "Lit/unimi/dsi/fastutil/objects/ObjectLinkedOpenHashSet;isEmpty()Z"), remap = false)
     private boolean overwriteEmptyCheck(ObjectLinkedOpenHashSet<BlockEventData> objectLinkedOpenHashSet) {
         return async$syncedBlockEventQueue.isEmpty();
     }
 
-    @Redirect(method = "runBlockEvents", at = @At(value = "INVOKE", target = "Lit/unimi/dsi/fastutil/objects/ObjectLinkedOpenHashSet;removeFirst()Ljava/lang/Object;"))
+    @Redirect(method = "runBlockEvents", at = @At(value = "INVOKE", target = "Lit/unimi/dsi/fastutil/objects/ObjectLinkedOpenHashSet;removeFirst()Ljava/lang/Object;"), remap = false)
     private Object overwriteQueueRemoveFirst(ObjectLinkedOpenHashSet<BlockEventData> objectLinkedOpenHashSet) {
         return async$syncedBlockEventQueue.poll();
     }
 
-    @Redirect(method = "runBlockEvents", at = @At(value = "INVOKE", target = "Lit/unimi/dsi/fastutil/objects/ObjectLinkedOpenHashSet;addAll(Ljava/util/Collection;)Z"))
+    @Redirect(method = "runBlockEvents", at = @At(value = "INVOKE", target = "Lit/unimi/dsi/fastutil/objects/ObjectLinkedOpenHashSet;addAll(Ljava/util/Collection;)Z"), remap = false)
     private boolean overwriteQueueAddAll(ObjectLinkedOpenHashSet<BlockEventData> instance, Collection<? extends BlockEventData> c) {
         return async$syncedBlockEventQueue.addAll(c);
     }

@@ -7,13 +7,11 @@ import net.minecraft.world.entity.item.ItemEntity;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 
-import java.util.concurrent.locks.ReentrantLock;
-
 @Mixin(Allay.class)
 public abstract class AllayMixin {
 
     @Unique
-    private static final ReentrantLock async$lock = new ReentrantLock();
+    private static final Object async$lock = new Object();
 
     @WrapMethod(method = "pickUpItem")
     private void pickUpItem(ItemEntity itemEntity, Operation<Void> original) {

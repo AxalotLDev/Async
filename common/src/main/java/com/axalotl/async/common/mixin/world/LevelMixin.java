@@ -1,11 +1,9 @@
 package com.axalotl.async.common.mixin.world;
 
-import com.axalotl.async.common.ParallelProcessor;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import net.minecraft.core.Holder;
 import net.minecraft.core.particles.ParticleOptions;
-import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
@@ -19,28 +17,17 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-
-import java.util.concurrent.locks.ReentrantLock;
 
 @Mixin(value = Level.class, priority = 1500)
 public abstract class LevelMixin implements LevelAccessor, AutoCloseable {
 
     @Unique
-    private static final ReentrantLock async$lock = new ReentrantLock();
+    private static final Object async$lock = new Object();
 
     @Shadow
     @Final
     private Thread thread;
-
-    @Inject(method = "tickBlockEntities", at = @At(value = "INVOKE", target = "Ljava/util/List;iterator()Ljava/util/Iterator;"))
-    private void postEntityPreBlockEntityTick(CallbackInfo ci) {
-        if ((Object) this instanceof ServerLevel) {
-            ParallelProcessor.postEntityTick();
-        }
-    }
 
     @Redirect(method = "getBlockEntity", at = @At(value = "INVOKE", target = "Ljava/lang/Thread;currentThread()Ljava/lang/Thread;"))
     private Thread overwriteCurrentThread() {

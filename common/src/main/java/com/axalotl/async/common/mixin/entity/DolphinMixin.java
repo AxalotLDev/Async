@@ -10,13 +10,11 @@ import net.minecraft.world.level.Level;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 
-import java.util.concurrent.locks.ReentrantLock;
-
 @Mixin(Dolphin.class)
 public abstract class DolphinMixin extends WaterAnimal {
 
     @Unique
-    private static final ReentrantLock async$lock = new ReentrantLock();
+    private static final Object async$lock = new Object();
 
     protected DolphinMixin(EntityType<? extends WaterAnimal> entityType, Level world) {
         super(entityType, world);

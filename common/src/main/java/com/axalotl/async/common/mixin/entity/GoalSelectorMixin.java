@@ -16,13 +16,12 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.util.Set;
-import java.util.concurrent.locks.ReentrantLock;
 
 @Mixin(GoalSelector.class)
 public abstract class GoalSelectorMixin {
 
     @Unique
-    private static final ReentrantLock async$lock = new ReentrantLock();
+    private static final Object async$lock = new Object();
 
     @Mutable
     @Shadow

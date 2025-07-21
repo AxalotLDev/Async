@@ -3,7 +3,7 @@ plugins {
 }
 
 neoForge {
-    neoFormVersion = neo_form_version
+    version = neoforge_version
     // Automatically enable AccessTransformers if the file exists
     def at = file('src/main/resources/META-INF/accesstransformer.cfg')
     if (at.exists()) {
@@ -17,6 +17,7 @@ neoForge {
 
 repositories {
     maven { url = 'https://maven.bawnorton.com/releases' }
+    maven { url 'https://api.modrinth.com/maven' }
 }
 
 dependencies {
@@ -24,9 +25,11 @@ dependencies {
     annotationProcessor("io.github.llamalad7:mixinextras-common:${mixinextras_version}")
     compileOnly("org.spongepowered:mixin:${mixin_version}")
     implementation(annotationProcessor("com.github.bawnorton.mixinsquared:mixinsquared-common:${mixinsquared_version}"))
-
     implementation("org.ow2.asm:asm:9.5")
     implementation("org.ow2.asm:asm-tree:9.5")
+    compileOnly 'org.projectlombok:lombok:1.18.32'
+    annotationProcessor 'org.projectlombok:lombok:1.18.32'
+    implementation 'maven.modrinth:lithium:mc1.21.1-0.15.0-neoforge'
 }
 
 configurations {

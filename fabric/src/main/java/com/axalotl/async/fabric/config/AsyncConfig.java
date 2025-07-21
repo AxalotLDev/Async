@@ -50,17 +50,11 @@ public class AsyncConfig {
         CONFIG.set(paraMax.getKey(), paraMax.getValue());
         CONFIG.setComment(paraMax.getKey(), "Maximum number of threads to use for parallel processing. Set to -1 to use default value. Note: If 'virtualThreads' is enabled, this setting will be ignored.");
 
-        CONFIG.set(enableEntityMoveSync.getKey(), enableEntityMoveSync.getValue());
-        CONFIG.setComment(enableEntityMoveSync.getKey(), "Modifies entity movement processing: true for synchronous movement (vanilla mechanics intact, less performance), false for asynchronous movement (better performance, may break mechanics).");
-
         CONFIG.set(synchronizedEntities.getKey(), synchronizedEntities.getValue().stream().map(ResourceLocation::toString).toList());
         CONFIG.setComment(synchronizedEntities.getKey(), "List of entity class for sync processing.");
 
         CONFIG.set(enableAsyncSpawn.getKey(), enableAsyncSpawn.getValue());
-        CONFIG.setComment(enableAsyncSpawn.getKey(), "Enables parallel processing of entity spawns. Warning, incompatible with VMP mod && Carpet mod lagFreeSpawning rule.");
-
-        CONFIG.set(recoverFromErrors.getKey(), recoverFromErrors.getValue());
-        CONFIG.setComment(recoverFromErrors.getKey(), "Tries to recover from entity processing errors instead of crashing.");
+        CONFIG.setComment(enableAsyncSpawn.getKey(), "Enables parallel processing of entity spawns. Warning, incompatible with Carpet mod lagFreeSpawning rule.");
 
         CONFIG.save();
         LOGGER.info("Configuration saved successfully.");
@@ -70,14 +64,11 @@ public class AsyncConfig {
         Set<String> processedKeys = new HashSet<>(List.of(
                 disabled.getKey(),
                 paraMax.getKey(),
-                enableEntityMoveSync.getKey(),
                 synchronizedEntities.getKey()));
 
         disabled.setValue(CONFIG.getOrElse(disabled.getKey(), disabled.getValue()));
         paraMax.setValue(CONFIG.getOrElse(paraMax.getKey(), paraMax.getValue()));
-        enableEntityMoveSync.setValue(CONFIG.getOrElse(enableEntityMoveSync.getKey(), enableEntityMoveSync.getValue()));
         enableAsyncSpawn.setValue(CONFIG.getOrElse(enableAsyncSpawn.getKey(), enableAsyncSpawn.getValue()));
-        recoverFromErrors.setValue(CONFIG.getOrElse(recoverFromErrors.getKey(), recoverFromErrors.getValue()));
 
         synchronizedEntities.setValue(new HashSet<>());
         CONFIG.<List<String>>getOptional(synchronizedEntities.getKey()).ifPresentOrElse(ids -> {
@@ -108,7 +99,6 @@ public class AsyncConfig {
     private static void setDefaultValues() {
         disabled.setValue(false);
         paraMax.setValue(-1);
-        enableEntityMoveSync.setValue(false);
         enableAsyncSpawn.setValue(false);
         synchronizedEntities.setValue(getDefaultSynchronizedEntities());
     }

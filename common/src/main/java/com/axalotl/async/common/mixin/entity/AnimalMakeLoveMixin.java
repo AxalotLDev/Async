@@ -1,6 +1,7 @@
 package com.axalotl.async.common.mixin.entity;
 
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.ai.behavior.AnimalMakeLove;
 import net.minecraft.world.entity.ai.memory.MemoryModuleType;
 import net.minecraft.world.entity.animal.Animal;
 import org.spongepowered.asm.mixin.Mixin;
@@ -11,13 +12,11 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-import java.util.concurrent.locks.ReentrantLock;
-
-@Mixin(net.minecraft.world.entity.ai.behavior.AnimalMakeLove.class)
-public abstract class AnimalMakeLove {
+@Mixin(AnimalMakeLove.class)
+public abstract class AnimalMakeLoveMixin {
 
     @Unique
-    private static final ReentrantLock async$lock = new ReentrantLock();
+    private static final Object async$lock = new Object();
 
     @Shadow
     protected abstract Animal getBreedTarget(Animal animal);
@@ -29,7 +28,7 @@ public abstract class AnimalMakeLove {
         }
     }
 
-    @Inject(method = "canStillUse(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/world/entity/animal/Animal;J)Z", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/ai/behavior/AnimalMakeLove;getBreedTarget(Lnet/minecraft/world/entity/animal/Animal;)Lnet/minecraft/world/entity/animal/Animal;"))
+    @Inject(method = "canStillUse(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/world/entity/animal/Animal;J)Z", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/ai/behavior/AnimalMakeLove;getBreedTarget(Lnet/minecraft/world/entity/animal/Animal;)Lnet/minecraft/world/entity/animal/Animal;"), cancellable = true)
     private void canStillUse(ServerLevel level, Animal entity, long gameTime, CallbackInfoReturnable<Boolean> cir) {
         if (this.getBreedTarget(entity) == null) {
             cir.cancel();

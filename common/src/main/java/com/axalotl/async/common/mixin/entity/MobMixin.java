@@ -9,13 +9,11 @@ import net.minecraft.world.item.ItemStack;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 
-import java.util.concurrent.locks.ReentrantLock;
-
 @Mixin(Mob.class)
 public class MobMixin {
 
     @Unique
-    private static final ReentrantLock async$lock = new ReentrantLock();
+    private static final Object async$lock = new Object();
 
     @WrapMethod(method = "equipItemIfPossible")
     private ItemStack tryEquip(ItemStack stack, Operation<ItemStack> original) {

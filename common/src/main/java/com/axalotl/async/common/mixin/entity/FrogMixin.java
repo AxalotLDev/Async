@@ -24,9 +24,7 @@ public abstract class FrogMixin extends Animal {
 
     @WrapMethod(method = "spawnChildFromBreeding")
     private void breed(ServerLevel world, Animal other, Operation<Void> original) {
-        if (this.getId() > other.getId()) {
-            return;
-        }
+        if (this.getId() > other.getId()) return;
         FrogMixin otherMixin = (FrogMixin) other;
         if (this.async$breedingFlag.compareAndSet(false, true) && otherMixin.async$breedingFlag.compareAndSet(false, true)) {
             try {

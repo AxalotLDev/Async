@@ -1,10 +1,10 @@
 package com.axalotl.async.common.mixin.utils;
 
+import com.axalotl.async.common.AsyncCommon;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Multimap;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.spongepowered.asm.mixin.extensibility.IMixinConfigPlugin;
@@ -35,6 +35,13 @@ public class SynchronisePlugin implements IMixinConfigPlugin {
 
     @Override
     public boolean shouldApplyMixin(String targetClassName, String mixinClassName) {
+        if (mixinClassName.endsWith("com.axalotl.async.common.mixin.lithium.LithiumServerChunkCacheMixin") ||
+                mixinClassName.endsWith("com.axalotl.async.common.mixin.lithium.LithiumServerLevel")) {
+            return AsyncCommon.LITHIUM;
+        }
+        if (mixinClassName.endsWith("com.axalotl.async.common.mixin.vmp.VMPChunkMapMixin")) {
+            return AsyncCommon.VMP;
+        }
         return true;
     }
 
@@ -57,22 +64,33 @@ public class SynchronisePlugin implements IMixinConfigPlugin {
         Collection<String> excludedMethods = mixin2MethodsExcludeMap.get(mixinClassName);
 
         if (!targetMethods.isEmpty()) {
-            for (MethodNode method : targetClass.methods) {
-                for (String targetMethod : targetMethods)
-                    if (method.name.equals(targetMethod)) {
-                        method.access |= Opcodes.ACC_SYNCHRONIZED;
-                        syncLogger.info("Setting synchronize bit for " + method.name + " in " + targetClassName + ".");
-                    }
-            }
+            applySynchronizeBit(targetClass, targetMethods, targetClassName);
         } else if (syncAllSet.contains(mixinClassName)) {
-            int negFilter = Opcodes.ACC_STATIC | Opcodes.ACC_SYNTHETIC | Opcodes.ACC_NATIVE | Opcodes.ACC_ABSTRACT | Opcodes.ACC_BRIDGE;
-
+            int negFilter = 5448;
             for (MethodNode method : targetClass.methods) {
                 if ((method.access & negFilter) == 0 && !method.name.equals("<init>") && !excludedMethods.contains(method.name)) {
-                    method.access |= Opcodes.ACC_SYNCHRONIZED;
-                    syncLogger.info("Setting synchronize bit for " + method.name + " in " + targetClassName + ".");
+                    method.access |= 32;
+                    logSynchronize(method.name, targetClassName, mixinClassName);
                 }
             }
+        }
+    }
+
+    private void applySynchronizeBit(ClassNode targetClass, Collection<String> targetMethods, String targetClassName) {
+        for (MethodNode method : targetClass.methods) {
+            for (String targetMethod : targetMethods) {
+                if (method.name.equals(targetMethod)) {
+                    method.access |= 32;
+                    logSynchronize(method.name, targetClassName, null);
+                }
+            }
+        }
+    }
+
+    private void logSynchronize(String methodName, String targetClassName, String mixinClassName) {
+        if (mixinClassName == null || !mixinClassName.equals("com.axalotl.async.mixin.utils.FastUtilsMixin")) {
+            String message = "Setting synchronize bit for " + methodName + " in " + targetClassName + ".";
+            syncLogger.debug(message);
         }
     }
 }

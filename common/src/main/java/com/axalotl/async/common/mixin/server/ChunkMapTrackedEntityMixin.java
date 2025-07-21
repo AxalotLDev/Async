@@ -1,4 +1,4 @@
-package com.axalotl.async.common.mixin.world;
+package com.axalotl.async.common.mixin.server;
 
 import com.axalotl.async.common.parallelised.ConcurrentCollections;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
@@ -22,7 +22,7 @@ public class ChunkMapTrackedEntityMixin {
     @Mutable
     @Final
     @Shadow
-    private Set<ServerGamePacketListenerImpl> seenBy = ConcurrentCollections.newHashSet();
+    private Set<ServerGamePacketListenerImpl> seenBy;
 
     @Inject(method = "<init>", at = @At("RETURN"))
     private void init(CallbackInfo ci) {

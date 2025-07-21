@@ -24,6 +24,4 @@ public abstract class DistanceManagerMixin {
     @Final
     @Mutable
     LongSet ticketsToRelease = new ConcurrentLongLinkedOpenHashSet();
-
-    //Do not make tickets a concurrent collection. It will mess up updating chunks getting cleared, and the server will hang on shutdown
 }

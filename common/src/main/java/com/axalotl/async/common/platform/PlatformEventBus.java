@@ -12,4 +12,8 @@ public class PlatformEventBus {
             impl.saveConfig();
         }
     }
+
+    public static boolean isModLoaded(String id) {
+        return impl.isModLoaded(id);
+    }
 }

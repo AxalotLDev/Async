@@ -21,13 +21,13 @@ import static com.axalotl.async.common.config.AsyncConfig.getParallelism;
 import static com.axalotl.async.neoforge.config.AsyncConfig.SPEC;
 import static com.axalotl.async.neoforge.config.AsyncConfig.loadConfig;
 
-@Mod(Async.MOD_ID)
-public class Async {
+@Mod(AsyncNeoForge.MOD_ID)
+public class AsyncNeoForge {
 
     public static final String MOD_ID = "async";
     public static final Logger LOGGER = LogUtils.getLogger();
 
-    public Async(FMLModContainer container) {
+    public AsyncNeoForge(FMLModContainer container) {
         LOGGER.info("Initializing Async...");
         NeoForge.EVENT_BUS.register(this);
         NeoForgePlatformEvents.init();

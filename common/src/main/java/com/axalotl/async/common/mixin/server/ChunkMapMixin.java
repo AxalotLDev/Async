@@ -1,4 +1,4 @@
-package com.axalotl.async.common.mixin.world;
+package com.axalotl.async.common.mixin.server;
 
 import com.axalotl.async.common.parallelised.fastutil.Int2ObjectConcurrentHashMap;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
@@ -37,7 +37,6 @@ public abstract class ChunkMapMixin extends ChunkStorage implements ChunkHolder.
     @Mutable
     private List<ChunkGenerationTask> pendingGenerationTasks;
 
-
     public ChunkMapMixin(RegionStorageInfo regionStorageInfo, Path directory, DataFixer dataFixer, boolean dsync) {
         super(regionStorageInfo, directory, dataFixer, dsync);
     }
@@ -51,16 +50,6 @@ public abstract class ChunkMapMixin extends ChunkStorage implements ChunkHolder.
     @WrapMethod(method = "releaseGeneration")
     private synchronized void releaseGeneration(GenerationChunkHolder chunk, Operation<Void> original) {
         original.call(chunk);
-    }
-
-    @WrapMethod(method = "addEntity")
-    private synchronized void addEntity(Entity entity, Operation<Void> original) {
-        original.call(entity);
-    }
-
-    @WrapMethod(method = "removeEntity")
-    private synchronized void removeEntity(Entity entity, Operation<Void> original) {
-        original.call(entity);
     }
 
     @Inject(method = "addEntity", at = @At(value = "INVOKE", target = "Lnet/minecraft/Util;pauseInIde(Ljava/lang/Throwable;)Ljava/lang/Throwable;"), cancellable = true)

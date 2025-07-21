@@ -3,6 +3,7 @@ package com.axalotl.async.neoforge.platform;
 import com.axalotl.async.common.platform.PlatformEventBus;
 import com.axalotl.async.common.platform.PlatformEvents;
 import com.axalotl.async.neoforge.config.AsyncConfig;
+import net.neoforged.fml.ModList;
 
 public class NeoForgePlatformEvents implements PlatformEvents {
 
@@ -13,5 +14,10 @@ public class NeoForgePlatformEvents implements PlatformEvents {
     @Override
     public void saveConfig() {
         AsyncConfig.saveConfig();
+    }
+
+    @Override
+    public boolean isModLoaded(String id) {
+        return ModList.get().isLoaded(id);
     }
 }

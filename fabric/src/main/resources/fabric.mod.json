@@ -16,7 +16,7 @@
     "environment": "*",
     "entrypoints": {
         "main": [
-            "com.axalotl.async.fabric.Async"
+            "com.axalotl.async.fabric.AsyncFabric"
         ],
         "mixinsquared": [
             "com.axalotl.async.common.mixin.c2me.AsyncModMixinCanceller"
@@ -28,12 +28,13 @@
     ],
     "accessWidener": "async.accesswidener",
     "depends": {
-        "fabricloader": ">=${fabric_loader_version}",
+        "fabricloader": "*",
         "fabric-api": "*",
-        "minecraft": "${minecraft_version}",
-        "java": ">=${java_version}"
+        "minecraft": ">=1.21",
+        "java": ">=21"
     },
-    "suggests": {
-        "another-mod": "*"
+    "breaks": {
+        "moonrise": "*",
+        "cupboard": "*"
     }
 }

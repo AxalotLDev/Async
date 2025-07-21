@@ -1,4 +1,4 @@
-package com.axalotl.async.common.mixin.entity;
+package com.axalotl.async.common.mixin.entity.movement;
 
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
@@ -8,13 +8,11 @@ import net.minecraft.world.level.entity.Visibility;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 
-import java.util.concurrent.locks.ReentrantLock;
-
 @Mixin(EntitySection.class)
 public class EntitySectionMixin {
 
     @Unique
-    private static final ReentrantLock async$lock = new ReentrantLock();
+    private static final Object async$lock = new Object();
 
     @WrapMethod(method = "add")
     private void add(EntityAccess entity, Operation<Void> original) {

@@ -1,4 +1,4 @@
-package com.axalotl.async.common.mixin.entity;
+package com.axalotl.async.common.mixin.entity.sensor;
 
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;

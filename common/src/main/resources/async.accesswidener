@@ -25,3 +25,4 @@ accessible class net/minecraft/world/level/chunk/LevelChunk$RebindableTickingBlo
 accessible class net/minecraft/world/level/entity/PersistentEntitySectionManager$Callback
 accessible class net/minecraft/world/level/redstone/CollectingNeighborUpdater$NeighborUpdates
 accessible class net/minecraft/world/scores/PlayerScores
+accessible class net/minecraft/world/level/LocalMobCapCalculator$MobCounts

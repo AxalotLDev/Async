@@ -3,21 +3,24 @@ package com.axalotl.async.common.mixin.entity;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.state.BlockState;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
-
-import java.util.concurrent.locks.ReentrantLock;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.Redirect;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(value = LivingEntity.class, priority = 1001)
 public abstract class LivingEntityMixin extends Entity {
 
     @Unique
-    private static final ReentrantLock async$lock = new ReentrantLock();
+    private static final Object async$lock = new Object();
 
     public LivingEntityMixin(EntityType<?> type, Level world) {
         super(type, world);
@@ -47,30 +50,15 @@ public abstract class LivingEntityMixin extends Entity {
         }
     }
 
-    @WrapMethod(method = "refreshDirtyAttributes")
-    private void updateAttributes(Operation<Void> original) {
-        synchronized (async$lock) {
-            original.call();
-        }
+    @Redirect(method = "tickEffects", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/effect/MobEffectInstance;tick(Lnet/minecraft/world/entity/LivingEntity;Ljava/lang/Runnable;)Z"))
+    private boolean redirectStatusEffectUpdate(MobEffectInstance instance, LivingEntity entity, Runnable onExpirationRunnable) {
+        if (instance == null) return false;
+        return instance.tick(entity, onExpirationRunnable);
     }
 
-//    @WrapMethod(method = "take")
-//    private void take(Entity entity, int amount, Operation<Void> original) {
-//        synchronized (async$lock) {
-//            original.call(entity, amount);
-//        }
-//    }
-
-    @WrapMethod(method = "onItemPickup")
-    private void onItemPickup(ItemEntity itemEntity, Operation<Void> original) {
-        async$lock.lock();
-        try {
-            if (!itemEntity.isRemoved()) {
-                itemEntity.setRemoved(RemovalReason.KILLED);
-                original.call(itemEntity);
-            }
-        } finally {
-            async$lock.unlock();
-        }
+    @Inject(method = "onClimbable", at = @At("HEAD"), cancellable = true)
+    private void isClimbing(CallbackInfoReturnable<Boolean> cir) {
+        BlockState blockState = this.getInBlockState();
+        if (blockState == null) cir.setReturnValue(false);
     }
 }

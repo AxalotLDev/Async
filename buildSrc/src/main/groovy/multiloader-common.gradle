@@ -44,7 +44,6 @@ repositories {
         url = 'https://maven.blamejared.com'
     }
 }
-
 sourcesJar {
     from(rootProject.file('LICENSE')) {
         rename { "${it}_${mod_name}" }

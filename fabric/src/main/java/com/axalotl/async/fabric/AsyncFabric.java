@@ -8,25 +8,17 @@ import com.axalotl.async.fabric.platform.FabricPlatformEvents;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
-import net.fabricmc.loader.api.FabricLoader;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import static com.axalotl.async.common.config.AsyncConfig.enableAsyncSpawn;
-
-public class Async implements ModInitializer {
-    public static final Logger LOGGER = LogManager.getLogger(Async.class);
-    public static final boolean VMP = FabricLoader.getInstance().isModLoaded("vmp");
+public class AsyncFabric implements ModInitializer {
+    public static final Logger LOGGER = LogManager.getLogger(AsyncFabric.class);
 
     @Override
     public void onInitialize() {
         LOGGER.info("Initializing Async...");
         com.axalotl.async.fabric.config.AsyncConfig.init();
         FabricPlatformEvents.init();
-        if (VMP && enableAsyncSpawn.getValue()) {
-            LOGGER.error("Incompatible configuration: Async spawn enabled while VMP mod is active. Crashing to prevent instability.");
-            throw new RuntimeException("Crashing due to VMP mod incompatibility with Async Spawn Configuration.");
-        }
 
         StatsCommand.runStatsThread();
 

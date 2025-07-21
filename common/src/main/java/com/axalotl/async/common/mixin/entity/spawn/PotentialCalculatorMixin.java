@@ -1,4 +1,4 @@
-package com.axalotl.async.common.mixin.entity;
+package com.axalotl.async.common.mixin.entity.spawn;
 
 import net.minecraft.world.level.PotentialCalculator;
 import org.spongepowered.asm.mixin.Mixin;
