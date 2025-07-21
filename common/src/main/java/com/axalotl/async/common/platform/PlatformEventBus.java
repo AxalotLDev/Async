@@ -14,6 +14,9 @@ public class PlatformEventBus {
     }
 
     public static boolean isModLoaded(String id) {
-        return impl.isModLoaded(id);
+        if (impl != null) {
+            return impl.isModLoaded(id);
+        }
+        return false;
     }
 }
