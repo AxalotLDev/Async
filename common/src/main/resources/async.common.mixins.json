@@ -15,6 +15,7 @@
     "entity.EntityLookupMixin",
     "entity.EntityMixin",
     "entity.EntityTickListMixin",
+    "entity.FoxBreedGoalMixin",
     "entity.FoxMixin",
     "entity.FrogMixin",
     "entity.GoalSelectorMixin",
