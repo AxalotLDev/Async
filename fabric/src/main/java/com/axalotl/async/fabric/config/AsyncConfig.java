@@ -64,7 +64,9 @@ public class AsyncConfig {
         Set<String> processedKeys = new HashSet<>(List.of(
                 disabled.getKey(),
                 paraMax.getKey(),
-                synchronizedEntities.getKey()));
+                synchronizedEntities.getKey(),
+                enableAsyncSpawn.getKey()
+        ));
 
         disabled.setValue(CONFIG.getOrElse(disabled.getKey(), disabled.getValue()));
         paraMax.setValue(CONFIG.getOrElse(paraMax.getKey(), paraMax.getValue()));
