@@ -18,7 +18,7 @@ public abstract class DistanceManagerMixin {
     @Shadow
     @Final
     @Mutable
-    Set<ChunkHolder> chunksToUpdateFutures = ConcurrentCollections.newHashSet();
+    protected Set<ChunkHolder> chunksToUpdateFutures = ConcurrentCollections.newHashSet();
 
     @Shadow
     @Final

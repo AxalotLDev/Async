@@ -21,7 +21,7 @@ dependencies {
     compileOnly 'org.projectlombok:lombok:1.18.32'
     annotationProcessor 'org.projectlombok:lombok:1.18.32'
 
-    implementation 'maven.modrinth:lithium:mc1.21.5-0.16.3-neoforge'
+    implementation 'maven.modrinth:lithium:mc1.21.6-0.17.0-neoforge'
 }
 
 loom {

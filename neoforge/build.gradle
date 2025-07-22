@@ -38,7 +38,7 @@ neoForge {
 dependencies {
     compileOnly(annotationProcessor("com.github.bawnorton.mixinsquared:mixinsquared-common:${mixinsquared_version}"))
     implementation(jarJar("com.github.bawnorton.mixinsquared:mixinsquared-neoforge:${mixinsquared_version}"))
-    implementation 'maven.modrinth:lithium:mc1.21.5-0.16.3-neoforge'
+    implementation 'maven.modrinth:lithium:mc1.21.6-0.17.0-neoforge'
     compileOnly 'org.projectlombok:lombok:1.18.32'
     annotationProcessor 'org.projectlombok:lombok:1.18.32'
 }

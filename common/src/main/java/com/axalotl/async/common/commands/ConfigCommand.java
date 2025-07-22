@@ -47,7 +47,7 @@ public class ConfigCommand {
                             return 1;
                         })
                         .then(literal("add")
-                                .then(Commands.argument("entity", ResourceLocationArgument.id()).suggests(SuggestionProviders.SUMMONABLE_ENTITIES).executes(cmdCtx -> {
+                                .then(Commands.argument("entity", ResourceLocationArgument.id()).suggests(SuggestionProviders.cast(SuggestionProviders.SUMMONABLE_ENTITIES)).executes(cmdCtx -> {
                                     ResourceLocation id = ResourceLocationArgument.getId(cmdCtx, "entity");
                                     if (AsyncConfig.synchronizedEntities.getValue().contains(id)) {
                                         MutableComponent message = prefix.copy()
