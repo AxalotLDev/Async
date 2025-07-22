@@ -1,6 +1,5 @@
 package com.axalotl.async.fabric.mixin.utils;
 
-import com.axalotl.async.common.AsyncCommon;
 import com.axalotl.async.fabric.AsyncFabric;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Multimap;
