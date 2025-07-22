@@ -2,9 +2,6 @@ package com.axalotl.async.common.mixin.world;
 
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
-import net.minecraft.core.Holder;
-import net.minecraft.core.particles.ParticleOptions;
-import net.minecraft.sounds.SoundEvent;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.ExplosionDamageCalculator;
@@ -50,13 +47,6 @@ public abstract class LevelMixin implements LevelAccessor, AutoCloseable {
     private void explode(Entity source, DamageSource damageSource, ExplosionDamageCalculator damageCalculator, double x, double y, double z, float radius, boolean fire, Level.ExplosionInteraction explosionInteraction, Operation<Void> original) {
         synchronized (async$lock) {
             original.call(source, damageSource, damageCalculator, x, y, z, radius, fire, explosionInteraction);
-        }
-    }
-
-    @WrapMethod(method = "explode(Lnet/minecraft/world/entity/Entity;Lnet/minecraft/world/damagesource/DamageSource;Lnet/minecraft/world/level/ExplosionDamageCalculator;DDDFZLnet/minecraft/world/level/Level$ExplosionInteraction;Lnet/minecraft/core/particles/ParticleOptions;Lnet/minecraft/core/particles/ParticleOptions;Lnet/minecraft/core/Holder;)V")
-    private void explode(Entity par1, DamageSource par2, ExplosionDamageCalculator par3, double par4, double par5, double par6, float par7, boolean par8, Level.ExplosionInteraction par9, ParticleOptions par10, ParticleOptions par11, Holder<SoundEvent> par12, Operation<Void> original) {
-        synchronized (async$lock) {
-            original.call(par1, par2, par3, par4, par5, par6, par7, par8, par9, par10, par11, par12);
         }
     }
 }
