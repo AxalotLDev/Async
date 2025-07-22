@@ -15,6 +15,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.MobCategory;
 import net.minecraft.world.entity.item.FallingBlockEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.projectile.Projectile;
@@ -159,19 +160,18 @@ public class ParallelProcessor {
         }
     }
 
-    public static void asyncSpawn(ServerLevel world, LevelChunk chunk, NaturalSpawner.SpawnState spawnState, boolean spawnAnimals,
-                                  boolean spawnMonsters, boolean rareSpawn) {
+    public static void asyncSpawn(ServerLevel level, LevelChunk chunk, NaturalSpawner.SpawnState spawnState, List<MobCategory> categories) {
         if (AsyncConfig.enableAsyncSpawn.getValue()) {
             CompletableFuture<Void> future = CompletableFuture.runAsync(() ->
-                    NaturalSpawner.spawnForChunk(world, chunk, spawnState, spawnAnimals, spawnMonsters, rareSpawn), tickPool
+                    NaturalSpawner.spawnForChunk(level, chunk, spawnState, categories), tickPool
             ).exceptionally(e -> {
                 LOGGER.error("Error in async spawn tick, switching to synchronous", e);
-                NaturalSpawner.spawnForChunk(world, chunk, spawnState, spawnAnimals, spawnMonsters, rareSpawn);
+                NaturalSpawner.spawnForChunk(level, chunk, spawnState, categories);
                 return null;
             });
             taskQueue.add(future);
         } else {
-            NaturalSpawner.spawnForChunk(world, chunk, spawnState, spawnAnimals, spawnMonsters, rareSpawn);
+            NaturalSpawner.spawnForChunk(level, chunk, spawnState, categories);
         }
     }
 

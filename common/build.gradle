@@ -25,11 +25,11 @@ dependencies {
     annotationProcessor("io.github.llamalad7:mixinextras-common:${mixinextras_version}")
     compileOnly("org.spongepowered:mixin:${mixin_version}")
     implementation(annotationProcessor("com.github.bawnorton.mixinsquared:mixinsquared-common:${mixinsquared_version}"))
-    implementation("org.ow2.asm:asm:9.5")
-    implementation("org.ow2.asm:asm-tree:9.5")
+    implementation("org.ow2.asm:asm:9.8")
+    implementation("org.ow2.asm:asm-tree:9.8")
     compileOnly 'org.projectlombok:lombok:1.18.32'
     annotationProcessor 'org.projectlombok:lombok:1.18.32'
-    implementation 'maven.modrinth:lithium:mc1.21.1-0.15.0-neoforge'
+    implementation 'maven.modrinth:lithium:mc1.21.3-0.14.6-neoforge'
 }
 
 configurations {

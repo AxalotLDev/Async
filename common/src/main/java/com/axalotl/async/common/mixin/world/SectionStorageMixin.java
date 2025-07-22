@@ -8,6 +8,7 @@ import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.LongLinkedOpenHashSet;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.chunk.storage.SectionStorage;
+import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Mutable;
 import org.spongepowered.asm.mixin.Shadow;
@@ -18,14 +19,11 @@ import java.util.Optional;
 public abstract class SectionStorageMixin<R> implements AutoCloseable {
 
     @Shadow
-    @Mutable
     private final Long2ObjectMap<Optional<R>> storage = new Long2ObjectConcurrentHashMap<>();
 
-    @Shadow
-    @Mutable
-    private final LongLinkedOpenHashSet dirty = new ConcurrentLongLinkedOpenHashSet();
+    @Shadow @Final private LongLinkedOpenHashSet dirtyChunks = new ConcurrentLongLinkedOpenHashSet();;
 
-    @WrapMethod(method = "readColumn(Lnet/minecraft/world/level/ChunkPos;)V")
+    @WrapMethod(method = "remove")
     private synchronized void release(ChunkPos chunkPos, Operation<Void> original) {
         original.call(chunkPos);
     }
