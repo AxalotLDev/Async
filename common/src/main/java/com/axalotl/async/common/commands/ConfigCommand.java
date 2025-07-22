@@ -90,24 +90,24 @@ public class ConfigCommand {
                                                     .append(Component.literal(" has been removed from synchronized list.").withStyle(style -> style.withColor(ChatFormatting.WHITE)));
                                             cmdCtx.getSource().sendSuccess(() -> message, true);
                                             return 1;
-                                        })))
-                        .then(literal("setAsyncEntitySpawn").requires(cmdSrc -> cmdSrc.hasPermission(4))
-                                .executes(cmdCtx -> {
-                                    boolean currentValue = AsyncConfig.enableAsyncSpawn.getValue();
-                                    MutableComponent message = prefix.copy().append(Component.literal("Current value of async entity spawn: ").withStyle(style -> style.withColor(ChatFormatting.WHITE)))
-                                            .append(Component.literal(String.valueOf(currentValue)).withStyle(style -> style.withColor(ChatFormatting.GREEN)));
-                                    cmdCtx.getSource().sendSuccess(() -> message, false);
-                                    return 1;
-                                })
-                                .then(Commands.argument("value", BoolArgumentType.bool()).executes(cmdCtx -> {
-                                    boolean value = BoolArgumentType.getBool(cmdCtx, "value");
-                                    AsyncConfig.enableAsyncSpawn.setValue(value);
-                                    PlatformEventBus.saveConfig();
-                                    MutableComponent message = prefix.copy().append(Component.literal("Async Entity Spawn set to ").withStyle(style -> style.withColor(ChatFormatting.WHITE)))
-                                            .append(Component.literal(String.valueOf(value)).withStyle(style -> style.withColor(ChatFormatting.GREEN)));
-                                    cmdCtx.getSource().sendSuccess(() -> message, true);
-                                    return 1;
-                                })))
+                                        }))))
+                .then(literal("setAsyncEntitySpawn").requires(cmdSrc -> cmdSrc.hasPermission(4))
+                        .executes(cmdCtx -> {
+                            boolean currentValue = AsyncConfig.enableAsyncSpawn.getValue();
+                            MutableComponent message = prefix.copy().append(Component.literal("Current value of async entity spawn: ").withStyle(style -> style.withColor(ChatFormatting.WHITE)))
+                                    .append(Component.literal(String.valueOf(currentValue)).withStyle(style -> style.withColor(ChatFormatting.GREEN)));
+                            cmdCtx.getSource().sendSuccess(() -> message, false);
+                            return 1;
+                        })
+                        .then(Commands.argument("value", BoolArgumentType.bool()).executes(cmdCtx -> {
+                            boolean value = BoolArgumentType.getBool(cmdCtx, "value");
+                            AsyncConfig.enableAsyncSpawn.setValue(value);
+                            PlatformEventBus.saveConfig();
+                            MutableComponent message = prefix.copy().append(Component.literal("Async Entity Spawn set to ").withStyle(style -> style.withColor(ChatFormatting.WHITE)))
+                                    .append(Component.literal(String.valueOf(value)).withStyle(style -> style.withColor(ChatFormatting.GREEN)));
+                            cmdCtx.getSource().sendSuccess(() -> message, true);
+                            return 1;
+                        }))
                 ));
     }
 }
