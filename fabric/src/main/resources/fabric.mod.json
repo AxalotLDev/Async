@@ -36,6 +36,5 @@
     "breaks": {
         "moonrise": "*",
         "cupboard": "*"
-    },
-    "plugin": "com.axalotl.async.fabric.mixin.utils.SynchronisePlugin"
+    }
 }

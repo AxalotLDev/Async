@@ -13,5 +13,6 @@
   "server": [],
   "injectors": {
     "defaultRequire": 1
-  }
+  },
+  "plugin": "com.axalotl.async.fabric.mixin.utils.SynchronisePlugin"
 }
