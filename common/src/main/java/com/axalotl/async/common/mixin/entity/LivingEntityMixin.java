@@ -28,7 +28,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public abstract class LivingEntityMixin extends Entity {
 
     @Shadow
-    @Final private Map<Holder<MobEffect>, MobEffectInstance> activeEffects = new ConcurrentHashMap<>();
+    final private Map<Holder<MobEffect>, MobEffectInstance> activeEffects = new ConcurrentHashMap<>();
 
     @Unique
     private static final Object async$lock = new Object();
