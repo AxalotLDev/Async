@@ -43,6 +43,8 @@ jobs:
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: async-artifact
-          path: 'build/libs/*.jar'
+          name: async-artifacts
+          path: |
+            neoforge/build/libs/*.jar
+            fabric/build/libs/*.jar
       
