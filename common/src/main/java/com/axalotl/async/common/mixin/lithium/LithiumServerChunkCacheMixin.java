@@ -16,6 +16,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import org.jetbrains.annotations.Nullable;
+
 import java.util.Arrays;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BooleanSupplier;
@@ -47,8 +48,8 @@ public abstract class LithiumServerChunkCacheMixin extends ChunkSource {
     abstract boolean runDistanceManagerUpdates();
 
     @Shadow
-    @Final
-    private DistanceManager distanceManager;
+    public abstract void addTicket(Ticket ticket, ChunkPos chunkPos);
+
     @Unique
     private long async$time;
 
@@ -192,7 +193,7 @@ public abstract class LithiumServerChunkCacheMixin extends ChunkSource {
     @Unique
     private void async$createChunkLoadTicket(int x, int z, int level) {
         ChunkPos chunkPos = new ChunkPos(x, z);
-        this.distanceManager.addRegionTicket(TicketType.UNKNOWN, chunkPos, level, chunkPos);
+        this.addTicket(new Ticket(TicketType.UNKNOWN, level), chunkPos);
     }
 
     /**

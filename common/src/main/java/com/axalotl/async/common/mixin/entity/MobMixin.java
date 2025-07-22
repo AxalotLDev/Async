@@ -30,13 +30,6 @@ public class MobMixin {
         }
     }
 
-    @WrapMethod(method = "setItemSlot")
-    private void equipStack(EquipmentSlot slot, ItemStack stack, Operation<Void> original) {
-        synchronized (async$lock) {
-            original.call(slot, stack);
-        }
-    }
-
     @WrapMethod(method = "setItemSlotAndDropWhenKilled")
     private void equipLootStack(EquipmentSlot slot, ItemStack stack, Operation<Void> original) {
         synchronized (async$lock) {

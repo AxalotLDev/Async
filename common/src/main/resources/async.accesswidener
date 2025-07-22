@@ -5,7 +5,6 @@ accessible method net/minecraft/server/level/ChunkMap anyPlayerCloseEnoughForSpa
 accessible class net/minecraft/server/level/ChunkMap$TrackedEntity
 accessible field net/minecraft/server/level/ServerChunkCache mainThreadProcessor Lnet/minecraft/server/level/ServerChunkCache$MainThreadExecutor;
 accessible method net/minecraft/server/level/ServerChunkCache getVisibleChunkIfPresent (J)Lnet/minecraft/server/level/ChunkHolder;
-accessible class net/minecraft/server/level/ServerChunkCache$ChunkAndHolder
 accessible method net/minecraft/server/level/ServerChunkCache$MainThreadExecutor pollTask ()Z
 accessible class net/minecraft/server/level/ServerChunkCache$MainThreadExecutor
 accessible class net/minecraft/server/level/ServerLevel

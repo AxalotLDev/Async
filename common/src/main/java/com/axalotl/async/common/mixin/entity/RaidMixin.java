@@ -3,6 +3,7 @@ package com.axalotl.async.common.mixin.entity;
 import com.axalotl.async.common.parallelised.ConcurrentCollections;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.raid.Raid;
 import net.minecraft.world.entity.raid.Raider;
 import org.spongepowered.asm.mixin.Mixin;
@@ -24,21 +25,21 @@ public class RaidMixin {
     @Shadow
     private final Map<Integer, Set<Raider>> groupRaiderMap = ConcurrentCollections.newHashMap();
 
-    @WrapMethod(method = "addWaveMob(ILnet/minecraft/world/entity/raid/Raider;)Z")
-    private boolean addWaveMob(int wave, Raider entity, Operation<Boolean> original) {
+    @WrapMethod(method = "addWaveMob(Lnet/minecraft/server/level/ServerLevel;ILnet/minecraft/world/entity/raid/Raider;Z)Z")
+    private boolean addWaveMob(ServerLevel level, int wave, Raider p_raider, boolean isRecruited, Operation<Boolean> original) {
         synchronized (async$lock) {
-            return original.call(wave, entity);
+            return original.call(level, wave, p_raider, isRecruited);
         }
     }
 
-    @WrapMethod(method = "addWaveMob(ILnet/minecraft/world/entity/raid/Raider;Z)Z")
-    private boolean addWaveMob(int wave, Raider entity, boolean countHealth, Operation<Boolean> original) {
+    @WrapMethod(method = "addWaveMob(Lnet/minecraft/server/level/ServerLevel;ILnet/minecraft/world/entity/raid/Raider;)Z")
+    private boolean addWaveMob(ServerLevel level, int wave, Raider raider, Operation<Boolean> original) {
         synchronized (async$lock) {
-            return original.call(wave, entity, countHealth);
+            return original.call(level, wave, raider);
         }
     }
 
-    @Redirect(method = "addWaveMob(ILnet/minecraft/world/entity/raid/Raider;Z)Z", at =
+    @Redirect(method = "addWaveMob(Lnet/minecraft/server/level/ServerLevel;ILnet/minecraft/world/entity/raid/Raider;Z)Z", at =
     @At(value = "INVOKE", target = "Ljava/util/Map;computeIfAbsent(Ljava/lang/Object;Ljava/util/function/Function;)Ljava/lang/Object;"))
     private Object redirectComputeIfAbsent(Map<Integer, Set<Raider>> instance, Object k, Function<?, ?> key) {
         return instance.computeIfAbsent((Integer) k, wave -> ConcurrentCollections.newHashSet());
