@@ -9,7 +9,6 @@ import it.unimi.dsi.fastutil.longs.LongLinkedOpenHashSet;
 import it.unimi.dsi.fastutil.longs.LongSet;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.chunk.storage.SectionStorage;
-import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 
@@ -24,9 +23,9 @@ public abstract class SectionStorageMixin<R, P> implements AutoCloseable {
 
     @Shadow final private LongLinkedOpenHashSet dirtyChunks = new ConcurrentLongLinkedOpenHashSet();
 
-    @Shadow @Final private Long2ObjectMap<CompletableFuture<Optional<SectionStorage.PackedChunk<P>>>> pendingLoads = new Long2ObjectConcurrentHashMap<>();
+    @Shadow final private Long2ObjectMap<CompletableFuture<Optional<SectionStorage.PackedChunk<P>>>> pendingLoads = new Long2ObjectConcurrentHashMap<>();
 
-    @Shadow @Final private LongSet loadedChunks = new ConcurrentLongLinkedOpenHashSet();
+    @Shadow final private LongSet loadedChunks = new ConcurrentLongLinkedOpenHashSet();
 
     @WrapMethod(method = "unpackChunk(Lnet/minecraft/world/level/ChunkPos;)V")
     private synchronized void release(ChunkPos pos, Operation<Void> original) {
