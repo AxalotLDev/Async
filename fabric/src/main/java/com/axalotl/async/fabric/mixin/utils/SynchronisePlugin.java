@@ -1,5 +1,7 @@
-package com.axalotl.async.common.mixin.utils;
+package com.axalotl.async.fabric.mixin.utils;
 
+import com.axalotl.async.common.AsyncCommon;
+import com.axalotl.async.fabric.AsyncFabric;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Multimap;
 import org.apache.logging.log4j.LogManager;
@@ -34,6 +36,13 @@ public class SynchronisePlugin implements IMixinConfigPlugin {
 
     @Override
     public boolean shouldApplyMixin(String targetClassName, String mixinClassName) {
+        if (mixinClassName.endsWith("com.axalotl.async.common.mixin.lithium.LithiumServerChunkCacheMixin") ||
+                mixinClassName.endsWith("com.axalotl.async.common.mixin.lithium.LithiumServerLevel")) {
+            return AsyncFabric.LITHIUM;
+        }
+        if (mixinClassName.endsWith("com.axalotl.async.common.mixin.vmp.VMPChunkMapMixin")) {
+            return AsyncFabric.VMP;
+        }
         return true;
     }
 
