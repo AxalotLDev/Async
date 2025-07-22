@@ -7,6 +7,7 @@ import net.minecraft.server.level.*;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.chunk.ChunkAccess;
 import net.minecraft.world.level.chunk.ChunkSource;
+import net.minecraft.world.level.chunk.ImposterProtoChunk;
 import net.minecraft.world.level.chunk.status.ChunkStatus;
 import org.jetbrains.annotations.NotNull;
 import org.spongepowered.asm.mixin.*;
@@ -67,7 +68,7 @@ public abstract class LithiumServerChunkCacheMixin extends ChunkSource {
         } else {
             long key = async$createCacheKey(x, z, status);
 
-            for(int i = 0; i < 4; ++i) {
+            for (int i = 0; i < 4; ++i) {
                 if (key == this.async$cacheKeys[i]) {
                     ChunkAccess chunk = this.async$cacheChunks[i];
                     if (chunk != null || !create) {
@@ -89,6 +90,17 @@ public abstract class LithiumServerChunkCacheMixin extends ChunkSource {
 
     @Unique
     private ChunkAccess async$getChunkOffThread(int x, int z, ChunkStatus status, boolean create) {
+        final ChunkHolder holder = this.getVisibleChunkIfPresent(ChunkPos.asLong(x, z));
+        if (holder != null) {
+            final CompletableFuture<ChunkResult<ChunkAccess>> future = holder.scheduleChunkGenerationTask(status, this.chunkMap);
+            if (future.isDone()) {
+                ChunkAccess chunk = future.getNow(ChunkHolder.UNLOADED_CHUNK).orElse(null);
+                if (chunk instanceof ImposterProtoChunk readOnlyChunk) chunk = readOnlyChunk.getWrapped();
+                if (chunk != null) {
+                    return chunk;
+                }
+            }
+        }
         return CompletableFuture.supplyAsync(() -> this.getChunk(x, z, status, create), this.mainThreadProcessor).join();
     }
 
@@ -108,12 +120,12 @@ public abstract class LithiumServerChunkCacheMixin extends ChunkSource {
             if (this.chunkAbsent(holder, level)) {
                 throw Util.pauseInIde(new IllegalStateException("No chunk holder after ticket has been added"));
             }
-        } else if (create && ((ChunkHolderExtended)holder).lithium$updateLastAccessTime(this.async$time)) {
+        } else if (create && ((ChunkHolderExtended) holder).lithium$updateLastAccessTime(this.async$time)) {
             this.async$createChunkLoadTicket(x, z, level);
         }
 
-        if (!((GenerationChunkHolderAccessor)holder).invokeCannotBeLoaded(leastStatus)) {
-            CompletableFuture<ChunkResult<ChunkAccess>> directlyAccessedFuture = ((GenerationChunkHolderAccessor)holder).lithium$getChunkFuturesByStatus().get(leastStatus.getIndex());
+        if (!((GenerationChunkHolderAccessor) holder).invokeCannotBeLoaded(leastStatus)) {
+            CompletableFuture<ChunkResult<ChunkAccess>> directlyAccessedFuture = ((GenerationChunkHolderAccessor) holder).lithium$getChunkFuturesByStatus().get(leastStatus.getIndex());
             if (directlyAccessedFuture != null && directlyAccessedFuture.isDone()) {
                 ChunkAccess chunk = directlyAccessedFuture.join().orElse(null);
                 if (chunk != null) {
@@ -140,12 +152,12 @@ public abstract class LithiumServerChunkCacheMixin extends ChunkSource {
 
     @Unique
     private static long async$createCacheKey(int chunkX, int chunkZ, ChunkStatus status) {
-        return (long)chunkX & 268435455L | ((long)chunkZ & 268435455L) << 28 | (long)status.getIndex() << 56;
+        return (long) chunkX & 268435455L | ((long) chunkZ & 268435455L) << 28 | (long) status.getIndex() << 56;
     }
 
     @Unique
     private void async$addToCache(long key, ChunkAccess chunk) {
-        for(int i = 3; i > 0; --i) {
+        for (int i = 3; i > 0; --i) {
             this.async$cacheKeys[i] = this.async$cacheKeys[i - 1];
             this.async$cacheChunks[i] = this.async$cacheChunks[i - 1];
         }
