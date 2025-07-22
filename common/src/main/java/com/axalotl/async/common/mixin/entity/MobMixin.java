@@ -2,6 +2,7 @@ package com.axalotl.async.common.mixin.entity;
 
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.item.ItemEntity;
@@ -16,16 +17,16 @@ public class MobMixin {
     private static final Object async$lock = new Object();
 
     @WrapMethod(method = "equipItemIfPossible")
-    private ItemStack tryEquip(ItemStack stack, Operation<ItemStack> original) {
+    private ItemStack tryEquip(ServerLevel level, ItemStack stack, Operation<ItemStack> original) {
         synchronized (async$lock) {
-            return original.call(stack);
+            return original.call(level, stack);
         }
     }
 
     @WrapMethod(method = "pickUpItem")
-    private void pickUpItem(ItemEntity itemEntity, Operation<Void> original) {
+    private void pickUpItem(ServerLevel level, ItemEntity entity, Operation<Void> original) {
         synchronized (async$lock) {
-            original.call(itemEntity);
+            original.call(level, entity);
         }
     }
 

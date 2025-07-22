@@ -27,3 +27,4 @@ accessible class net/minecraft/world/level/redstone/CollectingNeighborUpdater$Ne
 accessible class net/minecraft/world/scores/PlayerScores
 accessible class net/minecraft/world/level/LocalMobCapCalculator$MobCounts
 accessible class net/minecraft/world/entity/animal/Fox$FoxBreedGoal
+accessible class net/minecraft/world/level/chunk/storage/SectionStorage$PackedChunk

@@ -15,10 +15,10 @@ public class VillagerMixin {
     private static final Object async$lock = new Object();
 
     @WrapMethod(method = "pickUpItem")
-    private void pickUpItem(ItemEntity itemEntity, Operation<Void> original) {
+    private void pickUpItem(ServerLevel level, ItemEntity entity, Operation<Void> original) {
         synchronized (async$lock) {
-            if (!itemEntity.isRemoved()) {
-                original.call(itemEntity);
+            if (!entity.isRemoved()) {
+                original.call(level, entity);
             }
         }
     }
