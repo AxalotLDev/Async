@@ -29,7 +29,7 @@ dependencies {
     implementation("org.ow2.asm:asm-tree:9.8")
     compileOnly 'org.projectlombok:lombok:1.18.32'
     annotationProcessor 'org.projectlombok:lombok:1.18.32'
-    implementation 'maven.modrinth:lithium:mc1.21.7-0.18.0-neoforge'
+    implementation 'maven.modrinth:lithium:mc1.21.8-0.18.0-neoforge'
 }
 
 configurations {
