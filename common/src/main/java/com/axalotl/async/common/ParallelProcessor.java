@@ -317,6 +317,6 @@ public class ParallelProcessor {
     }
 
     private static void logEntityError(String message, Entity entity, Throwable e) {
-        LOGGER.error("{} Entity Type: {}, UUID: {}", message, entity.getType().getCategory().getName(), entity.getUUID(), e);
+        LOGGER.error("{} Entity Type: {}, UUID: {}", message, entity.getType().toString(), entity.getUUID(), e);
     }
 }
