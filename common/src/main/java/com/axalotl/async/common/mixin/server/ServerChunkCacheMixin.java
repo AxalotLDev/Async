@@ -41,14 +41,13 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
     @Shadow
     public abstract @Nullable ChunkHolder getVisibleChunkIfPresent(long pos);
 
-    @Inject(method = "getChunk(IILnet/minecraft/world/level/chunk/status/ChunkStatus;Z)Lnet/minecraft/world/level/chunk/ChunkAccess;",
-            at = @At("HEAD"), cancellable = true)
+    @Inject(method = "getChunk(IILnet/minecraft/world/level/chunk/status/ChunkStatus;Z)Lnet/minecraft/world/level/chunk/ChunkAccess;", at = @At("HEAD"), cancellable = true)
     private void shortcutGetChunk(int x, int z, ChunkStatus leastStatus, boolean create, CallbackInfoReturnable<ChunkAccess> cir) {
         if (AsyncCommon.LITHIUM) return;
-        if (Thread.currentThread() != this.mainThread) {
-            final ChunkHolder holder = this.getVisibleChunkIfPresent(ChunkPos.asLong(x, z));
-            if (holder != null) {
-                final CompletableFuture<ChunkResult<ChunkAccess>> future = holder.scheduleChunkGenerationTask(leastStatus, this.chunkMap);
+        final ChunkHolder holder = this.getVisibleChunkIfPresent(ChunkPos.asLong(x, z));
+        if (holder != null) {
+            final CompletableFuture<ChunkResult<ChunkAccess>> future = holder.scheduleChunkGenerationTask(leastStatus, this.chunkMap);
+            if (future.isDone()) {
                 ChunkAccess chunk = future.getNow(ChunkHolder.UNLOADED_CHUNK).orElse(null);
                 if (chunk instanceof ImposterProtoChunk readOnlyChunk) chunk = readOnlyChunk.getWrapped();
                 if (chunk != null) {

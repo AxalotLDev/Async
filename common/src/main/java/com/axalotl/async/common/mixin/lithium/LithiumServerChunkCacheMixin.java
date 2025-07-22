@@ -15,8 +15,8 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-import org.jetbrains.annotations.Nullable;
 import java.util.Arrays;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BooleanSupplier;
 
@@ -25,35 +25,36 @@ public abstract class LithiumServerChunkCacheMixin extends ChunkSource {
     @Shadow
     @Final
     public ServerChunkCache.MainThreadExecutor mainThreadProcessor;
-
+    @Shadow
+    @Final
+    private DistanceManager distanceManager;
     @Shadow
     @Final
     public ChunkMap chunkMap;
-
-    @Shadow
-    public abstract ChunkHolder getVisibleChunkIfPresent(long pos);
-
     @Shadow
     @Final
     Thread mainThread;
+    @Unique
+    private long async$time;
+    @Unique
+    private final long[] async$cacheKeys = new long[4];
+    @Unique
+    private final ChunkAccess[] async$cacheChunks = new ChunkAccess[4];
 
     @Shadow
-    protected abstract boolean chunkAbsent(ChunkHolder holder, int maxLevel);
+    public abstract ChunkHolder getVisibleChunkIfPresent(long var1);
 
     @Shadow
-    public abstract void tick(@NotNull BooleanSupplier shouldKeepTicking, boolean tickChunks);
+    protected abstract boolean chunkAbsent(ChunkHolder var1, int var2);
+
+    @Shadow
+    public abstract void tick(@NotNull BooleanSupplier var1, boolean var2);
 
     @Shadow
     abstract boolean runDistanceManagerUpdates();
 
-    @Shadow
-    @Final
-    private DistanceManager distanceManager;
-    @Unique
-    private long async$time;
-
     @Inject(
-            method = "tick(Ljava/util/function/BooleanSupplier;Z)V",
+            method = "tick",
             at = @At("HEAD")
     )
     private void preTick(BooleanSupplier shouldKeepTicking, boolean tickChunks, CallbackInfo ci) {
@@ -64,41 +65,31 @@ public abstract class LithiumServerChunkCacheMixin extends ChunkSource {
      * @author CaffeineMC
      * @reason Lithium compatible
      */
-    @Nullable
     @Overwrite
     public ChunkAccess getChunk(int x, int z, @NotNull ChunkStatus status, boolean create) {
         if (Thread.currentThread() != this.mainThread) {
             return this.async$getChunkOffThread(x, z, status, create);
-        }
+        } else {
+            long key = async$createCacheKey(x, z, status);
 
-        // Store a local reference to the cached keys array in order to prevent bounds checks later
-
-        // Create a key which will identify this request in the cache
-        long key = async$createCacheKey(x, z, status);
-
-        for (int i = 0; i < 4; ++i) {
-            // Consolidate the scan into one comparison, allowing the JVM to better optimize the function
-            // This is considerably faster than scanning two arrays side-by-side
-            if (key == this.async$cacheKeys[i]) {
-                ChunkAccess chunk = this.async$cacheChunks[i];
-
-                // If the chunk exists for the key, or we didn't need to create one, return the result
-                if (chunk != null || !create) {
-                    return chunk;
+            for (int i = 0; i < 4; ++i) {
+                if (key == this.async$cacheKeys[i]) {
+                    ChunkAccess chunk = this.async$cacheChunks[i];
+                    if (chunk != null || !create) {
+                        return chunk;
+                    }
                 }
             }
+
+            ChunkAccess chunk = this.async$getChunkBlocking(x, z, status, create);
+            if (chunk != null) {
+                this.async$addToCache(key, chunk);
+            } else if (create) {
+                throw new IllegalStateException("Chunk not there when requested");
+            }
+
+            return chunk;
         }
-
-        // We couldn't find the chunk in the cache, so perform a blocking retrieval of the chunk from storage
-        ChunkAccess chunk = this.async$getChunkBlocking(x, z, status, create);
-
-        if (chunk != null) {
-            this.async$addToCache(key, chunk);
-        } else if (create) {
-            throw new IllegalStateException("Chunk not there when requested");
-        }
-
-        return chunk;
     }
 
     @Unique
@@ -117,53 +108,26 @@ public abstract class LithiumServerChunkCacheMixin extends ChunkSource {
         return CompletableFuture.supplyAsync(() -> this.getChunk(x, z, status, create), this.mainThreadProcessor).join();
     }
 
-    /**
-     * Retrieves a chunk from the storages, blocking to work on other tasks if the requested chunk needs to be loaded
-     * from disk or generated in real-time.
-     *
-     * @param x           The x-coordinate of the chunk
-     * @param z           The z-coordinate of the chunk
-     * @param leastStatus The minimum status level of the chunk
-     * @param create      True if the chunk should be loaded/generated if it isn't already, otherwise false
-     * @return A chunk if it was already present or loaded/generated by the {@param create} flag
-     */
     @Unique
     private ChunkAccess async$getChunkBlocking(int x, int z, ChunkStatus leastStatus, boolean create) {
-        final long key = ChunkPos.asLong(x, z);
-        final int level = ChunkLevel.byStatus(leastStatus);
-
+        long key = ChunkPos.asLong(x, z);
+        int level = ChunkLevel.byStatus(leastStatus);
         ChunkHolder holder = this.getVisibleChunkIfPresent(key);
-
-        // Vanilla: Check if the holder is present and is at least of the level we need
         if (this.chunkAbsent(holder, level)) {
-            if (create) {
-                // Vanilla: The chunk holder is missing, so we need to create a ticket in order to load it
-                this.async$createChunkLoadTicket(x, z, level);
-
-                // Vanilla: Tick the chunk manager to have our new ticket processed
-                this.runDistanceManagerUpdates();
-
-                // Vanilla: Try to fetch the holder again now that we have requested a load
-                holder = this.getVisibleChunkIfPresent(key);
-
-                // Vanilla: If the holder is still not available, we need to fail now... something is wrong.
-                if (this.chunkAbsent(holder, level)) {
-                    throw Util.pauseInIde(new IllegalStateException("No chunk holder after ticket has been added"));
-                }
-            } else {
-                //Vanilla: Use UNLOADED_FUTURE. Lithium: Just return null immediately.
-                // The holder is absent, and we weren't asked to create anything, so return null
+            if (!create) {
                 return null;
             }
+
+            this.async$createChunkLoadTicket(x, z, level);
+            this.runDistanceManagerUpdates();
+            holder = this.getVisibleChunkIfPresent(key);
+            if (this.chunkAbsent(holder, level)) {
+                throw Util.pauseInIde(new IllegalStateException("No chunk holder after ticket has been added"));
+            }
         } else if (create && ((ChunkHolderExtended) holder).lithium$updateLastAccessTime(this.async$time)) {
-            // Vanilla: Always create the ticket.
-            // Lithium: Only create a new chunk ticket if one hasn't already been submitted this tick
-            // This maintains vanilla behavior (preventing chunks from being immediately unloaded) while also
-            // eliminating the cost of submitting a ticket for most chunk fetches
             this.async$createChunkLoadTicket(x, z, level);
         }
 
-        // Lithium: Attempt to directly get the chunk from the finished future:
         if (!((GenerationChunkHolderAccessor) holder).invokeCannotBeLoaded(leastStatus)) {
             CompletableFuture<ChunkResult<ChunkAccess>> directlyAccessedFuture = ((GenerationChunkHolderAccessor) holder).lithium$getChunkFuturesByStatus().get(leastStatus.getIndex());
             if (directlyAccessedFuture != null && directlyAccessedFuture.isDone()) {
@@ -174,51 +138,27 @@ public abstract class LithiumServerChunkCacheMixin extends ChunkSource {
             }
         }
 
-        // Vanilla: Always call holder.load(). Lithium: Fall back to vanilla in case the fast-path did not work.
         CompletableFuture<ChunkResult<ChunkAccess>> loadFuture = holder.scheduleChunkGenerationTask(leastStatus, this.chunkMap);
-
-        // Vanilla: Always call runTasks(). Lithium: Only call runTasks() if it will perform work.
         if (!loadFuture.isDone()) {
-            // Perform other chunk tasks while waiting for this future to complete
-            // This returns when either the future is done or there are no other tasks remaining
-            this.mainThreadProcessor.managedBlock(loadFuture::isDone);
+            ServerChunkCache.MainThreadExecutor var10000 = this.mainThreadProcessor;
+            Objects.requireNonNull(loadFuture);
+            var10000.managedBlock(loadFuture::isDone);
         }
 
-        // Wait for the result of the future and unwrap it, returning null if the chunk is absent
         return loadFuture.join().orElse(null);
-
     }
 
     @Unique
     private void async$createChunkLoadTicket(int x, int z, int level) {
         ChunkPos chunkPos = new ChunkPos(x, z);
-        this.distanceManager.addRegionTicket(TicketType.UNKNOWN, chunkPos, level, chunkPos);
+        this.distanceManager.addTicket(TicketType.UNKNOWN, chunkPos, level, chunkPos);
     }
 
-    /**
-     * The array of keys (encoding positions and status levels) for the recent lookup cache
-     */
-    @Unique
-    private final long[] async$cacheKeys = new long[4];
-
-    /**
-     * The array of values associated with each key in the recent lookup cache.
-     */
-    @Unique
-    private final ChunkAccess[] async$cacheChunks = new ChunkAccess[4];
-
-    /**
-     * Encodes a chunk position and status into a long. Uses 28 bits for each coordinate value, and 8 bits for the
-     * status.
-     */
     @Unique
     private static long async$createCacheKey(int chunkX, int chunkZ, ChunkStatus status) {
-        return ((long) chunkX & 0xfffffffL) | (((long) chunkZ & 0xfffffffL) << 28) | ((long) status.getIndex() << 56);
+        return (long) chunkX & 268435455L | ((long) chunkZ & 268435455L) << 28 | (long) status.getIndex() << 56;
     }
 
-    /**
-     * Prepends the chunk with the given key to the recent lookup cache
-     */
     @Unique
     private void async$addToCache(long key, ChunkAccess chunk) {
         for (int i = 3; i > 0; --i) {
@@ -230,10 +170,10 @@ public abstract class LithiumServerChunkCacheMixin extends ChunkSource {
         this.async$cacheChunks[0] = chunk;
     }
 
-    /**
-     * Reset our own caches whenever vanilla does the same
-     */
-    @Inject(method = "clearCache()V", at = @At("HEAD"))
+    @Inject(
+            method = "clearCache()V",
+            at = @At("HEAD")
+    )
     private void onCachesCleared(CallbackInfo ci) {
         Arrays.fill(this.async$cacheKeys, Long.MAX_VALUE);
         Arrays.fill(this.async$cacheChunks, null);
