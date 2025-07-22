@@ -21,7 +21,7 @@ public class MoveToTargetTaskMixin {
         Brain<?> brain = owner.getBrain();
         Optional<WalkTarget> optional = brain.getMemory(MemoryModuleType.WALK_TARGET);
         if (optional.isEmpty()) {
-            cir.cancel();
+            cir.setReturnValue(false);
         }
     }
 }
