@@ -147,21 +147,9 @@ public abstract class ServerLevelMixin extends Level implements WorldGenLevel {
     }
 
     @WrapMethod(method = "explode")
-    private void createExplosion(@Nullable Entity p_256039_,
-                                 @Nullable DamageSource p_255778_,
-                                 @Nullable ExplosionDamageCalculator p_256002_,
-                                 double p_256067_,
-                                 double p_256370_,
-                                 double p_256153_,
-                                 float p_256045_,
-                                 boolean p_255686_,
-                                 Level.ExplosionInteraction p_255827_,
-                                 ParticleOptions p_312436_,
-                                 ParticleOptions p_312391_,
-                                 Holder<SoundEvent> p_320497_,
-                                 Operation<Void> original) {
+    private void createExplosion(@Nullable Entity source, @Nullable DamageSource damageSource, @Nullable ExplosionDamageCalculator damageCalculator, double x, double y, double z, float radius, boolean fire, Level.ExplosionInteraction explosionInteraction, ParticleOptions smallExplosionParticles, ParticleOptions largeExplosionParticles, Holder<SoundEvent> explosionSound, Operation<Void> original) {
         synchronized (lock) {
-            original.call(p_256039_, p_255778_, p_256002_, p_256067_, p_256370_, p_256153_, p_256045_, p_255686_, p_255827_, p_312436_, p_312391_, p_320497_);
+            original.call(source, damageSource, damageCalculator, x, y, z, radius, fire, explosionInteraction, smallExplosionParticles, largeExplosionParticles, explosionSound);
         }
     }
 }
