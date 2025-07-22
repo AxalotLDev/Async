@@ -27,6 +27,7 @@
     "entity.PandaMixin",
     "entity.PiglinMixin",
     "entity.PlayTagWithOtherKidsMixin",
+    "entity.ProjectileEntityMixin",
     "entity.RaiderMixin",
     "entity.RaidMixin",
     "entity.SensingMixin",
