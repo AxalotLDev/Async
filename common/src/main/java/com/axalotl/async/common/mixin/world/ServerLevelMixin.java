@@ -2,23 +2,31 @@ package com.axalotl.async.common.mixin.world;
 
 import com.axalotl.async.common.ParallelProcessor;
 import com.axalotl.async.common.parallelised.ConcurrentCollections;
+import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import it.unimi.dsi.fastutil.objects.ObjectLinkedOpenHashSet;
 import net.minecraft.core.Holder;
 import net.minecraft.core.RegistryAccess;
+import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerChunkCache;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvent;
 import net.minecraft.util.profiling.Profiler;
 import net.minecraft.util.profiling.ProfilerFiller;
+import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.level.BlockEventData;
+import net.minecraft.world.level.ExplosionDamageCalculator;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.WorldGenLevel;
 import net.minecraft.world.level.dimension.DimensionType;
 import net.minecraft.world.level.entity.EntityTickList;
 import net.minecraft.world.level.storage.WritableLevelData;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Opcodes;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
@@ -31,8 +39,10 @@ import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 
@@ -47,6 +57,11 @@ public abstract class ServerLevelMixin extends Level implements WorldGenLevel {
     @Unique
     ConcurrentLinkedQueue<BlockEventData> async$syncedBlockEventQueue;
 
+    @Mutable
+    @Shadow
+    @Final
+    private List<ServerPlayer> players;
+
     @Shadow
     @Final
     @Mutable
@@ -56,17 +71,21 @@ public abstract class ServerLevelMixin extends Level implements WorldGenLevel {
     @Final
     private ServerChunkCache chunkSource;
 
+    @Shadow
+    public abstract @NotNull ServerLevel getLevel();
+
+    @Unique
+    private static final Object lock = new Object();
+
     protected ServerLevelMixin(WritableLevelData levelData, ResourceKey<Level> dimension, RegistryAccess registryAccess, Holder<DimensionType> dimensionTypeRegistration, boolean isClientSide, boolean isDebug, long biomeZoomSeed, int maxChainedNeighborUpdates) {
         super(levelData, dimension, registryAccess, dimensionTypeRegistration, isClientSide, isDebug, biomeZoomSeed, maxChainedNeighborUpdates);
     }
-
-    @Shadow
-    public abstract @NotNull ServerLevel getLevel();
 
     @Inject(method = "<init>", at = @At("RETURN"))
     private void init(CallbackInfo ci) {
         navigatingMobs = ConcurrentCollections.newHashSet();
         async$syncedBlockEventQueue = new ConcurrentLinkedQueue<>();
+        players = new CopyOnWriteArrayList<>();
     }
 
     @Redirect(method = "tick", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/entity/EntityTickList;forEach(Ljava/util/function/Consumer;)V"))
@@ -125,5 +144,24 @@ public abstract class ServerLevelMixin extends Level implements WorldGenLevel {
 
     @Redirect(method = "sendBlockUpdated", at = @At(value = "FIELD", target = "Lnet/minecraft/server/level/ServerLevel;isUpdatingNavigations:Z", opcode = Opcodes.PUTFIELD))
     private void skipSendBlockUpdatedCheck(ServerLevel instance, boolean value) {
+    }
+
+    @WrapMethod(method = "explode")
+    private void createExplosion(@Nullable Entity p_256039_,
+                                 @Nullable DamageSource p_255778_,
+                                 @Nullable ExplosionDamageCalculator p_256002_,
+                                 double p_256067_,
+                                 double p_256370_,
+                                 double p_256153_,
+                                 float p_256045_,
+                                 boolean p_255686_,
+                                 Level.ExplosionInteraction p_255827_,
+                                 ParticleOptions p_312436_,
+                                 ParticleOptions p_312391_,
+                                 Holder<SoundEvent> p_320497_,
+                                 Operation<Void> original) {
+        synchronized (lock) {
+            original.call(p_256039_, p_255778_, p_256002_, p_256067_, p_256370_, p_256153_, p_256045_, p_255686_, p_255827_, p_312436_, p_312391_, p_320497_);
+        }
     }
 }
