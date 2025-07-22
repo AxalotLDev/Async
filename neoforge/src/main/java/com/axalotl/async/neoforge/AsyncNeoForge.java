@@ -8,6 +8,7 @@ import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.logging.LogUtils;
 import net.minecraft.commands.CommandSourceStack;
 import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.ModList;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.config.ModConfig;
 import net.neoforged.fml.javafmlmod.FMLModContainer;
@@ -23,9 +24,10 @@ import static com.axalotl.async.neoforge.config.AsyncConfig.loadConfig;
 
 @Mod(AsyncNeoForge.MOD_ID)
 public class AsyncNeoForge {
-
     public static final String MOD_ID = "async";
     public static final Logger LOGGER = LogUtils.getLogger();
+    public static boolean LITHIUM = ModList.get().isLoaded("lithium");
+    public static boolean VMP = ModList.get().isLoaded("vmp");
 
     public AsyncNeoForge(FMLModContainer container) {
         LOGGER.info("Initializing Async...");
