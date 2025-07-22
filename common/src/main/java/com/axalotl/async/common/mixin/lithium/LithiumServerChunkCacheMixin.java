@@ -7,6 +7,7 @@ import net.minecraft.server.level.*;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.chunk.ChunkAccess;
 import net.minecraft.world.level.chunk.ChunkSource;
+import net.minecraft.world.level.chunk.ImposterProtoChunk;
 import net.minecraft.world.level.chunk.status.ChunkStatus;
 import org.jetbrains.annotations.NotNull;
 import org.spongepowered.asm.mixin.*;
@@ -89,6 +90,17 @@ public abstract class LithiumServerChunkCacheMixin extends ChunkSource {
 
     @Unique
     private ChunkAccess async$getChunkOffThread(int x, int z, ChunkStatus status, boolean create) {
+        final ChunkHolder holder = this.getVisibleChunkIfPresent(ChunkPos.asLong(x, z));
+        if (holder != null) {
+            final CompletableFuture<ChunkResult<ChunkAccess>> future = holder.scheduleChunkGenerationTask(status, this.chunkMap);
+            if (future.isDone()) {
+                ChunkAccess chunk = future.getNow(ChunkHolder.UNLOADED_CHUNK).orElse(null);
+                if (chunk instanceof ImposterProtoChunk readOnlyChunk) chunk = readOnlyChunk.getWrapped();
+                if (chunk != null) {
+                    return chunk;
+                }
+            }
+        }
         return CompletableFuture.supplyAsync(() -> this.getChunk(x, z, status, create), this.mainThreadProcessor).join();
     }
 
