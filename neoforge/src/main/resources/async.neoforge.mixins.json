@@ -11,5 +11,6 @@
   "server": [],
   "injectors": {
     "defaultRequire": 1
-  }
+  },
+  "plugin": "com.axalotl.async.neoforge.mixin.utils.SynchronisePlugin"
 }
