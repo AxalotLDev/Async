@@ -40,10 +40,14 @@ jobs:
         run: |
           ./gradlew clean processIncludeJars build --stacktrace
 
+      - name: Prepare artifact directory
+        run: |
+          mkdir jars
+          cp neoforge/build/libs/*.jar jars/
+          cp fabric/build/libs/*.jar jars/
+
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: async-artifacts
-          path: |
-            neoforge/build/libs/*.jar
-            fabric/build/libs/*.jar
+          path: jars/*.jar
