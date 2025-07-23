@@ -2,6 +2,7 @@ package com.axalotl.async.common.mixin.entity;
 
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import net.minecraft.core.Holder;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.damagesource.DamageSource;
@@ -17,9 +18,10 @@ import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -60,19 +62,33 @@ public abstract class LivingEntityMixin extends Entity {
         }
     }
 
-    @Redirect(
+    @WrapOperation(
             method = "tickEffects",
             at = @At(
                     value = "INVOKE",
-                    target = "Ljava/util/Map;get(Ljava/lang/Object;)Ljava/lang/Object;"
+                    target = "Lnet/minecraft/world/effect/MobEffectInstance;tickServer(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/world/entity/LivingEntity;Ljava/lang/Runnable;)Z"
             )
     )
-    private Object async$safeGet(Map<?, ?> map, Object key) {
-        Object value = map.get(key);
-        if (value == null) {
-            map.remove(key);
+    private boolean async$wrapTickEffect(MobEffectInstance instance, ServerLevel level, LivingEntity entity, Runnable onEffectUpdated, Operation<Boolean> original) {
+        if (instance != null) {
+            return original.call(instance, level, entity, onEffectUpdated);
+        } else {
+            return false;
         }
-        return value;
+    }
+
+    @WrapOperation(
+            method = "tickEffects",
+            at = @At(
+                    value = "INVOKE",
+                    target = "Ljava/util/List;of(Ljava/lang/Object;)Ljava/util/List;"
+            )
+    )
+    private List<?> async$wrapListOf(Object element, Operation<List<?>> original) {
+        if (element == null) {
+            return Collections.emptyList();
+        }
+        return original.call(element);
     }
 
     @Inject(method = "onClimbable", at = @At("HEAD"), cancellable = true)
