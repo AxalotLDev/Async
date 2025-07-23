@@ -3,28 +3,34 @@ package com.axalotl.async.common;
 import com.axalotl.async.common.config.AsyncConfig;
 import com.google.common.collect.Streams;
 import com.mojang.logging.LogUtils;
+import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import lombok.Getter;
 import lombok.Setter;
 import net.minecraft.CrashReport;
 import net.minecraft.CrashReportCategory;
 import net.minecraft.ReportType;
 import net.minecraft.Util;
+import net.minecraft.core.BlockPos;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.dedicated.DedicatedServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.MobCategory;
 import net.minecraft.world.entity.item.FallingBlockEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.entity.vehicle.AbstractMinecart;
-import net.minecraft.world.level.GameRules;
-import net.minecraft.world.level.NaturalSpawner;
+import net.minecraft.world.level.*;
+import net.minecraft.world.level.biome.Biome;
+import net.minecraft.world.level.biome.MobSpawnSettings;
 import net.minecraft.world.level.chunk.LevelChunk;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.spongepowered.asm.mixin.Unique;
 
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadInfo;
@@ -187,6 +193,56 @@ public class ParallelProcessor {
         } else {
             entity.checkDespawn();
         }
+    }
+
+    public static NaturalSpawner.SpawnState asyncCreateState(int spawnableChunkCount, Iterable<Entity> entities, NaturalSpawner.ChunkGetter chunkGetter, LocalMobCapCalculator calculator) {
+        if (AsyncConfig.enableAsyncSpawn.getValue()) {
+            return CompletableFuture.supplyAsync(() ->
+                    async$createState(spawnableChunkCount, entities, chunkGetter, calculator), tickPool
+            ).exceptionally(e -> {
+                LOGGER.error("Error in async spawn tick, switching to synchronous", e);
+                return async$createState(spawnableChunkCount, entities, chunkGetter, calculator);
+            }).join();
+        } else {
+            return CompletableFuture.completedFuture(
+                    async$createState(spawnableChunkCount, entities, chunkGetter, calculator)
+            ).join();
+        }
+    }
+
+    @Unique
+    private static NaturalSpawner.SpawnState async$createState(
+            int spawnableChunkCount,
+            Iterable<Entity> entities,
+            NaturalSpawner.ChunkGetter chunkGetter,
+            LocalMobCapCalculator calculator
+    ) {
+        PotentialCalculator potentialcalculator = new PotentialCalculator();
+        Object2IntOpenHashMap<MobCategory> mobCountMap = new Object2IntOpenHashMap<>();
+        Map<Long, Biome> biomeCache = new Object2ObjectOpenHashMap<>();
+        for (Entity entity : entities) {
+            if (entity instanceof Mob mob && (mob.isPersistenceRequired() || mob.requiresCustomPersistence())) {
+                continue;
+            }
+            MobCategory mobcategory = entity.getType().getCategory();
+            if (mobcategory == MobCategory.MISC) {
+                continue;
+            }
+            BlockPos pos = entity.blockPosition();
+            long chunkPosLong = ChunkPos.asLong(pos);
+            chunkGetter.query(chunkPosLong, chunk -> {Biome biome = biomeCache.computeIfAbsent(chunkPosLong, key -> NaturalSpawner.getRoughBiome(pos, chunk));
+
+                MobSpawnSettings.MobSpawnCost spawnCost = biome.getMobSettings().getMobSpawnCost(entity.getType());
+                if (spawnCost != null) {
+                    potentialcalculator.addCharge(pos, spawnCost.charge());
+                }
+                if (entity instanceof Mob) {
+                    calculator.addMob(chunk.getPos(), mobcategory);
+                }
+                mobCountMap.addTo(mobcategory, 1);
+            });
+        }
+        return new NaturalSpawner.SpawnState(spawnableChunkCount, mobCountMap, potentialcalculator, calculator);
     }
 
     public static void postEntityTick() {
