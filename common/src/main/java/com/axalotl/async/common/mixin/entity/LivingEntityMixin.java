@@ -2,6 +2,7 @@ package com.axalotl.async.common.mixin.entity;
 
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import net.minecraft.core.Holder;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.effect.MobEffect;
@@ -16,7 +17,6 @@ import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import java.util.Map;
@@ -59,19 +59,13 @@ public abstract class LivingEntityMixin extends Entity {
         }
     }
 
-    @Redirect(
-            method = "tickEffects",
-            at = @At(
-                    value = "INVOKE",
-                    target = "Ljava/util/Map;get(Ljava/lang/Object;)Ljava/lang/Object;"
-            )
-    )
-    private Object async$safeGet(Map<?, ?> map, Object key) {
-        Object value = map.get(key);
-        if (value == null) {
-            map.remove(key);
+    @WrapOperation(method = "tickEffects", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/effect/MobEffectInstance;tick(Lnet/minecraft/world/entity/LivingEntity;Ljava/lang/Runnable;)Z"))
+    private boolean async$wrapTickEffect(MobEffectInstance instance, LivingEntity entity, Runnable runnable, Operation<Boolean> original) {
+        if (instance != null) {
+            return original.call(instance, entity, runnable);
+        } else {
+            return false;
         }
-        return value;
     }
 
     @Inject(method = "onClimbable", at = @At("HEAD"), cancellable = true)
