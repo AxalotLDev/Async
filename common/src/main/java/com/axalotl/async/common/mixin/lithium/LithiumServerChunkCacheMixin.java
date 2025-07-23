@@ -61,6 +61,10 @@ public abstract class LithiumServerChunkCacheMixin extends ChunkSource {
         ++this.async$time;
     }
 
+    /**
+     * @author CaffeineMC
+     * @reason Lithium compatible
+     */
     @Overwrite
     public ChunkAccess getChunk(int x, int z, @NotNull ChunkStatus status, boolean create) {
         if (Thread.currentThread() != this.mainThread) {
