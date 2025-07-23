@@ -16,7 +16,7 @@ public class AsyncConfig {
 
     public static Map.Entry<String, Boolean> disabled = new AbstractMap.SimpleEntry<>("disabled", false);
     public static Map.Entry<String, Integer> paraMax = new AbstractMap.SimpleEntry<>("paraMax", -1);
-    public static Map.Entry<String, Boolean> enableAsyncSpawn = new AbstractMap.SimpleEntry<>("enableAsyncSpawn", false);
+    public static Map.Entry<String, Boolean> enableAsyncSpawn = new AbstractMap.SimpleEntry<>("enableAsyncSpawn", true);
     public static Map.Entry<String, Set<ResourceLocation>> synchronizedEntities = new AbstractMap.SimpleEntry<>("synchronizedEntities", getDefaultSynchronizedEntities());
 
     public static Set<ResourceLocation> getDefaultSynchronizedEntities() {
