@@ -22,3 +22,10 @@ type="required"
 versionRange = "${minecraft_version_range}"
 ordering = "NONE"
 side = "BOTH"
+
+[[dependencies.${mod_id}]]
+modId = "lithium"
+type = "required"
+versionRange = "*"
+ordering = "NONE"
+side = "BOTH"
