@@ -26,7 +26,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
-@Mixin(ServerLevel.class)
+@Mixin(value = ServerLevel.class, priority = 1500)
 public abstract class LithiumServerLevel extends Level implements WorldGenLevel, ServerWorldExtended {
     @Unique
     private final Set<PathNavigation> async$activeNavigationsOver = Collections.newSetFromMap(new ConcurrentHashMap<>());

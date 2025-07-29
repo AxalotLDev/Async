@@ -1,5 +1,6 @@
 package com.axalotl.async.common.mixin.utils;
 
+import com.axalotl.async.common.AsyncCommon;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Multimap;
 import org.apache.logging.log4j.LogManager;
@@ -34,7 +35,7 @@ public class SynchronisePlugin implements IMixinConfigPlugin {
 
     @Override
     public boolean shouldApplyMixin(String targetClassName, String mixinClassName) {
-        return !mixinClassName.endsWith("com.axalotl.async.common.mixin.vmp.VMPChunkMapMixin");
+        return !("neoforge".equals(AsyncCommon.platform) && mixinClassName.endsWith("com.axalotl.async.common.mixin.vmp.VMPChunkMapMixin"));
     }
 
     @Override
