@@ -43,17 +43,17 @@ public class AsyncConfig {
     }
 
     public static void saveConfig() {
-        CONFIG.set(disabled.getKey(), disabled.getValue());
-        CONFIG.setComment(disabled.getKey(), "Globally disable all toggleable functionality within the async system. Set to true to stop all asynchronous operations.");
+        CONFIG.set("disabled", disabled);
+        CONFIG.setComment("disabled", "Globally disable all toggleable functionality within the async system. Set to true to stop all asynchronous operations.");
 
-        CONFIG.set(paraMax.getKey(), paraMax.getValue());
-        CONFIG.setComment(paraMax.getKey(), "Maximum number of threads to use for parallel processing. Set to -1 to use default value. Note: If 'virtualThreads' is enabled, this setting will be ignored.");
+        CONFIG.set("paraMax", paraMax);
+        CONFIG.setComment("paraMax", "Maximum number of threads to use for parallel processing. Set to -1 to use default value. Note: If 'virtualThreads' is enabled, this setting will be ignored.");
 
-        CONFIG.set(synchronizedEntities.getKey(), synchronizedEntities.getValue().stream().map(ResourceLocation::toString).toList());
-        CONFIG.setComment(synchronizedEntities.getKey(), "List of entity class for sync processing.");
+        CONFIG.set("synchronizedEntities", synchronizedEntities.stream().map(ResourceLocation::toString).toList());
+        CONFIG.setComment("synchronizedEntities", "List of entity class for sync processing.");
 
-        CONFIG.set(enableAsyncSpawn.getKey(), enableAsyncSpawn.getValue());
-        CONFIG.setComment(enableAsyncSpawn.getKey(), "Enables parallel processing of entity spawns. Warning, incompatible with Carpet mod lagFreeSpawning rule.");
+        CONFIG.set("enableAsyncSpawn", enableAsyncSpawn);
+        CONFIG.setComment("enableAsyncSpawn", "Enables parallel processing of entity spawns. Warning, incompatible with Carpet mod lagFreeSpawning rule.");
 
         CONFIG.save();
         LOGGER.info("Configuration saved successfully.");
@@ -61,25 +61,29 @@ public class AsyncConfig {
 
     private static void loadConfigValues() {
         Set<String> processedKeys = new HashSet<>(List.of(
-                disabled.getKey(),
-                paraMax.getKey(),
-                synchronizedEntities.getKey(),
-                enableAsyncSpawn.getKey()
+                "disabled",
+                "paraMax",
+                "synchronizedEntities",
+                "enableAsyncSpawn"
         ));
 
-        disabled.setValue(CONFIG.getOrElse(disabled.getKey(), disabled.getValue()));
-        paraMax.setValue(CONFIG.getOrElse(paraMax.getKey(), paraMax.getValue()));
-        enableAsyncSpawn.setValue(CONFIG.getOrElse(enableAsyncSpawn.getKey(), enableAsyncSpawn.getValue()));
+        disabled = CONFIG.getOrElse("disabled", disabled);
+        paraMax = CONFIG.getOrElse("paraMax", paraMax);
+        enableAsyncSpawn = CONFIG.getOrElse("enableAsyncSpawn", enableAsyncSpawn);
 
-        synchronizedEntities.setValue(new HashSet<>());
-        CONFIG.<List<String>>getOptional(synchronizedEntities.getKey()).ifPresentOrElse(ids -> {
-            for (String id : ids) {
-                ResourceLocation identifier = ResourceLocation.tryParse(id);
-                if (identifier != null) {
-                    synchronizedEntities.getValue().add(identifier);
-                }
+        List<String> ids = synchronizedEntities.stream().map(ResourceLocation::toString).toList();
+        HashSet<ResourceLocation> set = new HashSet<>();
+
+        for (String id : ids) {
+            ResourceLocation rl = ResourceLocation.tryParse(id);
+            if (rl != null) {
+                set.add(rl);
             }
-        }, () -> synchronizedEntities.setValue(getDefaultSynchronizedEntities()));
+        }
+
+        com.axalotl.async.common.config.AsyncConfig.synchronizedEntities = set.isEmpty()
+                ? getDefaultSynchronizedEntities()
+                : set;
 
         Set<String> keysToRemove = new HashSet<>();
         for (CommentedConfig.Entry entry : CONFIG.entrySet()) {
@@ -98,9 +102,9 @@ public class AsyncConfig {
     }
 
     private static void setDefaultValues() {
-        disabled.setValue(false);
-        paraMax.setValue(-1);
-        enableAsyncSpawn.setValue(false);
-        synchronizedEntities.setValue(getDefaultSynchronizedEntities());
+        disabled = false;
+        paraMax = -1;
+        enableAsyncSpawn = false;
+        synchronizedEntities = getDefaultSynchronizedEntities();
     }
 }

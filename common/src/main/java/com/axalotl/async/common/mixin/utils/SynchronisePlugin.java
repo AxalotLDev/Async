@@ -35,7 +35,7 @@ public class SynchronisePlugin implements IMixinConfigPlugin {
 
     @Override
     public boolean shouldApplyMixin(String targetClassName, String mixinClassName) {
-        return true;
+        return !("neoforge".equals(AsyncCommon.platform) && mixinClassName.endsWith("com.axalotl.async.common.mixin.vmp.VMPChunkMapMixin"));
     }
 
     @Override
