@@ -1,10 +1,33 @@
 plugins {
     id 'multiloader-loader'
     id 'fabric-loom'
+    id "com.modrinth.minotaur" version "2.+"
 }
+
 repositories {
     maven { url 'https://api.modrinth.com/maven' }
 }
+
+apply plugin: 'com.modrinth.minotaur'
+modrinth {
+    token = System.getenv("MODRINTH_TOKEN")
+    projectId = "async"
+    versionNumber = project.version
+    versionName = project.version
+    versionType = "alpha"
+    uploadFile = fileTree(dir: "${project.buildDir}/libs", include: "*.jar").files.find()
+    gameVersions = ["1.21.2", "1.21.3"]
+    loaders = ["fabric", "quilt"]
+    dependencies {
+        required.project "fabric-api"
+        optional.project "lithium"
+        optional.project "c2me-fabric"
+        incompatible.project "moonrise-opt"
+    }
+    changelog = """
+"""
+}
+
 dependencies {
     minecraft "com.mojang:minecraft:${minecraft_version}"
     mappings loom.layered {
