@@ -1,10 +1,32 @@
 plugins {
     id 'multiloader-loader'
     id 'net.neoforged.moddev'
+    id "com.modrinth.minotaur" version "2.+"
 }
+
 repositories {
     maven { url 'https://api.modrinth.com/maven' }
 }
+
+apply plugin: 'com.modrinth.minotaur'
+modrinth {
+    token = System.getenv("MODRINTH_TOKEN")
+    projectId = "async"
+    versionNumber = project.version
+    versionName = project.version
+    versionType = "alpha"
+    uploadFile = fileTree(dir: "${project.buildDir}/libs", include: "*.jar").files.find()
+    gameVersions = ["1.21.4"]
+    loaders = ["neoforge"]
+    dependencies {
+        optional.project "lithium"
+        optional.project "c2me-neoforge"
+        incompatible.project "moonrise-opt"
+    }
+    changelog = """
+"""
+}
+
 neoForge {
     version = neoforge_version
     // Automatically enable neoforge AccessTransformers if the file exists
