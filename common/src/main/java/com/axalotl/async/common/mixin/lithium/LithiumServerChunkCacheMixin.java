@@ -20,7 +20,7 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BooleanSupplier;
 
-@Mixin(ServerChunkCache.class)
+@Mixin(value = ServerChunkCache.class, priority = 1500)
 public abstract class LithiumServerChunkCacheMixin extends ChunkSource {
     @Shadow
     @Final
