@@ -29,16 +29,3 @@ processResources {
     dependsOn(configurations.commonResources)
     from(configurations.commonResources)
 }
-
-tasks.named('javadoc', Javadoc).configure {
-    dependsOn(configurations.commonJava)
-    source(configurations.commonJava)
-    options.addStringOption('Xdoclint:none', '-quiet')
-}
-
-tasks.named('sourcesJar', Jar) {
-    dependsOn(configurations.commonJava)
-    from(configurations.commonJava)
-    dependsOn(configurations.commonResources)
-    from(configurations.commonResources)
-}

@@ -9,8 +9,6 @@ base {
 
 java {
     toolchain.languageVersion = JavaLanguageVersion.of(java_version)
-    withSourcesJar()
-    withJavadocJar()
 }
 
 repositories {
@@ -42,11 +40,6 @@ repositories {
     maven {
         name = 'BlameJared'
         url = 'https://maven.blamejared.com'
-    }
-}
-sourcesJar {
-    from(rootProject.file('LICENSE')) {
-        rename { "${it}_${mod_name}" }
     }
 }
 
