@@ -28,8 +28,8 @@ public class AsyncNeoForge {
 
     public AsyncNeoForge(FMLModContainer container) {
         LOGGER.info("Initializing Async...");
-        NeoForge.EVENT_BUS.register(this);
         NeoForgePlatformEvents.init();
+        NeoForge.EVENT_BUS.register(this);
         LOGGER.info("Initializing Async Config...");
         container.registerConfig(ModConfig.Type.COMMON, SPEC, "async.toml");
         LOGGER.info("Async Initialized Successfully!");
