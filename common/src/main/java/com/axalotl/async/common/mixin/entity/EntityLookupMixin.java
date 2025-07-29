@@ -5,8 +5,13 @@ import com.axalotl.async.common.parallelised.fastutil.Int2ObjectConcurrentHashMa
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import net.minecraft.world.level.entity.EntityAccess;
 import net.minecraft.world.level.entity.EntityLookup;
+import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Mutable;
 import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.util.Map;
 import java.util.UUID;
@@ -15,8 +20,18 @@ import java.util.UUID;
 public abstract class EntityLookupMixin<T extends EntityAccess> {
 
     @Shadow
-    private final Int2ObjectMap<T> byId = new Int2ObjectConcurrentHashMap<>();
+    @Final
+    @Mutable
+    private Map<UUID, T> byUuid;
 
     @Shadow
-    private final Map<UUID, T> byUuid = ConcurrentCollections.newHashMap();
+    @Final
+    @Mutable
+    private Int2ObjectMap<T> byId;
+
+    @Inject(method = "<init>", at = @At("TAIL"))
+    private void replaceConVars(CallbackInfo ci) {
+        byId = new Int2ObjectConcurrentHashMap<>();
+        byUuid = ConcurrentCollections.newHashMap();
+    }
 }
