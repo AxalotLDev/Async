@@ -19,7 +19,7 @@
             "com.axalotl.async.fabric.AsyncFabric"
         ],
         "mixinsquared": [
-            "com.axalotl.async.common.mixin.c2me.AsyncModMixinCanceller"
+            "com.axalotl.async.common.mixin.utils.AsyncModMixinCanceller"
         ]
     },
     "mixins": [
