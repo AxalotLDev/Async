@@ -119,13 +119,13 @@ public class ParallelProcessor {
 
     public static boolean shouldTickSynchronously(Entity entity) {
         UUID entityId = entity.getUUID();
-        boolean requiresSyncTick = AsyncConfig.disabled.getValue() ||
+        boolean requiresSyncTick = AsyncConfig.disabled ||
                 entity instanceof Projectile ||
                 entity instanceof AbstractMinecart ||
                 entity instanceof ServerPlayer ||
                 specialEntities.contains(entity.getClass()) ||
                 blacklistedEntity.contains(entityId) ||
-                AsyncConfig.synchronizedEntities.getValue().contains(EntityType.getKey(entity.getType()));
+                AsyncConfig.synchronizedEntities.contains(EntityType.getKey(entity.getType()));
         if (requiresSyncTick) {
             return true;
         }
@@ -167,7 +167,7 @@ public class ParallelProcessor {
     }
 
     public static void asyncSpawn(ServerLevel level, LevelChunk chunk, NaturalSpawner.SpawnState spawnState, List<MobCategory> categories) {
-        if (AsyncConfig.enableAsyncSpawn.getValue()) {
+        if (AsyncConfig.enableAsyncSpawn) {
             CompletableFuture<Void> future = CompletableFuture.runAsync(() ->
                     NaturalSpawner.spawnForChunk(level, chunk, spawnState, categories), tickPool
             ).exceptionally(e -> {
@@ -182,7 +182,7 @@ public class ParallelProcessor {
     }
 
     public static void asyncDespawn(Entity entity) {
-        if (AsyncConfig.enableAsyncSpawn.getValue()) {
+        if (AsyncConfig.enableAsyncSpawn) {
             CompletableFuture<Void> future = CompletableFuture.runAsync(entity::checkDespawn, tickPool
             ).exceptionally(e -> {
                 LOGGER.error("Error in async spawn tick, switching to synchronous", e);
@@ -196,7 +196,7 @@ public class ParallelProcessor {
     }
 
     public static NaturalSpawner.SpawnState asyncCreateState(int spawnableChunkCount, Iterable<Entity> entities, NaturalSpawner.ChunkGetter chunkGetter, LocalMobCapCalculator calculator) {
-        if (AsyncConfig.enableAsyncSpawn.getValue()) {
+        if (AsyncConfig.enableAsyncSpawn) {
             return CompletableFuture.supplyAsync(() ->
                     async$createState(spawnableChunkCount, entities, chunkGetter, calculator), tickPool
             ).exceptionally(e -> {
@@ -246,7 +246,7 @@ public class ParallelProcessor {
     }
 
     public static void postEntityTick() {
-        if (!AsyncConfig.disabled.getValue()) {
+        if (!AsyncConfig.disabled) {
             List<CompletableFuture<?>> futuresList = new ArrayList<>();
             CompletableFuture<?> future;
             while ((future = taskQueue.poll()) != null) {

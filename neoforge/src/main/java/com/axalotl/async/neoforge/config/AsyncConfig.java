@@ -20,16 +20,16 @@ public class AsyncConfig {
         BUILDER.push("Async Config");
 
         disabled = BUILDER.comment("Globally disable all toggleable functionality within the async system. Set to true to stop all asynchronous operations.")
-                .define(com.axalotl.async.common.config.AsyncConfig.disabled.getKey(), com.axalotl.async.common.config.AsyncConfig.disabled.getValue());
+                .define("disabled", com.axalotl.async.common.config.AsyncConfig.disabled);
 
         paraMax = BUILDER.comment("Maximum number of threads to use for parallel processing. Set to -1 to use default value.")
-                .define(com.axalotl.async.common.config.AsyncConfig.paraMax.getKey(), com.axalotl.async.common.config.AsyncConfig.paraMax.getValue());
+                .define("paraMax", com.axalotl.async.common.config.AsyncConfig.paraMax);
 
         synchronizedEntities = BUILDER.comment("List of entity class for sync processing.")
-                .define(com.axalotl.async.common.config.AsyncConfig.synchronizedEntities.getKey(), com.axalotl.async.common.config.AsyncConfig.synchronizedEntities.getValue().stream().map(ResourceLocation::toString).toList());
+                .define("synchronizedEntities", new java.util.ArrayList<>(com.axalotl.async.common.config.AsyncConfig.synchronizedEntities.stream().map(ResourceLocation::toString).toList()));
 
         enableAsyncSpawn = BUILDER.comment("Enables parallel processing of entity spawns.")
-                .define(com.axalotl.async.common.config.AsyncConfig.enableAsyncSpawn.getKey(), com.axalotl.async.common.config.AsyncConfig.enableAsyncSpawn.getValue());
+                .define("enableAsyncSpawn", com.axalotl.async.common.config.AsyncConfig.enableAsyncSpawn);
 
         BUILDER.pop();
         SPEC = BUILDER.build();
@@ -37,25 +37,31 @@ public class AsyncConfig {
     }
 
     public static void loadConfig() {
-        com.axalotl.async.common.config.AsyncConfig.disabled.setValue(disabled.get());
-        com.axalotl.async.common.config.AsyncConfig.paraMax.setValue(paraMax.get());
-        com.axalotl.async.common.config.AsyncConfig.enableAsyncSpawn.setValue(enableAsyncSpawn.get());
-        com.axalotl.async.common.config.AsyncConfig.synchronizedEntities.setValue(new HashSet<>());
-        SPEC.getSpec().<List<String>>getOptional(com.axalotl.async.common.config.AsyncConfig.synchronizedEntities.getKey()).ifPresentOrElse(ids -> {
-            for (String id : ids) {
-                ResourceLocation resourceLocation = ResourceLocation.tryParse(id);
-                if (resourceLocation != null) {
-                    com.axalotl.async.common.config.AsyncConfig.synchronizedEntities.getValue().add(resourceLocation);
-                }
+        com.axalotl.async.common.config.AsyncConfig.disabled = disabled.get();
+        com.axalotl.async.common.config.AsyncConfig.paraMax = paraMax.get();
+        com.axalotl.async.common.config.AsyncConfig.enableAsyncSpawn = enableAsyncSpawn.get();
+        com.axalotl.async.common.config.AsyncConfig.synchronizedEntities = new HashSet<>();
+        List<String> ids = synchronizedEntities.get();
+        HashSet<ResourceLocation> set = new HashSet<>();
+
+        for (String id : ids) {
+            ResourceLocation rl = ResourceLocation.tryParse(id);
+            if (rl != null) {
+                set.add(rl);
             }
-        }, () -> com.axalotl.async.common.config.AsyncConfig.synchronizedEntities.setValue(getDefaultSynchronizedEntities()));
+        }
+
+        com.axalotl.async.common.config.AsyncConfig.synchronizedEntities = set.isEmpty()
+                ? getDefaultSynchronizedEntities()
+                : set;
     }
 
     public static void saveConfig() {
-        disabled.set(com.axalotl.async.common.config.AsyncConfig.disabled.getValue());
-        paraMax.set(com.axalotl.async.common.config.AsyncConfig.paraMax.getValue());
-        enableAsyncSpawn.set(com.axalotl.async.common.config.AsyncConfig.enableAsyncSpawn.getValue());
-        synchronizedEntities.set(com.axalotl.async.common.config.AsyncConfig.synchronizedEntities.getValue().stream().map(ResourceLocation::toString).toList());
+        disabled.set(com.axalotl.async.common.config.AsyncConfig.disabled);
+        paraMax.set(com.axalotl.async.common.config.AsyncConfig.paraMax);
+        enableAsyncSpawn.set(com.axalotl.async.common.config.AsyncConfig.enableAsyncSpawn);
+        synchronizedEntities.set(new java.util.ArrayList<>(com.axalotl.async.common.config.AsyncConfig.synchronizedEntities.stream().map(ResourceLocation::toString).toList()));
+        SPEC.save();
         LOGGER.info("Configuration successfully saved.");
     }
 }

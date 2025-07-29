@@ -1,4 +1,4 @@
-package com.axalotl.async.common.mixin.entity;
+package com.axalotl.async.common.mixin.entity.breed;
 
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.ai.behavior.AnimalMakeLove;

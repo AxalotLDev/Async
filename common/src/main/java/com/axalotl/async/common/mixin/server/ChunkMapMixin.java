@@ -47,6 +47,16 @@ public abstract class ChunkMapMixin extends ChunkStorage implements ChunkHolder.
         pendingGenerationTasks = new CopyOnWriteArrayList<>();
     }
 
+    @WrapMethod(method = "addEntity")
+    private synchronized void loadEntity(Entity entity, Operation<Void> original) {
+        original.call(entity);
+    }
+
+    @WrapMethod(method = "removeEntity")
+    private synchronized void unloadEntity(Entity entity, Operation<Void> original) {
+        original.call(entity);
+    }
+
     @WrapMethod(method = "releaseGeneration")
     private synchronized void releaseGeneration(GenerationChunkHolder chunk, Operation<Void> original) {
         original.call(chunk);
