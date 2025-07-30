@@ -1,1 +1,2 @@
 - Fix VMP crash with Connector mod
+- Fix Shulkers && Boats collusion conflict with lithium
