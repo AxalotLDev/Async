@@ -21,9 +21,10 @@ import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.MobCategory;
 import net.minecraft.world.entity.item.FallingBlockEntity;
-import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.monster.Shulker;
 import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.entity.vehicle.AbstractMinecart;
+import net.minecraft.world.entity.vehicle.Boat;
 import net.minecraft.world.level.*;
 import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.biome.MobSpawnSettings;
@@ -64,8 +65,8 @@ public class ParallelProcessor {
     private static final Map<String, Set<Thread>> mcThreadTracker = new ConcurrentHashMap<>();
     public static final Set<Class<?>> specialEntities = Set.of(
             FallingBlockEntity.class,
-            Player.class,
-            ServerPlayer.class
+            Shulker.class,
+            Boat.class
     );
 
     public static void setupThreadPool(int parallelism, Class<?> asyncClass) {
