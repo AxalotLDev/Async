@@ -16,14 +16,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collector;
 
 @Mixin(value = ClassInstanceMultiMap.class)
 public abstract class ClassInstanceMultiMapMixin<T> extends AbstractCollection<T> {
 
     @Unique
-    private static final ReentrantLock async$lock = new ReentrantLock();
+    private static final Object async$lock = new Object();
 
     @Shadow
     private final Map<Class<?>, List<T>> byClass = new ConcurrentHashMap<>();
