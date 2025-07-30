@@ -42,4 +42,11 @@ public abstract class EntityMixin {
             original.call(passenger);
         }
     }
+
+    @WrapMethod(method = "ejectPassengers")
+    private void ejectPassengers(Operation<Void> original) {
+        synchronized (async$lock) {
+            original.call();
+        }
+    }
 }
