@@ -1,0 +1,1 @@
+- Fix VMP crash with Connector mod
