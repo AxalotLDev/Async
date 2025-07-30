@@ -1,6 +1,5 @@
 package com.axalotl.async.fabric;
 
-import com.axalotl.async.common.AsyncCommon;
 import com.axalotl.async.common.ParallelProcessor;
 import com.axalotl.async.common.commands.AsyncCommand;
 import com.axalotl.async.common.commands.StatsCommand;
@@ -21,7 +20,6 @@ public class AsyncFabric implements ModInitializer {
     @Override
     public void onInitialize() {
         LOGGER.info("Initializing Async...");
-        AsyncCommon.platform = "fabric";
         com.axalotl.async.fabric.config.AsyncConfig.init();
         FabricPlatformEvents.init();
 
