@@ -104,7 +104,7 @@ public class AsyncConfig {
     private static void setDefaultValues() {
         disabled = false;
         paraMax = -1;
-        enableAsyncSpawn = false;
+        enableAsyncSpawn = true;
         synchronizedEntities = getDefaultSynchronizedEntities();
     }
 }

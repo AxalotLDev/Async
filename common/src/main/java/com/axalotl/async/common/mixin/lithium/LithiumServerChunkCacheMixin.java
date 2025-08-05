@@ -15,10 +15,13 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+import org.jetbrains.annotations.Nullable;
+
 import java.util.Arrays;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BooleanSupplier;
+import java.util.function.Function;
 
 @Mixin(ServerChunkCache.class)
 public abstract class LithiumServerChunkCacheMixin extends ChunkSource {
@@ -37,6 +40,8 @@ public abstract class LithiumServerChunkCacheMixin extends ChunkSource {
     private final long[] async$cacheKeys = new long[4];
     @Unique
     private final ChunkAccess[] async$cacheChunks = new ChunkAccess[4];
+    @Unique
+    private final Object async$cacheLock = new Object();
 
     @Shadow
     public abstract ChunkHolder getVisibleChunkIfPresent(long var1);
@@ -53,6 +58,16 @@ public abstract class LithiumServerChunkCacheMixin extends ChunkSource {
     @Shadow
     public abstract void addTicket(Ticket var1, ChunkPos var2);
 
+    @Shadow
+    public abstract void addTicketWithRadius(TicketType ticket, ChunkPos chunkPos, int radius);
+
+    @Shadow
+    public abstract void removeTicketWithRadius(TicketType ticket, ChunkPos chunkPos, int radius);
+
+    @Shadow
+    @Final
+    public ServerLevel level;
+
     @Inject(
             method = {"tick"},
             at = {@At("HEAD")}
@@ -65,6 +80,7 @@ public abstract class LithiumServerChunkCacheMixin extends ChunkSource {
      * @author CaffeineMC
      * @reason Lithium compatible
      */
+    @Nullable
     @Overwrite
     public ChunkAccess getChunk(int x, int z, @NotNull ChunkStatus status, boolean create) {
         if (Thread.currentThread() != this.mainThread) {
@@ -94,18 +110,45 @@ public abstract class LithiumServerChunkCacheMixin extends ChunkSource {
 
     @Unique
     private ChunkAccess async$getChunkOffThread(int x, int z, ChunkStatus status, boolean create) {
-        final ChunkHolder holder = this.getVisibleChunkIfPresent(ChunkPos.asLong(x, z));
-        if (holder != null) {
-            final CompletableFuture<ChunkResult<ChunkAccess>> future = holder.scheduleChunkGenerationTask(status, this.chunkMap);
-            if (future.isDone()) {
-                ChunkAccess chunk = future.getNow(ChunkHolder.UNLOADED_CHUNK).orElse(null);
-                if (chunk instanceof ImposterProtoChunk readOnlyChunk) chunk = readOnlyChunk.getWrapped();
-                if (chunk != null) {
-                    return chunk;
+        if (create) {
+            final long pos = ChunkPos.asLong(x, z);
+            final ChunkHolder holder = this.getVisibleChunkIfPresent(pos);
+
+            if (holder != null) {
+                final CompletableFuture<ChunkResult<ChunkAccess>> future = holder.scheduleChunkGenerationTask(status, this.chunkMap);
+                ChunkResult<ChunkAccess> result = future.getNow(null);
+                if (result != null) {
+                    ChunkAccess chunk = result.orElse(null);
+                    if (chunk instanceof ImposterProtoChunk readOnlyChunk) {
+                        chunk = readOnlyChunk.getWrapped();
+                    }
+                    if (chunk != null) return chunk;
                 }
             }
+
+            return CompletableFuture.supplyAsync(() -> {
+                ChunkPos chunkPos = new ChunkPos(x, z);
+                this.addTicketWithRadius(TicketType.UNKNOWN, chunkPos, 0);
+                this.runDistanceManagerUpdates();
+
+                ChunkHolder freshHolder = this.getVisibleChunkIfPresent(chunkPos.toLong());
+                if (freshHolder == null) {
+                    this.removeTicketWithRadius(TicketType.UNKNOWN, chunkPos, 0);
+                    return CompletableFuture.completedFuture((ChunkAccess) null);
+                }
+
+                return freshHolder.scheduleChunkGenerationTask(status, this.chunkMap)
+                        .whenCompleteAsync((ignored, throwable) -> this.removeTicketWithRadius(TicketType.UNKNOWN, chunkPos, 0), this.mainThreadProcessor)
+                        .thenApply(result -> {
+                            ChunkAccess chunk = result.orElse(null);
+                            if (chunk instanceof ImposterProtoChunk readOnlyChunk) {
+                                return readOnlyChunk.getWrapped();
+                            }
+                            return chunk;
+                        });
+            }, this.mainThreadProcessor).thenCompose(Function.identity()).join();
         }
-        return CompletableFuture.supplyAsync(() -> this.getChunk(x, z, status, create), this.mainThreadProcessor).join();
+        return null;
     }
 
     @Unique
@@ -161,13 +204,15 @@ public abstract class LithiumServerChunkCacheMixin extends ChunkSource {
 
     @Unique
     private void async$addToCache(long key, ChunkAccess chunk) {
-        for (int i = 3; i > 0; --i) {
-            this.async$cacheKeys[i] = this.async$cacheKeys[i - 1];
-            this.async$cacheChunks[i] = this.async$cacheChunks[i - 1];
-        }
+        synchronized (async$cacheLock) {
+            for (int i = 3; i > 0; --i) {
+                this.async$cacheKeys[i] = this.async$cacheKeys[i - 1];
+                this.async$cacheChunks[i] = this.async$cacheChunks[i - 1];
+            }
 
-        this.async$cacheKeys[0] = key;
-        this.async$cacheChunks[0] = chunk;
+            this.async$cacheKeys[0] = key;
+            this.async$cacheChunks[0] = chunk;
+        }
     }
 
     @Inject(
