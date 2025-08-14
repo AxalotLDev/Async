@@ -1,30 +1,21 @@
 package com.axalotl.async.common;
 
 import com.axalotl.async.common.config.AsyncConfig;
-import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
-import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import lombok.Getter;
 import lombok.Setter;
-import net.minecraft.core.BlockPos;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.Mob;
-import net.minecraft.world.entity.MobCategory;
 import net.minecraft.world.entity.item.FallingBlockEntity;
 import net.minecraft.world.entity.monster.Shulker;
 import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.entity.vehicle.AbstractMinecart;
 import net.minecraft.world.entity.vehicle.Boat;
 import net.minecraft.world.level.*;
-import net.minecraft.world.level.biome.Biome;
-import net.minecraft.world.level.biome.MobSpawnSettings;
-import net.minecraft.world.level.chunk.LevelChunk;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.spongepowered.asm.mixin.Unique;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -37,7 +28,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.LockSupport;
 
 public class ParallelProcessor {
-    private static final Logger LOGGER = LogManager.getLogger(ParallelProcessor.class);
+    public static final Logger LOGGER = LogManager.getLogger(ParallelProcessor.class);
 
     @Getter
     @Setter
@@ -45,7 +36,7 @@ public class ParallelProcessor {
 
     public static final AtomicInteger currentEntities = new AtomicInteger();
     private static final AtomicInteger threadPoolID = new AtomicInteger();
-    private static ExecutorService tickPool;
+    public static ExecutorService tickPool;
     private static final Queue<CompletableFuture<?>> taskQueue = new ConcurrentLinkedQueue<>();
     private static final Set<UUID> blacklistedEntity = ConcurrentHashMap.newKeySet();
     private static final Map<UUID, Integer> portalTickSyncMap = new ConcurrentHashMap<>();
@@ -154,21 +145,6 @@ public class ParallelProcessor {
         }
     }
 
-    public static void asyncSpawn(ServerLevel level, LevelChunk chunk, NaturalSpawner.SpawnState spawnState, List<MobCategory> categories) {
-        if (AsyncConfig.enableAsyncSpawn) {
-            CompletableFuture<Void> future = CompletableFuture.runAsync(() ->
-                    NaturalSpawner.spawnForChunk(level, chunk, spawnState, categories), tickPool
-            ).exceptionally(e -> {
-                LOGGER.error("Error in async spawn tick, switching to synchronous", e);
-                NaturalSpawner.spawnForChunk(level, chunk, spawnState, categories);
-                return null;
-            });
-            taskQueue.add(future);
-        } else {
-            NaturalSpawner.spawnForChunk(level, chunk, spawnState, categories);
-        }
-    }
-
     public static void asyncDespawn(Entity entity) {
         if (AsyncConfig.enableAsyncSpawn) {
             CompletableFuture<Void> future = CompletableFuture.runAsync(entity::checkDespawn, tickPool
@@ -181,57 +157,6 @@ public class ParallelProcessor {
         } else {
             entity.checkDespawn();
         }
-    }
-
-    public static NaturalSpawner.SpawnState asyncCreateState(int spawnableChunkCount, Iterable<Entity> entities, NaturalSpawner.ChunkGetter chunkGetter, LocalMobCapCalculator calculator) {
-        if (AsyncConfig.enableAsyncSpawn) {
-            return CompletableFuture.supplyAsync(() ->
-                    async$createState(spawnableChunkCount, entities, chunkGetter, calculator), tickPool
-            ).exceptionally(e -> {
-                LOGGER.error("Error in async spawn tick, switching to synchronous", e);
-                return async$createState(spawnableChunkCount, entities, chunkGetter, calculator);
-            }).join();
-        } else {
-            return CompletableFuture.completedFuture(
-                    async$createState(spawnableChunkCount, entities, chunkGetter, calculator)
-            ).join();
-        }
-    }
-
-    @Unique
-    private static NaturalSpawner.SpawnState async$createState(
-            int spawnableChunkCount,
-            Iterable<Entity> entities,
-            NaturalSpawner.ChunkGetter chunkGetter,
-            LocalMobCapCalculator calculator
-    ) {
-        PotentialCalculator potentialcalculator = new PotentialCalculator();
-        Object2IntOpenHashMap<MobCategory> mobCountMap = new Object2IntOpenHashMap<>();
-        Map<Long, Biome> biomeCache = new Object2ObjectOpenHashMap<>();
-        for (Entity entity : entities) {
-            if (entity instanceof Mob mob && (mob.isPersistenceRequired() || mob.requiresCustomPersistence())) {
-                continue;
-            }
-            MobCategory mobcategory = entity.getType().getCategory();
-            if (mobcategory == MobCategory.MISC) {
-                continue;
-            }
-            BlockPos pos = entity.blockPosition();
-            long chunkPosLong = ChunkPos.asLong(pos);
-            chunkGetter.query(chunkPosLong, chunk -> {
-                Biome biome = biomeCache.computeIfAbsent(chunkPosLong, key -> NaturalSpawner.getRoughBiome(pos, chunk));
-
-                MobSpawnSettings.MobSpawnCost spawnCost = biome.getMobSettings().getMobSpawnCost(entity.getType());
-                if (spawnCost != null) {
-                    potentialcalculator.addCharge(pos, spawnCost.charge());
-                }
-                if (entity instanceof Mob) {
-                    calculator.addMob(chunk.getPos(), mobcategory);
-                }
-                mobCountMap.addTo(mobcategory, 1);
-            });
-        }
-        return new NaturalSpawner.SpawnState(spawnableChunkCount, mobCountMap, potentialcalculator, calculator);
     }
 
     public static void postEntityTick() {
@@ -270,9 +195,15 @@ public class ParallelProcessor {
         }
     }
 
+    @SuppressWarnings("ResultOfMethodCallIgnored")
     public static void stop() {
-        if (tickPool != null && !tickPool.isShutdown()) {
+        if (tickPool != null) {
+            LOGGER.info("Waiting for Async tickPool to shutdown...");
             tickPool.shutdown();
+            try {
+                tickPool.awaitTermination(60L, TimeUnit.SECONDS);
+            } catch (InterruptedException ignored) {
+            }
         }
     }
 
