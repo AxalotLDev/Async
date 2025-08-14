@@ -21,7 +21,6 @@ import java.util.Arrays;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BooleanSupplier;
-import java.util.function.Function;
 
 @Mixin(ServerChunkCache.class)
 public abstract class LithiumServerChunkCacheMixin extends ChunkSource {
@@ -57,9 +56,6 @@ public abstract class LithiumServerChunkCacheMixin extends ChunkSource {
 
     @Shadow
     public abstract void addTicket(Ticket var1, ChunkPos var2);
-
-    @Shadow
-    public abstract void addTicketWithRadius(TicketType ticket, ChunkPos chunkPos, int radius);
 
     @Shadow
     public abstract void removeTicketWithRadius(TicketType ticket, ChunkPos chunkPos, int radius);
@@ -110,45 +106,55 @@ public abstract class LithiumServerChunkCacheMixin extends ChunkSource {
 
     @Unique
     private ChunkAccess async$getChunkOffThread(int x, int z, ChunkStatus status, boolean create) {
-        if (create) {
-            final long pos = ChunkPos.asLong(x, z);
-            final ChunkHolder holder = this.getVisibleChunkIfPresent(pos);
+        final long pos = ChunkPos.asLong(x, z);
+        final ChunkHolder holder = this.getVisibleChunkIfPresent(pos);
+        final ChunkAccess ifPresent = holder == null ? null : holder.getChunkIfPresent(status);
+        if (ifPresent != null && (status != ChunkStatus.FULL)) {
+            return ifPresent;
+        }
 
-            if (holder != null) {
-                final CompletableFuture<ChunkResult<ChunkAccess>> future = holder.scheduleChunkGenerationTask(status, this.chunkMap);
-                ChunkResult<ChunkAccess> result = future.getNow(null);
-                if (result != null) {
-                    ChunkAccess chunk = result.orElse(null);
-                    if (chunk instanceof ImposterProtoChunk readOnlyChunk) {
-                        chunk = readOnlyChunk.getWrapped();
-                    }
-                    if (chunk != null) return chunk;
-                }
+        return create ? this.async$syncLoad(x, z, status) : null;
+    }
+
+    @Unique
+    private ChunkAccess async$syncLoad(final int chunkX, final int chunkZ, final ChunkStatus status) {
+        ChunkPos chunkPos = new ChunkPos(chunkX, chunkZ);
+        CompletableFuture<ChunkAccess> future = new CompletableFuture<>();
+
+        this.mainThreadProcessor.execute(() -> {
+            this.addTicket(new Ticket(TicketType.FORCED, ChunkLevel.byStatus(status)), chunkPos);
+            this.runDistanceManagerUpdates();
+            ChunkHolder holder = this.getVisibleChunkIfPresent(chunkPos.toLong());
+
+            if (holder == null) {
+                this.removeTicketWithRadius(TicketType.UNKNOWN, chunkPos, 0);
+                future.completeExceptionally(new IllegalStateException("ChunkHolder is null"));
+                return;
             }
 
-            return CompletableFuture.supplyAsync(() -> {
-                ChunkPos chunkPos = new ChunkPos(x, z);
-                this.addTicketWithRadius(TicketType.UNKNOWN, chunkPos, 0);
-                this.runDistanceManagerUpdates();
+            holder.scheduleChunkGenerationTask(status, this.chunkMap)
+                    .whenCompleteAsync((optChunk, throwable) -> {
+                        this.removeTicketWithRadius(TicketType.UNKNOWN, chunkPos, 0);
 
-                ChunkHolder freshHolder = this.getVisibleChunkIfPresent(chunkPos.toLong());
-                if (freshHolder == null) {
-                    this.removeTicketWithRadius(TicketType.UNKNOWN, chunkPos, 0);
-                    return CompletableFuture.completedFuture((ChunkAccess) null);
-                }
+                        if (throwable != null) {
+                            future.completeExceptionally(throwable);
+                            return;
+                        }
 
-                return freshHolder.scheduleChunkGenerationTask(status, this.chunkMap)
-                        .whenCompleteAsync((ignored, throwable) -> this.removeTicketWithRadius(TicketType.UNKNOWN, chunkPos, 0), this.mainThreadProcessor)
-                        .thenApply(result -> {
-                            ChunkAccess chunk = result.orElse(null);
-                            if (chunk instanceof ImposterProtoChunk readOnlyChunk) {
-                                return readOnlyChunk.getWrapped();
-                            }
-                            return chunk;
-                        });
-            }, this.mainThreadProcessor).thenCompose(Function.identity()).join();
-        }
-        return null;
+                        ChunkAccess chunk = optChunk.orElse(null);
+                        if (chunk instanceof ImposterProtoChunk readOnlyChunk) {
+                            chunk = readOnlyChunk.getWrapped();
+                        }
+
+                        if (chunk == null) {
+                            future.completeExceptionally(new IllegalStateException("Chunk not loaded when requested"));
+                        } else {
+                            future.complete(chunk);
+                        }
+                    }, this.mainThreadProcessor);
+        });
+
+        return future.join();
     }
 
     @Unique
