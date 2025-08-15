@@ -1,2 +1,5 @@
 - Fix VMP crash with Connector mod
 - Fix Shulkers && Boats collusion conflict with lithium (temporally make sync)
+- (Experimental) Add async random ticks
+- Improve performance async spawn
+- Fix deadlock with lithium
