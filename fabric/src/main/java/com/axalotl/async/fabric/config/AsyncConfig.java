@@ -55,6 +55,9 @@ public class AsyncConfig {
         CONFIG.set("enableAsyncSpawn", enableAsyncSpawn);
         CONFIG.setComment("enableAsyncSpawn", "Enables parallel processing of entity spawns. Warning, incompatible with Carpet mod lagFreeSpawning rule.");
 
+        CONFIG.set("enableAsyncRandomTicks", enableAsyncRandomTicks);
+        CONFIG.setComment("enableAsyncRandomTicks", "dude dont use it :)");
+
         CONFIG.save();
         LOGGER.info("Configuration saved successfully.");
     }
@@ -64,12 +67,14 @@ public class AsyncConfig {
                 "disabled",
                 "paraMax",
                 "synchronizedEntities",
-                "enableAsyncSpawn"
+                "enableAsyncSpawn",
+                "enableAsyncRandomTicks"
         ));
 
         disabled = CONFIG.getOrElse("disabled", disabled);
         paraMax = CONFIG.getOrElse("paraMax", paraMax);
         enableAsyncSpawn = CONFIG.getOrElse("enableAsyncSpawn", enableAsyncSpawn);
+        enableAsyncRandomTicks = CONFIG.getOrElse("enableAsyncRandomTicks", enableAsyncRandomTicks);
 
         List<String> ids = synchronizedEntities.stream().map(ResourceLocation::toString).toList();
         HashSet<ResourceLocation> set = new HashSet<>();
@@ -105,6 +110,7 @@ public class AsyncConfig {
         disabled = false;
         paraMax = -1;
         enableAsyncSpawn = true;
+        enableAsyncRandomTicks = false;
         synchronizedEntities = getDefaultSynchronizedEntities();
     }
 }

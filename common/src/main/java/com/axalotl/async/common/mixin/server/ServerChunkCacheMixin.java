@@ -163,7 +163,7 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
         List<LevelChunk> spawningChunks = this.spawningChunks;
         try {
             profiler.push("filteringSpawningChunks");
-            this.chunkMap.collectSpawningChunks(spawningChunks);
+            CompletableFuture.runAsync(() -> this.chunkMap.collectSpawningChunks(spawningChunks), ParallelProcessor.tickPool);
             profiler.popPush("shuffleSpawningChunks");
             Util.shuffle(spawningChunks, this.level.random);
             profiler.popPush("tickSpawningChunks");
@@ -175,7 +175,6 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
         } finally {
             spawningChunks.clear();
         }
-
 
         profiler.popPush("tickTickingChunks");
         this.chunkMap.forEachBlockTickingChunk(p_401730_ -> this.level.tickChunk(p_401730_, j));

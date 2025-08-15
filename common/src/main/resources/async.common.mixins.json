@@ -68,6 +68,7 @@
     "world.DistanceManagerMixin",
     "world.LevelChunkMixin",
     "world.LevelMixin",
+    "world.LevelTicksMixin",
     "world.RandomSequencesMixin",
     "world.ScoreboardMixin",
     "world.SectionStorageMixin",
