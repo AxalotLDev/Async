@@ -52,8 +52,7 @@ public class AsyncNeoForge {
 
     @SubscribeEvent
     public void onServerStopping(ServerStoppingEvent event) {
-        LOGGER.info("Shutting down Async thread pool...");
-        ParallelProcessor.stop();
         StatsCommand.shutdown();
+        ParallelProcessor.stop();
     }
 }

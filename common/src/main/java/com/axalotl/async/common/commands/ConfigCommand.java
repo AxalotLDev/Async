@@ -108,6 +108,24 @@ public class ConfigCommand {
                             cmdCtx.getSource().sendSuccess(() -> message, true);
                             return 1;
                         }))
+                )
+                .then(literal("setAsyncRandomTicks").requires(cmdSrc -> cmdSrc.hasPermission(4))
+                        .executes(cmdCtx -> {
+                            boolean currentValue = AsyncConfig.enableAsyncRandomTicks;
+                            MutableComponent message = prefix.copy().append(Component.literal("Current value of async random ticks: ").withStyle(style -> style.withColor(ChatFormatting.WHITE)))
+                                    .append(Component.literal(String.valueOf(currentValue)).withStyle(style -> style.withColor(ChatFormatting.GREEN)));
+                            cmdCtx.getSource().sendSuccess(() -> message, false);
+                            return 1;
+                        })
+                        .then(Commands.argument("value", BoolArgumentType.bool()).executes(cmdCtx -> {
+                            boolean value = BoolArgumentType.getBool(cmdCtx, "value");
+                            AsyncConfig.enableAsyncRandomTicks = value;
+                            PlatformEventBus.saveConfig();
+                            MutableComponent message = prefix.copy().append(Component.literal("Async Random Ticks set to ").withStyle(style -> style.withColor(ChatFormatting.WHITE)))
+                                    .append(Component.literal(String.valueOf(value)).withStyle(style -> style.withColor(ChatFormatting.GREEN)));
+                            cmdCtx.getSource().sendSuccess(() -> message, true);
+                            return 1;
+                        }))
                 ));
     }
 }

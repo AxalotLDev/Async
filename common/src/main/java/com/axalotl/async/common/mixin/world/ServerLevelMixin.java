@@ -1,6 +1,7 @@
 package com.axalotl.async.common.mixin.world;
 
 import com.axalotl.async.common.ParallelProcessor;
+import com.axalotl.async.common.config.AsyncConfig;
 import com.axalotl.async.common.parallelised.ConcurrentCollections;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
@@ -22,6 +23,7 @@ import net.minecraft.world.level.BlockEventData;
 import net.minecraft.world.level.ExplosionDamageCalculator;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.WorldGenLevel;
+import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.dimension.DimensionType;
 import net.minecraft.world.level.entity.EntityTickList;
 import net.minecraft.world.level.storage.WritableLevelData;
@@ -41,6 +43,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
@@ -150,6 +153,15 @@ public abstract class ServerLevelMixin extends Level implements WorldGenLevel {
     private void createExplosion(@Nullable Entity source, @Nullable DamageSource damageSource, @Nullable ExplosionDamageCalculator damageCalculator, double x, double y, double z, float radius, boolean fire, Level.ExplosionInteraction explosionInteraction, ParticleOptions smallExplosionParticles, ParticleOptions largeExplosionParticles, Holder<SoundEvent> explosionSound, Operation<Void> original) {
         synchronized (lock) {
             original.call(source, damageSource, damageCalculator, x, y, z, radius, fire, explosionInteraction, smallExplosionParticles, largeExplosionParticles, explosionSound);
+        }
+    }
+
+    @WrapMethod(method = "tickChunk")
+    private void tickChunk(LevelChunk chunk, int randomTickSpeed, Operation<Void> original) {
+        if (AsyncConfig.enableAsyncRandomTicks) {
+            CompletableFuture.runAsync(() -> original.call(chunk, randomTickSpeed), ParallelProcessor.tickPool);
+        } else {
+            original.call(chunk, randomTickSpeed);
         }
     }
 }

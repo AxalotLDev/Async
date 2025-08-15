@@ -15,6 +15,8 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+import org.jetbrains.annotations.Nullable;
+
 import java.util.Arrays;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -53,6 +55,9 @@ public abstract class LithiumServerChunkCacheMixin extends ChunkSource {
     @Shadow
     abstract boolean runDistanceManagerUpdates();
 
+    @Shadow
+    public abstract <T> void removeRegionTicket(TicketType<T> type, ChunkPos pos, int distance, T value);
+
     @Inject(
             method = "tick",
             at = @At("HEAD")
@@ -62,9 +67,10 @@ public abstract class LithiumServerChunkCacheMixin extends ChunkSource {
     }
 
     /**
-     * @author CaffeineMC
+     * @author _Axa_lotL_
      * @reason Lithium compatible
      */
+    @Nullable
     @Overwrite
     public ChunkAccess getChunk(int x, int z, @NotNull ChunkStatus status, boolean create) {
         if (Thread.currentThread() != this.mainThread) {
@@ -94,18 +100,55 @@ public abstract class LithiumServerChunkCacheMixin extends ChunkSource {
 
     @Unique
     private ChunkAccess async$getChunkOffThread(int x, int z, ChunkStatus status, boolean create) {
-        final ChunkHolder holder = this.getVisibleChunkIfPresent(ChunkPos.asLong(x, z));
-        if (holder != null) {
-            final CompletableFuture<ChunkResult<ChunkAccess>> future = holder.scheduleChunkGenerationTask(status, this.chunkMap);
-            if (future.isDone()) {
-                ChunkAccess chunk = future.getNow(ChunkHolder.UNLOADED_CHUNK).orElse(null);
-                if (chunk instanceof ImposterProtoChunk readOnlyChunk) chunk = readOnlyChunk.getWrapped();
-                if (chunk != null) {
-                    return chunk;
-                }
-            }
+        final long pos = ChunkPos.asLong(x, z);
+        final ChunkHolder holder = this.getVisibleChunkIfPresent(pos);
+        final ChunkAccess ifPresent = holder == null ? null : holder.getChunkIfPresent(status);
+        if (ifPresent != null && (status != ChunkStatus.FULL)) {
+            return ifPresent;
         }
-        return CompletableFuture.supplyAsync(() -> this.getChunk(x, z, status, create), this.mainThreadProcessor).join();
+
+        return create ? this.async$syncLoad(x, z, status) : null;
+    }
+
+    @Unique
+    private ChunkAccess async$syncLoad(final int chunkX, final int chunkZ, final ChunkStatus status) {
+        ChunkPos chunkPos = new ChunkPos(chunkX, chunkZ);
+        CompletableFuture<ChunkAccess> future = new CompletableFuture<>();
+
+        this.mainThreadProcessor.execute(() -> {
+            this.distanceManager.addTicket(TicketType.FORCED, chunkPos, ChunkLevel.byStatus(status), chunkPos);
+            this.runDistanceManagerUpdates();
+            ChunkHolder holder = this.getVisibleChunkIfPresent(chunkPos.toLong());
+
+            if (holder == null) {
+                this.removeRegionTicket(TicketType.UNKNOWN, chunkPos, 0, chunkPos);
+                future.completeExceptionally(new IllegalStateException("ChunkHolder is null"));
+                return;
+            }
+
+            holder.scheduleChunkGenerationTask(status, this.chunkMap)
+                    .whenCompleteAsync((optChunk, throwable) -> {
+                        this.removeRegionTicket(TicketType.UNKNOWN, chunkPos, 0, chunkPos);
+
+                        if (throwable != null) {
+                            future.completeExceptionally(throwable);
+                            return;
+                        }
+
+                        ChunkAccess chunk = optChunk.orElse(null);
+                        if (chunk instanceof ImposterProtoChunk readOnlyChunk) {
+                            chunk = readOnlyChunk.getWrapped();
+                        }
+
+                        if (chunk == null) {
+                            future.completeExceptionally(new IllegalStateException("Chunk not loaded when requested"));
+                        } else {
+                            future.complete(chunk);
+                        }
+                    }, this.mainThreadProcessor);
+        });
+
+        return future.join();
     }
 
     @Unique

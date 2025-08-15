@@ -10,10 +10,7 @@ import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.ModifyArg;
 
-import java.util.AbstractCollection;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collector;
@@ -46,13 +43,6 @@ public abstract class ClassInstanceMultiMapMixin<T> extends AbstractCollection<T
     private boolean remove(Object o, Operation<Boolean> original) {
         synchronized (async$lock) {
             return original.call(o);
-        }
-    }
-
-    @WrapMethod(method = "find")
-    private <S extends T> Collection<S> find(Class<S> type, Operation<Collection<S>> original) {
-        synchronized (async$lock) {
-            return original.call(type);
         }
     }
 }

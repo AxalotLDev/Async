@@ -22,3 +22,6 @@ type = "required"
 versionRange = "${minecraft_version_range}"
 ordering = "NONE"
 side = "BOTH"
+
+["lithium:options"]
+"mixin.alloc.chunk_random" = false

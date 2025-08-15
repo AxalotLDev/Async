@@ -2,15 +2,24 @@ package com.axalotl.async.common.mixin.entity.movement;
 
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import net.minecraft.util.ClassInstanceMultiMap;
 import net.minecraft.world.level.entity.EntityAccess;
 import net.minecraft.world.level.entity.EntitySection;
 import net.minecraft.world.level.entity.Visibility;
+import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 
-@Mixin(EntitySection.class)
-public class EntitySectionMixin {
+import java.util.Objects;
+import java.util.stream.Stream;
 
+@Mixin(EntitySection.class)
+public class EntitySectionMixin<T extends EntityAccess> {
+
+    @Shadow
+    @Final
+    private ClassInstanceMultiMap<T> storage;
     @Unique
     private static final Object async$lock = new Object();
 
@@ -33,5 +42,13 @@ public class EntitySectionMixin {
         synchronized (async$lock) {
             return original.call(status);
         }
+    }
+
+    @WrapMethod(method = "getEntities()Ljava/util/stream/Stream;")
+    private Stream<T> getEntities(Operation<Stream<T>> original) {
+        return storage.stream()
+                .filter(Objects::nonNull)
+                .toList()
+                .stream();
     }
 }
