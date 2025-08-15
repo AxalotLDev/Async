@@ -1,6 +1,7 @@
 package com.axalotl.async.common.mixin.world;
 
 import com.axalotl.async.common.ParallelProcessor;
+import com.axalotl.async.common.config.AsyncConfig;
 import com.axalotl.async.common.parallelised.ConcurrentCollections;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
@@ -18,6 +19,7 @@ import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.level.*;
+import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.dimension.DimensionType;
 import net.minecraft.world.level.entity.EntityTickList;
 import net.minecraft.world.level.storage.WritableLevelData;
@@ -37,6 +39,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
@@ -152,6 +155,22 @@ public abstract class ServerLevelMixin extends Level implements WorldGenLevel {
     private Explosion createExplosion(@Nullable Entity source, @Nullable DamageSource damageSource, @Nullable ExplosionDamageCalculator damageCalculator, double x, double y, double z, float radius, boolean fire, Level.ExplosionInteraction explosionInteraction, ParticleOptions smallExplosionParticles, ParticleOptions largeExplosionParticles, Holder<SoundEvent> explosionSound, Operation<Explosion> original) {
         synchronized (lock) {
             return original.call(source, damageSource, damageCalculator, x, y, z, radius, fire, explosionInteraction, smallExplosionParticles, largeExplosionParticles, explosionSound);
+        }
+    }
+
+    @WrapMethod(method = "tickCustomSpawners")
+    private void tickCustomSpawners(boolean spawnEnemies, boolean spawnFriendlies, Operation<Void> original) {
+        if (AsyncConfig.enableAsyncSpawn) {
+            CompletableFuture.runAsync(() -> original.call(spawnEnemies, spawnFriendlies), ParallelProcessor.tickPool);
+        } else original.call(spawnEnemies, spawnFriendlies);
+    }
+
+    @WrapMethod(method = "tickChunk")
+    private void tickChunk(LevelChunk chunk, int randomTickSpeed, Operation<Void> original) {
+        if (AsyncConfig.enableAsyncRandomTicks) {
+            CompletableFuture.runAsync(() -> original.call(chunk, randomTickSpeed), ParallelProcessor.tickPool);
+        } else {
+            original.call(chunk, randomTickSpeed);
         }
     }
 }

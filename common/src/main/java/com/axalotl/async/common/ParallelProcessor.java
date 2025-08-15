@@ -1,56 +1,34 @@
 package com.axalotl.async.common;
 
 import com.axalotl.async.common.config.AsyncConfig;
-import com.google.common.collect.Streams;
-import com.mojang.logging.LogUtils;
-import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
-import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import lombok.Getter;
 import lombok.Setter;
-import net.minecraft.CrashReport;
-import net.minecraft.CrashReportCategory;
-import net.minecraft.ReportType;
-import net.minecraft.Util;
-import net.minecraft.core.BlockPos;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.dedicated.DedicatedServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.Mob;
-import net.minecraft.world.entity.MobCategory;
 import net.minecraft.world.entity.item.FallingBlockEntity;
 import net.minecraft.world.entity.monster.Shulker;
 import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.entity.vehicle.AbstractMinecart;
 import net.minecraft.world.entity.vehicle.Boat;
 import net.minecraft.world.level.*;
-import net.minecraft.world.level.biome.Biome;
-import net.minecraft.world.level.biome.MobSpawnSettings;
-import net.minecraft.world.level.chunk.LevelChunk;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.spongepowered.asm.mixin.Unique;
 
-import java.lang.management.ManagementFactory;
-import java.lang.management.ThreadInfo;
-import java.lang.management.ThreadMXBean;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
-import java.util.Timer;
-import java.util.TimerTask;
 import java.util.UUID;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.Collectors;
+import java.util.concurrent.locks.LockSupport;
 
 public class ParallelProcessor {
-    private static final Logger LOGGER = LogManager.getLogger(ParallelProcessor.class);
+    public static final Logger LOGGER = LogManager.getLogger(ParallelProcessor.class);
 
     @Getter
     @Setter
@@ -58,7 +36,7 @@ public class ParallelProcessor {
 
     public static final AtomicInteger currentEntities = new AtomicInteger();
     private static final AtomicInteger threadPoolID = new AtomicInteger();
-    private static ExecutorService tickPool;
+    public static ExecutorService tickPool;
     private static final Queue<CompletableFuture<?>> taskQueue = new ConcurrentLinkedQueue<>();
     private static final Set<UUID> blacklistedEntity = ConcurrentHashMap.newKeySet();
     private static final Map<UUID, Integer> portalTickSyncMap = new ConcurrentHashMap<>();
@@ -167,22 +145,6 @@ public class ParallelProcessor {
         }
     }
 
-    public static void asyncSpawn(ServerLevel world, LevelChunk chunk, NaturalSpawner.SpawnState spawnState, boolean spawnAnimals,
-                                  boolean spawnMonsters, boolean rareSpawn) {
-        if (AsyncConfig.enableAsyncSpawn) {
-            CompletableFuture<Void> future = CompletableFuture.runAsync(() ->
-                    NaturalSpawner.spawnForChunk(world, chunk, spawnState, spawnAnimals, spawnMonsters, rareSpawn), tickPool
-            ).exceptionally(e -> {
-                LOGGER.error("Error in async spawn tick, switching to synchronous", e);
-                NaturalSpawner.spawnForChunk(world, chunk, spawnState, spawnAnimals, spawnMonsters, rareSpawn);
-                return null;
-            });
-            taskQueue.add(future);
-        } else {
-            NaturalSpawner.spawnForChunk(world, chunk, spawnState, spawnAnimals, spawnMonsters, rareSpawn);
-        }
-    }
-
     public static void asyncDespawn(Entity entity) {
         if (AsyncConfig.enableAsyncSpawn) {
             CompletableFuture<Void> future = CompletableFuture.runAsync(entity::checkDespawn, tickPool
@@ -197,56 +159,6 @@ public class ParallelProcessor {
         }
     }
 
-    public static NaturalSpawner.SpawnState asyncCreateState(int spawnableChunkCount, Iterable<Entity> entities, NaturalSpawner.ChunkGetter chunkGetter, LocalMobCapCalculator calculator) {
-        if (AsyncConfig.enableAsyncSpawn) {
-            return CompletableFuture.supplyAsync(() ->
-                    async$createState(spawnableChunkCount, entities, chunkGetter, calculator), tickPool
-            ).exceptionally(e -> {
-                LOGGER.error("Error in async spawn tick, switching to synchronous", e);
-                return async$createState(spawnableChunkCount, entities, chunkGetter, calculator);
-            }).join();
-        } else {
-            return CompletableFuture.completedFuture(
-                    async$createState(spawnableChunkCount, entities, chunkGetter, calculator)
-            ).join();
-        }
-    }
-
-    @Unique
-    private static NaturalSpawner.SpawnState async$createState(
-            int spawnableChunkCount,
-            Iterable<Entity> entities,
-            NaturalSpawner.ChunkGetter chunkGetter,
-            LocalMobCapCalculator calculator
-    ) {
-        PotentialCalculator potentialcalculator = new PotentialCalculator();
-        Object2IntOpenHashMap<MobCategory> mobCountMap = new Object2IntOpenHashMap<>();
-        Map<Long, Biome> biomeCache = new Object2ObjectOpenHashMap<>();
-        for (Entity entity : entities) {
-            if (entity instanceof Mob mob && (mob.isPersistenceRequired() || mob.requiresCustomPersistence())) {
-                continue;
-            }
-            MobCategory mobcategory = entity.getType().getCategory();
-            if (mobcategory == MobCategory.MISC) {
-                continue;
-            }
-            BlockPos pos = entity.blockPosition();
-            long chunkPosLong = ChunkPos.asLong(pos);
-            chunkGetter.query(chunkPosLong, chunk -> {Biome biome = biomeCache.computeIfAbsent(chunkPosLong, key -> NaturalSpawner.getRoughBiome(pos, chunk));
-
-                MobSpawnSettings.MobSpawnCost spawnCost = biome.getMobSettings().getMobSpawnCost(entity.getType());
-                if (spawnCost != null) {
-                    potentialcalculator.addCharge(pos, spawnCost.charge());
-                }
-                if (entity instanceof Mob) {
-                    calculator.addMob(chunk.getPos(), mobcategory);
-                }
-                mobCountMap.addTo(mobcategory, 1);
-            });
-        }
-        return new NaturalSpawner.SpawnState(spawnableChunkCount, mobCountMap, potentialcalculator, calculator);
-    }
-
     public static void postEntityTick() {
         if (!AsyncConfig.disabled) {
             List<CompletableFuture<?>> futuresList = new ArrayList<>();
@@ -259,34 +171,21 @@ public class ParallelProcessor {
                     futuresList.toArray(new CompletableFuture[0])
             );
 
-            long maxTickTime;
+            allTasks.exceptionally(ex -> {
+                Throwable cause = ex instanceof CompletionException
+                        ? ex.getCause() : ex;
+                LOGGER.error("Error during entity tick processing: ", cause);
+                return null;
+            });
 
-            if (server instanceof DedicatedServer dedicatedServer) {
-                maxTickTime = dedicatedServer.getMaxTickLength();
-            } else {
-                maxTickTime = 60000;
-            }
-
-            if (maxTickTime > 0) {
-                allTasks
-                        .orTimeout(maxTickTime, TimeUnit.MILLISECONDS)
-                        .exceptionally(ex -> {
-                            Throwable cause = ex instanceof java.util.concurrent.CompletionException
-                                    ? ex.getCause() : ex;
-                            if (cause instanceof TimeoutException) {
-                                crash("Timeout during entity tick processing: ", cause);
-                            } else {
-                                LOGGER.error("Error during entity tick processing: ", cause);
-                            }
-                            return null;
-                        });
-            } else {
-                allTasks.exceptionally(ex -> {
-                    Throwable cause = ex instanceof java.util.concurrent.CompletionException
-                            ? ex.getCause() : ex;
-                    LOGGER.error("Error during entity tick processing: ", cause);
-                    return null;
-                });
+            while (!allTasks.isDone()) {
+                boolean hasTask = false;
+                for (ServerLevel world : server.getAllLevels()) {
+                    hasTask |= world.getChunkSource().pollTask();
+                }
+                if (!hasTask) {
+                    LockSupport.parkNanos(50_000);
+                }
             }
 
             server.getAllLevels().forEach(world -> {
@@ -299,78 +198,6 @@ public class ParallelProcessor {
     public static void stop() {
         if (tickPool != null && !tickPool.isShutdown()) {
             tickPool.shutdown();
-        }
-    }
-
-    public static void crash(String message, Throwable throwable) {
-        String errorMessage = message + throwable.getMessage();
-        LOGGER.error(errorMessage, LogUtils.FATAL_MARKER);
-        ThreadMXBean threadMXBean = ManagementFactory.getThreadMXBean();
-        ThreadInfo[] threadInfos = threadMXBean.dumpAllThreads(true, true);
-        StringBuilder stringBuilder = new StringBuilder();
-        Error error = new Error("Watchdog");
-
-        for (ThreadInfo threadInfo : threadInfos) {
-            if (threadInfo.getThreadId() == server.getRunningThread().threadId()) {
-                error.setStackTrace(threadInfo.getStackTrace());
-            }
-
-            stringBuilder.append(threadInfo);
-            stringBuilder.append("\n");
-        }
-
-        CrashReport crashReport = new CrashReport("Watching Server", error);
-        server.fillSystemReport(crashReport.getSystemReport());
-        CrashReportCategory crashReportSection = crashReport.addCategory("Thread Dump");
-        crashReportSection.setDetail("Threads", stringBuilder);
-
-        CrashReportCategory threadDumpSection = crashReport.addCategory("Async thread dump");
-        threadDumpSection.setDetail("All Threads", () -> {
-            StringBuilder sb = new StringBuilder();
-            Map<Thread, StackTraceElement[]> allThreads = Thread.getAllStackTraces();
-            for (Map.Entry<Thread, StackTraceElement[]> entry : allThreads.entrySet()) {
-                Thread t = entry.getKey();
-                sb.append(String.format("\"%s\" [%s]%n", t.getName(), t.getState()));
-                for (StackTraceElement ste : entry.getValue()) {
-                    sb.append("\tat ").append(ste).append("\n");
-                }
-                sb.append("\n");
-            }
-            return sb.toString();
-        });
-
-        CrashReportCategory crashReportSection2 = crashReport.addCategory("Performance stats");
-        crashReportSection2.setDetail(
-                "Random tick rate", () -> server.getGameRules().getRule(GameRules.RULE_RANDOMTICKING).toString()
-        );
-        crashReportSection2.setDetail(
-                "Level stats",
-                () -> Streams.stream(server.getAllLevels())
-                        .map(world -> world.dimension() + ": " + world.getWatchdogStats())
-                        .collect(Collectors.joining(",\n"))
-        );
-        System.out.println("Crash report:\n" + crashReport);
-        Path path = server.getServerDirectory().resolve("crash-reports").resolve("crash-" + Util.getFilenameFormattedDateTime() + "-server.txt");
-        if (crashReport.saveToFile(path, ReportType.CRASH)) {
-            LOGGER.error("This crash report has been saved to: {}", path.toAbsolutePath());
-        } else {
-            LOGGER.error("We were unable to save this crash report to disk.");
-        }
-
-        shutdown();
-    }
-
-    private static void shutdown() {
-        try {
-            Timer timer = new Timer();
-            timer.schedule(new TimerTask() {
-                public void run() {
-                    Runtime.getRuntime().halt(1);
-                }
-            }, 10000L);
-            System.exit(1);
-        } catch (Throwable var2) {
-            Runtime.getRuntime().halt(1);
         }
     }
 
