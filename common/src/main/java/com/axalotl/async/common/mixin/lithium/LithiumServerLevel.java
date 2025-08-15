@@ -35,7 +35,6 @@ public abstract class LithiumServerLevel extends Level implements WorldGenLevel,
         super(levelData, dimension, registryAccess, dimensionTypeRegistration, isClientSide, isDebug, biomeZoomSeed, maxChainedNeighborUpdates);
     }
 
-
     @Inject(
             method = "sendBlockUpdated",
             at = @At(
