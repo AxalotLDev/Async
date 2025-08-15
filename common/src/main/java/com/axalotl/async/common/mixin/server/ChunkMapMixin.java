@@ -75,9 +75,24 @@ public abstract class ChunkMapMixin extends ChunkStorage implements ChunkHolder.
     @WrapMethod(method = "forEachBlockTickingChunk")
     private void forEachBlockTickingChunk(Consumer<LevelChunk> action, Operation<Void> original) {
         if (AsyncConfig.enableAsyncRandomTicks) {
-            CompletableFuture.runAsync(() -> original.call(action), ParallelProcessor.tickPool);
+            CompletableFuture.runAsync(() -> original.call(action), ParallelProcessor.tickPool).exceptionally(e -> {
+                ParallelProcessor.LOGGER.error("Error in async forEachBlockTickingChunk, switching to synchronous", e);
+                return original.call(action);
+            });
         } else {
             original.call(action);
+        }
+    }
+
+    @WrapMethod(method = "collectSpawningChunks")
+    private void collectSpawningChunks(List<LevelChunk> output, Operation<Void> original) {
+        if (AsyncConfig.enableAsyncSpawn) {
+            CompletableFuture.runAsync(() -> original.call(output), ParallelProcessor.tickPool).exceptionally(e -> {
+                ParallelProcessor.LOGGER.error("Error in async collectSpawningChunks, switching to synchronous", e);
+                return original.call(output);
+            });
+        } else {
+            original.call(output);
         }
     }
 }

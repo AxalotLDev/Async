@@ -36,5 +36,10 @@
     "breaks": {
         "moonrise": "*",
         "cupboard": "*"
+    },
+    "custom": {
+      "lithium:options": {
+        "mixin.alloc.chunk_random": false
+      }
     }
 }

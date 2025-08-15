@@ -15,7 +15,7 @@ public abstract class PersistentEntitySectionManagerMixin implements AutoCloseab
     private static final Object async$lock = new Object();
 
     @WrapMethod(method = "updateChunkStatus(Lnet/minecraft/world/level/ChunkPos;Lnet/minecraft/world/level/entity/Visibility;)V")
-    private void updateStatus(ChunkPos pos, Visibility p_visibility, Operation<Void> original) {
+    private void updateChunkStatus(ChunkPos pos, Visibility p_visibility, Operation<Void> original) {
         synchronized (async$lock) {
             original.call(pos, p_visibility);
         }
