@@ -1,12 +1,14 @@
 package com.axalotl.async.common.mixin.entity;
 
 import com.axalotl.async.common.parallelised.ConcurrentCollections;
+import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import net.minecraft.world.entity.ai.Brain;
 import net.minecraft.world.entity.ai.memory.ExpirableValue;
 import net.minecraft.world.entity.ai.memory.MemoryModuleType;
-import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
 
 import java.util.Map;
 import java.util.Optional;
@@ -15,6 +17,15 @@ import java.util.Optional;
 public class BrainMixin {
 
     @Shadow
-    @Final
-    private Map<MemoryModuleType<?>, Optional<? extends ExpirableValue<?>>> memories = ConcurrentCollections.newHashMap();
+    private final Map<MemoryModuleType<?>, Optional<? extends ExpirableValue<?>>> memories = ConcurrentCollections.newHashMap();
+
+    @Unique
+    private static final Object async$lock = new Object();
+
+    @WrapMethod(method = "getMemory")
+    private <U> Optional<U> getMemory(MemoryModuleType<U> type, Operation<Optional<U>> original) {
+        synchronized (async$lock) {
+            return original.call(type);
+        }
+    }
 }

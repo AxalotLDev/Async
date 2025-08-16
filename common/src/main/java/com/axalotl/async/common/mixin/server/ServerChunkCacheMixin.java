@@ -123,15 +123,15 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
     }
 
     @Redirect(method = "tickChunks(Lnet/minecraft/util/profiling/ProfilerFiller;J)V", at = @At(value = "INVOKE", target = "Lnet/minecraft/server/level/ServerChunkCache;tickSpawningChunk(Lnet/minecraft/world/level/chunk/LevelChunk;JLjava/util/List;Lnet/minecraft/world/level/NaturalSpawner$SpawnState;)V"))
-    private void tickSpawningChunk(ServerChunkCache instance, LevelChunk level, long timeInhabited, List<MobCategory> spawnCategories, NaturalSpawner.SpawnState spawnState) {
+    private void tickSpawningChunk(ServerChunkCache instance, LevelChunk chunk, long timeInhabited, List<MobCategory> spawnCategories, NaturalSpawner.SpawnState spawnState) {
         if (AsyncConfig.enableAsyncSpawn) {
-            CompletableFuture.runAsync(() -> instance.tickSpawningChunk(level, timeInhabited, spawnCategories, async$lastCachedSpawnState), ParallelProcessor.tickPool).exceptionally(e -> {
+            CompletableFuture.runAsync(() -> instance.tickSpawningChunk(chunk, timeInhabited, spawnCategories, async$lastCachedSpawnState), ParallelProcessor.tickPool).exceptionally(e -> {
                 ParallelProcessor.LOGGER.error("Error in async spawn, switching to synchronous", e);
-                instance.tickSpawningChunk(level, timeInhabited, spawnCategories, async$lastCachedSpawnState);
+                instance.tickSpawningChunk(chunk, timeInhabited, spawnCategories, spawnState);
                 return null;
             });
         } else {
-            instance.tickSpawningChunk(level, timeInhabited, spawnCategories, async$lastCachedSpawnState);
+            instance.tickSpawningChunk(chunk, timeInhabited, spawnCategories, spawnState);
         }
     }
 
