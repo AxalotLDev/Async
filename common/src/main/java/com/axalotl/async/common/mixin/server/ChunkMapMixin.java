@@ -77,7 +77,8 @@ public abstract class ChunkMapMixin extends ChunkStorage implements ChunkHolder.
         if (AsyncConfig.enableAsyncRandomTicks) {
             CompletableFuture.runAsync(() -> original.call(action), ParallelProcessor.tickPool).exceptionally(e -> {
                 ParallelProcessor.LOGGER.error("Error in async forEachBlockTickingChunk, switching to synchronous", e);
-                return original.call(action);
+                original.call(action);
+                return null;
             });
         } else {
             original.call(action);
@@ -89,7 +90,8 @@ public abstract class ChunkMapMixin extends ChunkStorage implements ChunkHolder.
         if (AsyncConfig.enableAsyncSpawn) {
             CompletableFuture.runAsync(() -> original.call(output), ParallelProcessor.tickPool).exceptionally(e -> {
                 ParallelProcessor.LOGGER.error("Error in async collectSpawningChunks, switching to synchronous", e);
-                return original.call(output);
+                original.call(output);
+                return null;
             });
         } else {
             original.call(output);

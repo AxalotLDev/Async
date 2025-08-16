@@ -160,7 +160,8 @@ public abstract class ServerLevelMixin extends Level implements WorldGenLevel {
         if (AsyncConfig.enableAsyncSpawn) {
             CompletableFuture.runAsync(() -> original.call(spawnEnemies, spawnFriendlies), ParallelProcessor.tickPool).exceptionally(e -> {
                 ParallelProcessor.LOGGER.error("Error in async tick custom spawners, switching to synchronous", e);
-                return original.call(spawnEnemies, spawnFriendlies);
+                original.call(spawnEnemies, spawnFriendlies);
+                return null;
             });
         } else original.call(spawnEnemies, spawnFriendlies);
     }

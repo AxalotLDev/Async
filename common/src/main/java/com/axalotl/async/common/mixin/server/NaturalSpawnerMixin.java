@@ -35,12 +35,13 @@ public class NaturalSpawnerMixin {
                         ), ParallelProcessor.tickPool
                 ).exceptionally(e -> {
                     ParallelProcessor.LOGGER.error("Error in async create spawn state, switching to synchronous", e);
-                    return original.call(
+                    original.call(
                             spawnableChunkCount,
                             entities,
                             chunkGetter,
                             calculator
                     );
+                    return null;
                 });
 
                 async$futureSpawnState.thenAccept(result -> async$lastCachedSpawnState = result);
@@ -65,7 +66,8 @@ public class NaturalSpawnerMixin {
         if (AsyncConfig.enableAsyncSpawn) {
             CompletableFuture.runAsync(() -> original.call(level, chunk, spawnState, categories), ParallelProcessor.tickPool).exceptionally(e -> {
                 ParallelProcessor.LOGGER.error("Error in async spawn, switching to synchronous", e);
-                return original.call(level, chunk, spawnState, categories);
+                original.call(level, chunk, spawnState, categories);
+                return null;
             });
         } else original.call(level, chunk, spawnState, categories);
     }
