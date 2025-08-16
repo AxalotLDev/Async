@@ -16,7 +16,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-@Mixin(ChunkHolder.class)
+@Mixin(value = ChunkHolder.class, priority = 1500)
 public abstract class ChunkHolderMixin {
 
     @Mutable
