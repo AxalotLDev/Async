@@ -44,7 +44,7 @@ public class AsyncConfig {
 
     public static void saveConfig() {
         CONFIG.set("disabled", disabled);
-        CONFIG.setComment("disabled", "Globally disable all toggleable functionality within the async system. Set to true to stop all asynchronous operations.");
+        CONFIG.setComment("disabled", "Enables parallel processing of entity.");
 
         CONFIG.set("paraMax", paraMax);
         CONFIG.setComment("paraMax", "Maximum number of threads to use for parallel processing. Set to -1 to use default value. Note: If 'virtualThreads' is enabled, this setting will be ignored.");
