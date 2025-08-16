@@ -52,7 +52,6 @@
     "server.ChunkMapMixin",
     "server.ChunkMapTrackedEntityMixin",
     "server.MinecraftServerMixin",
-    "server.NaturalSpawnerMixin",
     "server.PersistentEntitySectionManagerCallbackMixin",
     "server.PersistentEntitySectionManagerMixin",
     "server.ServerChunkCacheMixin",
