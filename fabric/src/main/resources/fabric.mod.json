@@ -34,8 +34,7 @@
         "java": ">=21"
     },
     "breaks": {
-        "moonrise": "*",
-        "cupboard": "*"
+        "moonrise": "*"
     },
     "custom": {
       "lithium:options": {
