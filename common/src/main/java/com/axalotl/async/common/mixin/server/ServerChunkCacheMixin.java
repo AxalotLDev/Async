@@ -6,10 +6,9 @@ import com.axalotl.async.common.config.AsyncConfig;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import net.minecraft.server.level.*;
-import net.minecraft.util.profiling.ProfilerFiller;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.MobCategory;
 import net.minecraft.world.level.ChunkPos;
-import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.LocalMobCapCalculator;
 import net.minecraft.world.level.NaturalSpawner;
 import net.minecraft.world.level.NaturalSpawner.SpawnState;
@@ -25,11 +24,11 @@ import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Consumer;
 
 @Mixin(value = ServerChunkCache.class, priority = 1500)
 public abstract class ServerChunkCacheMixin extends ChunkSource {
@@ -45,21 +44,7 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
 
     @Shadow
     @Final
-    private DistanceManager distanceManager;
-
-    @Shadow
-    protected abstract void getFullChunk(long chunkPos, Consumer<LevelChunk> fullChunkGetter);
-
-    @Shadow
-    @Final
     public ServerLevel level;
-    @Shadow
-    private SpawnState lastSpawnState;
-    @Shadow
-    private boolean spawnEnemies;
-    @Shadow
-    private boolean spawnFriendlies;
-
 
     @Unique
     private SpawnState async$lastCachedSpawnState = null;
@@ -103,7 +88,7 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
 
     @WrapMethod(method = "collectTickingChunks")
     private void collectTickingChunks(List<LevelChunk> output, Operation<Void> original) {
-        if (AsyncConfig.enableAsyncRandomTicks) {
+        if (AsyncConfig.enableAsyncSpawn) {
             CompletableFuture.runAsync(original::call, ParallelProcessor.tickPool).exceptionally(e -> {
                 ParallelProcessor.LOGGER.error("Error in async collectTickingChunks, switching to synchronous", e);
                 original.call();
@@ -114,83 +99,72 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
         }
     }
 
-    @WrapMethod(method = "tickChunks(Lnet/minecraft/util/profiling/ProfilerFiller;JLjava/util/List;)V")
-    private void tickChunks(ProfilerFiller profiler, long timeInhabited, List<LevelChunk> chunks, Operation<Void> original) {
-        if (!AsyncConfig.enableAsyncSpawn) {
-            original.call(profiler, timeInhabited, chunks);
-            return;
-        }
-
-        int spawnChunkCount = this.distanceManager.getNaturalSpawnChunkCount();
-
-        if (async$futureSpawnState == null || async$futureSpawnState.isDone()) {
-            async$futureSpawnState = CompletableFuture.supplyAsync(() -> {
-                        profiler.popPush("naturalSpawnCount");
-                        return NaturalSpawner.createState(
-                                spawnChunkCount,
-                                this.level.getAllEntities(),
-                                this::getFullChunk,
-                                new LocalMobCapCalculator(this.chunkMap)
-                        );
-                    }, ParallelProcessor.tickPool
-            ).exceptionally(e -> {
-                profiler.popPush("naturalSpawnCount");
-                ParallelProcessor.LOGGER.error("Error in async create state, switching to synchronous", e);
-                return NaturalSpawner.createState(
-                        spawnChunkCount,
-                        this.level.getAllEntities(),
-                        this::getFullChunk,
-                        new LocalMobCapCalculator(this.chunkMap)
-                );
-            });
-
-            async$futureSpawnState.thenAccept(result -> async$lastCachedSpawnState = result);
-        }
-
-        SpawnState spawnState = async$lastCachedSpawnState;
-        if (spawnState == null) {
-            profiler.popPush("naturalSpawnCount");
-            spawnState = NaturalSpawner.createState(
-                    spawnChunkCount,
-                    this.level.getAllEntities(),
-                    this::getFullChunk,
-                    new LocalMobCapCalculator(this.chunkMap)
-            );
-            async$lastCachedSpawnState = spawnState;
-        }
-
-        this.lastSpawnState = spawnState;
-        profiler.popPush("spawnAndTick");
-        boolean flag = this.level.getGameRules().getBoolean(GameRules.RULE_DOMOBSPAWNING);
-        int j = this.level.getGameRules().getInt(GameRules.RULE_RANDOMTICKING);
-        List<MobCategory> categories = flag && (this.spawnEnemies || this.spawnFriendlies)
-                ? NaturalSpawner.getFilteredSpawningCategories(spawnState, this.spawnFriendlies, this.spawnEnemies, this.level.getLevelData().getGameTime() % 400L == 0L)
-                : List.of();
-
-        for (LevelChunk levelchunk : chunks) {
-            ChunkPos chunkpos = levelchunk.getPos();
-            levelchunk.incrementInhabitedTime(timeInhabited);
-            if (!categories.isEmpty() && this.level.getWorldBorder().isWithinBounds(chunkpos)) {
-                SpawnState finalSpawnState = spawnState;
-                CompletableFuture.runAsync(() -> NaturalSpawner.spawnForChunk(this.level, levelchunk, finalSpawnState, categories), ParallelProcessor.tickPool).exceptionally(e -> {
-                    ParallelProcessor.LOGGER.error("Error in async spawn, switching to synchronous", e);
-                    NaturalSpawner.spawnForChunk(this.level, levelchunk, finalSpawnState, categories);
-                    return null;
+    @Redirect(method = "tickChunks(Lnet/minecraft/util/profiling/ProfilerFiller;JLjava/util/List;)V", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/NaturalSpawner;createState(ILjava/lang/Iterable;Lnet/minecraft/world/level/NaturalSpawner$ChunkGetter;Lnet/minecraft/world/level/LocalMobCapCalculator;)Lnet/minecraft/world/level/NaturalSpawner$SpawnState;"))
+    private SpawnState createState(int spawnableChunkCount, Iterable<Entity> entities, NaturalSpawner.ChunkGetter chunkGetter, LocalMobCapCalculator calculator) {
+        if (AsyncConfig.enableAsyncSpawn) {
+            if (async$futureSpawnState == null || async$futureSpawnState.isDone()) {
+                async$futureSpawnState = CompletableFuture.supplyAsync(() -> NaturalSpawner.createState(
+                                spawnableChunkCount,
+                                entities,
+                                chunkGetter,
+                                calculator
+                        ), ParallelProcessor.tickPool
+                ).exceptionally(e -> {
+                    ParallelProcessor.LOGGER.error("Error in async create state, switching to synchronous", e);
+                    return NaturalSpawner.createState(
+                            spawnableChunkCount,
+                            entities,
+                            chunkGetter,
+                            calculator
+                    );
                 });
+
+                async$futureSpawnState.thenAccept(result -> async$lastCachedSpawnState = result);
             }
 
-            if (this.level.shouldTickBlocksAt(chunkpos.toLong())) {
-                this.level.tickChunk(levelchunk, j);
+            SpawnState spawnState = async$lastCachedSpawnState;
+            if (spawnState == null) {
+                spawnState = NaturalSpawner.createState(
+                        spawnableChunkCount,
+                        entities,
+                        chunkGetter,
+                        calculator
+                );
+                async$lastCachedSpawnState = spawnState;
             }
+            return spawnState;
+        } else {
+            return NaturalSpawner.createState(
+                    spawnableChunkCount,
+                    entities,
+                    chunkGetter,
+                    calculator);
         }
+    }
 
-        profiler.popPush("customSpawners");
-        if (flag) {
-            CompletableFuture.runAsync(() -> this.level.tickCustomSpawners(this.spawnEnemies, this.spawnFriendlies), ParallelProcessor.tickPool).exceptionally(e -> {
-                ParallelProcessor.LOGGER.error("Error in async tickCustomSpawners, switching to synchronous", e);
-                this.level.tickCustomSpawners(this.spawnEnemies, this.spawnFriendlies);
+    @Redirect(method = "tickChunks(Lnet/minecraft/util/profiling/ProfilerFiller;JLjava/util/List;)V", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/NaturalSpawner;spawnForChunk(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/world/level/chunk/LevelChunk;Lnet/minecraft/world/level/NaturalSpawner$SpawnState;Ljava/util/List;)V"))
+    private void spawnForChunk(ServerLevel level, LevelChunk chunk, SpawnState spawnState, List<MobCategory> categories) {
+        if (AsyncConfig.enableAsyncSpawn) {
+            CompletableFuture.runAsync(() -> NaturalSpawner.spawnForChunk(level, chunk, async$lastCachedSpawnState, categories), ParallelProcessor.tickPool).exceptionally(e -> {
+                ParallelProcessor.LOGGER.error("Error in async spawn, switching to synchronous", e);
+                NaturalSpawner.spawnForChunk(level, chunk, spawnState, categories);
                 return null;
             });
+        } else {
+            NaturalSpawner.spawnForChunk(level, chunk, spawnState, categories);
+        }
+    }
+
+    @Redirect(method = "tickChunks(Lnet/minecraft/util/profiling/ProfilerFiller;JLjava/util/List;)V", at = @At(value = "INVOKE", target = "Lnet/minecraft/server/level/ServerLevel;tickCustomSpawners(ZZ)V"))
+    private void tickCustomSpawners(ServerLevel instance, boolean spawnEnemies, boolean spawnFriendlies) {
+        if (AsyncConfig.enableAsyncSpawn) {
+            CompletableFuture.runAsync(() -> instance.tickCustomSpawners(spawnEnemies, spawnFriendlies), ParallelProcessor.tickPool).exceptionally(e -> {
+                ParallelProcessor.LOGGER.error("Error in async tickCustomSpawners, switching to synchronous", e);
+                instance.tickCustomSpawners(spawnEnemies, spawnFriendlies);
+                return null;
+            });
+        } else {
+            instance.tickCustomSpawners(spawnEnemies, spawnFriendlies);
         }
     }
 }
