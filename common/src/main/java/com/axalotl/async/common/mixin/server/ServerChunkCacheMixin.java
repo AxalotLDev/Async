@@ -3,8 +3,6 @@ package com.axalotl.async.common.mixin.server;
 import com.axalotl.async.common.AsyncCommon;
 import com.axalotl.async.common.ParallelProcessor;
 import com.axalotl.async.common.config.AsyncConfig;
-import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
-import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import net.minecraft.server.level.*;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.MobCategory;
@@ -83,19 +81,6 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
                     return;
                 }
             }
-        }
-    }
-
-    @WrapMethod(method = "collectTickingChunks")
-    private void collectTickingChunks(List<LevelChunk> output, Operation<Void> original) {
-        if (AsyncConfig.enableAsyncSpawn) {
-            CompletableFuture.runAsync(original::call, ParallelProcessor.tickPool).exceptionally(e -> {
-                ParallelProcessor.LOGGER.error("Error in async collectTickingChunks, switching to synchronous", e);
-                original.call();
-                return null;
-            });
-        } else {
-            original.call(output);
         }
     }
 
