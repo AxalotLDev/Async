@@ -20,7 +20,7 @@ public class AsyncConfig {
     static {
         BUILDER.push("Async Config");
 
-        disabled = BUILDER.comment("Globally disable all toggleable functionality within the async system. Set to true to stop all asynchronous operations.")
+        disabled = BUILDER.comment("Enables parallel processing of entity.")
                 .define("disabled", com.axalotl.async.common.config.AsyncConfig.disabled);
 
         paraMax = BUILDER.comment("Maximum number of threads to use for parallel processing. Set to -1 to use default value.")
