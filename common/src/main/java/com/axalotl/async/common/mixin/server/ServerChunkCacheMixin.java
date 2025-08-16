@@ -111,15 +111,15 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
     }
 
     @Redirect(method = "tickChunks", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/NaturalSpawner;spawnForChunk(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/world/level/chunk/LevelChunk;Lnet/minecraft/world/level/NaturalSpawner$SpawnState;ZZZ)V"))
-    private void spawnForChunk(ServerLevel level, LevelChunk levelchunk1, NaturalSpawner.SpawnState naturalspawner$spawnstate, boolean spawnFriendlies, boolean spawnEnemies, boolean flag) {
+    private void spawnForChunk(ServerLevel level, LevelChunk chunk, NaturalSpawner.SpawnState spawnState, boolean spawnFriendlies, boolean spawnMonsters, boolean forcedDespawn) {
         if (AsyncConfig.enableAsyncSpawn) {
-            CompletableFuture.runAsync(() -> NaturalSpawner.spawnForChunk(level, levelchunk1, naturalspawner$spawnstate, spawnFriendlies, spawnEnemies, flag), ParallelProcessor.tickPool).exceptionally(e -> {
+            CompletableFuture.runAsync(() -> NaturalSpawner.spawnForChunk(level, chunk, async$lastCachedSpawnState, spawnFriendlies, spawnMonsters, forcedDespawn), ParallelProcessor.tickPool).exceptionally(e -> {
                 ParallelProcessor.LOGGER.error("Error in async spawn, switching to synchronous", e);
-                NaturalSpawner.spawnForChunk(level, levelchunk1, naturalspawner$spawnstate, spawnFriendlies, spawnEnemies, flag);
+                NaturalSpawner.spawnForChunk(level, chunk, spawnState, spawnFriendlies, spawnMonsters, forcedDespawn);
                 return null;
             });
         } else {
-            NaturalSpawner.spawnForChunk(level, levelchunk1, naturalspawner$spawnstate, spawnFriendlies, spawnEnemies, flag);
+            NaturalSpawner.spawnForChunk(level, chunk, spawnState, spawnFriendlies, spawnMonsters, forcedDespawn);
         }
     }
 
