@@ -44,7 +44,7 @@ public class AsyncConfig {
 
     public static void saveConfig() {
         CONFIG.set("disabled", disabled);
-        CONFIG.setComment("disabled", "Globally disable all toggleable functionality within the async system. Set to true to stop all asynchronous operations.");
+        CONFIG.setComment("disabled", "Enables parallel processing of entity.");
 
         CONFIG.set("paraMax", paraMax);
         CONFIG.setComment("paraMax", "Maximum number of threads to use for parallel processing. Set to -1 to use default value. Note: If 'virtualThreads' is enabled, this setting will be ignored.");
@@ -55,6 +55,9 @@ public class AsyncConfig {
         CONFIG.set("enableAsyncSpawn", enableAsyncSpawn);
         CONFIG.setComment("enableAsyncSpawn", "Enables parallel processing of entity spawns. Warning, incompatible with Carpet mod lagFreeSpawning rule.");
 
+        CONFIG.set("enableAsyncRandomTicks", enableAsyncRandomTicks);
+        CONFIG.setComment("enableAsyncRandomTicks", "Enables async processing of random ticks.");
+
         CONFIG.save();
         LOGGER.info("Configuration saved successfully.");
     }
@@ -64,12 +67,14 @@ public class AsyncConfig {
                 "disabled",
                 "paraMax",
                 "synchronizedEntities",
-                "enableAsyncSpawn"
+                "enableAsyncSpawn",
+                "enableAsyncRandomTicks"
         ));
 
         disabled = CONFIG.getOrElse("disabled", disabled);
         paraMax = CONFIG.getOrElse("paraMax", paraMax);
         enableAsyncSpawn = CONFIG.getOrElse("enableAsyncSpawn", enableAsyncSpawn);
+        enableAsyncRandomTicks = CONFIG.getOrElse("enableAsyncRandomTicks", enableAsyncRandomTicks);
 
         List<String> ids = synchronizedEntities.stream().map(ResourceLocation::toString).toList();
         HashSet<ResourceLocation> set = new HashSet<>();
@@ -104,7 +109,8 @@ public class AsyncConfig {
     private static void setDefaultValues() {
         disabled = false;
         paraMax = -1;
-        enableAsyncSpawn = false;
+        enableAsyncSpawn = true;
+        enableAsyncRandomTicks = false;
         synchronizedEntities = getDefaultSynchronizedEntities();
     }
 }

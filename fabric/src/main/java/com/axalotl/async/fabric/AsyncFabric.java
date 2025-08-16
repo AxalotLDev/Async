@@ -34,9 +34,8 @@ public class AsyncFabric implements ModInitializer {
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> AsyncCommand.register(dispatcher));
 
         ServerLifecycleEvents.SERVER_STOPPING.register(server -> {
-            LOGGER.info("Shutting down Async thread pool...");
-            ParallelProcessor.stop();
             StatsCommand.shutdown();
+            ParallelProcessor.stop();
         });
 
         LOGGER.info("Async Initialized Successfully!");
