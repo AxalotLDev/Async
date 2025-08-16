@@ -158,17 +158,14 @@ public abstract class ServerLevelMixin extends Level implements WorldGenLevel {
         }
     }
 
-    @WrapMethod(method = "tickCustomSpawners")
-    private void tickCustomSpawners(boolean spawnEnemies, boolean spawnFriendlies, Operation<Void> original) {
-        if (AsyncConfig.enableAsyncSpawn) {
-            CompletableFuture.runAsync(() -> original.call(spawnEnemies, spawnFriendlies), ParallelProcessor.tickPool);
-        } else original.call(spawnEnemies, spawnFriendlies);
-    }
-
     @WrapMethod(method = "tickChunk")
     private void tickChunk(LevelChunk chunk, int randomTickSpeed, Operation<Void> original) {
         if (AsyncConfig.enableAsyncRandomTicks) {
-            CompletableFuture.runAsync(() -> original.call(chunk, randomTickSpeed), ParallelProcessor.tickPool);
+            CompletableFuture.runAsync(() -> original.call(chunk, randomTickSpeed), ParallelProcessor.tickPool).exceptionally(e -> {
+                ParallelProcessor.LOGGER.error("Error in async random ticks, switching to synchronous", e);
+                original.call(chunk, randomTickSpeed);
+                return null;
+            });
         } else {
             original.call(chunk, randomTickSpeed);
         }
