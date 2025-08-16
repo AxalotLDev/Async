@@ -39,7 +39,6 @@
     "entity.breed.TurtleMixin",
     "entity.movement.EntitySectionMixin",
     "entity.movement.EntitySectionStorageMixin",
-    "entity.movement.MoveToTargetSinkMixin",
     "entity.movement.PathFinderMixin",
     "entity.movement.PoiManagerMixin",
     "entity.sensor.NearestItemSensorMixin",
