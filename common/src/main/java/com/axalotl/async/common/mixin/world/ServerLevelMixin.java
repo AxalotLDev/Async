@@ -159,7 +159,11 @@ public abstract class ServerLevelMixin extends Level implements WorldGenLevel {
     @WrapMethod(method = "tickChunk")
     private void tickChunk(LevelChunk chunk, int randomTickSpeed, Operation<Void> original) {
         if (AsyncConfig.enableAsyncRandomTicks) {
-            CompletableFuture.runAsync(() -> original.call(chunk, randomTickSpeed), ParallelProcessor.tickPool);
+            CompletableFuture.runAsync(() -> original.call(chunk, randomTickSpeed), ParallelProcessor.tickPool).exceptionally(e -> {
+                ParallelProcessor.LOGGER.error("Error in async random tick, switching to synchronous", e);
+                original.call(chunk, randomTickSpeed);
+                return null;
+            });
         } else {
             original.call(chunk, randomTickSpeed);
         }

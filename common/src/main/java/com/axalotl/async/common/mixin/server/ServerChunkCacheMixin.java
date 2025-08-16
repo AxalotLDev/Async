@@ -104,7 +104,11 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
     @WrapMethod(method = "collectTickingChunks")
     private void collectTickingChunks(List<LevelChunk> output, Operation<Void> original) {
         if (AsyncConfig.enableAsyncRandomTicks) {
-            CompletableFuture.runAsync(original::call, ParallelProcessor.tickPool);
+            CompletableFuture.runAsync(original::call, ParallelProcessor.tickPool).exceptionally(e -> {
+                ParallelProcessor.LOGGER.error("Error in async collectTickingChunks, switching to synchronous", e);
+                original.call();
+                return null;
+            });
         } else {
             original.call(output);
         }
@@ -168,7 +172,11 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
             levelchunk.incrementInhabitedTime(timeInhabited);
             if (!categories.isEmpty() && this.level.getWorldBorder().isWithinBounds(chunkpos)) {
                 SpawnState finalSpawnState = spawnState;
-                CompletableFuture.runAsync(() -> NaturalSpawner.spawnForChunk(this.level, levelchunk, finalSpawnState, categories), ParallelProcessor.tickPool);
+                CompletableFuture.runAsync(() -> NaturalSpawner.spawnForChunk(this.level, levelchunk, finalSpawnState, categories), ParallelProcessor.tickPool).exceptionally(e -> {
+                    ParallelProcessor.LOGGER.error("Error in async spawn, switching to synchronous", e);
+                    NaturalSpawner.spawnForChunk(this.level, levelchunk, finalSpawnState, categories);
+                    return null;
+                });
             }
 
             if (this.level.shouldTickBlocksAt(chunkpos.toLong())) {
@@ -178,7 +186,11 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
 
         profiler.popPush("customSpawners");
         if (flag) {
-            CompletableFuture.runAsync(() -> this.level.tickCustomSpawners(this.spawnEnemies, this.spawnFriendlies), ParallelProcessor.tickPool);
+            CompletableFuture.runAsync(() -> this.level.tickCustomSpawners(this.spawnEnemies, this.spawnFriendlies), ParallelProcessor.tickPool).exceptionally(e -> {
+                ParallelProcessor.LOGGER.error("Error in async tickCustomSpawners, switching to synchronous", e);
+                this.level.tickCustomSpawners(this.spawnEnemies, this.spawnFriendlies);
+                return null;
+            });
         }
     }
 }
