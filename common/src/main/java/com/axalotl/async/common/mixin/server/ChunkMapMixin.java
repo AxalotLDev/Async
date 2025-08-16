@@ -7,6 +7,7 @@ import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.mojang.datafixers.DataFixer;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.longs.Long2ObjectLinkedOpenHashMap;
 import net.minecraft.server.level.ChunkGenerationTask;
 import net.minecraft.server.level.ChunkHolder;
 import net.minecraft.server.level.ChunkMap;
@@ -24,6 +25,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -41,6 +43,13 @@ public abstract class ChunkMapMixin extends ChunkStorage implements ChunkHolder.
     @Final
     @Mutable
     private List<ChunkGenerationTask> pendingGenerationTasks;
+
+    @Shadow
+    @Final
+    private ChunkMap.DistanceManager distanceManager;
+
+    @Shadow
+    private volatile Long2ObjectLinkedOpenHashMap<ChunkHolder> visibleChunkMap;
 
     public ChunkMapMixin(RegionStorageInfo regionStorageInfo, Path directory, DataFixer dataFixer, boolean dsync) {
         super(regionStorageInfo, directory, dataFixer, dsync);
@@ -76,10 +85,28 @@ public abstract class ChunkMapMixin extends ChunkStorage implements ChunkHolder.
     private void forEachBlockTickingChunk(Consumer<LevelChunk> action, Operation<Void> original) {
         if (AsyncConfig.enableAsyncRandomTicks) {
             CompletableFuture.runAsync(() -> original.call(action), ParallelProcessor.tickPool).exceptionally(e -> {
-                ParallelProcessor.LOGGER.error("Error in async forEachBlockTickingChunk, switching to synchronous", e);
+                ParallelProcessor.LOGGER.error("Error in async random tick, switching to synchronous", e);
                 original.call(action);
                 return null;
             });
+        } else {
+            original.call(action);
+        }
+    }
+
+    @WrapMethod(method = "forEachBlockTickingChunk")
+    private void forEachBlockTicking(Consumer<LevelChunk> action, Operation<Void> original) {
+        if (AsyncConfig.enableAsyncRandomTicks) {
+            List<Long> keys = new ArrayList<>();
+            distanceManager.forEachEntityTickingChunk(keys::add);
+
+            for (long chunkPos : keys) {
+                ChunkHolder holder = visibleChunkMap.get(chunkPos);
+                if (holder != null) {
+                    LevelChunk chunk = holder.getTickingChunk();
+                    if (chunk != null) action.accept(chunk);
+                }
+            }
         } else {
             original.call(action);
         }

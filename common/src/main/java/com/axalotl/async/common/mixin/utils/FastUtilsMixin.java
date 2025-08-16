@@ -6,17 +6,7 @@ import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.longs.Long2LongOpenHashMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectLinkedOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongLinkedOpenHashSet;
-import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
-import it.unimi.dsi.fastutil.objects.Object2ReferenceOpenCustomHashMap;
-import it.unimi.dsi.fastutil.objects.ObjectOpenCustomHashSet;
-import it.unimi.dsi.fastutil.objects.Reference2ByteOpenHashMap;
-import it.unimi.dsi.fastutil.objects.Reference2IntOpenHashMap;
-import it.unimi.dsi.fastutil.objects.Reference2LongOpenHashMap;
-import it.unimi.dsi.fastutil.objects.Reference2ReferenceArrayMap;
-import it.unimi.dsi.fastutil.objects.Reference2ReferenceLinkedOpenHashMap;
-import it.unimi.dsi.fastutil.objects.Reference2ReferenceOpenHashMap;
-import it.unimi.dsi.fastutil.objects.ReferenceArrayList;
-import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
+import it.unimi.dsi.fastutil.objects.*;
 import org.spongepowered.asm.mixin.Mixin;
 
 @Mixin(value = {
@@ -36,7 +26,6 @@ import org.spongepowered.asm.mixin.Mixin;
         Object2ReferenceOpenCustomHashMap.class,
         Reference2ByteOpenHashMap.class,
         Reference2LongOpenHashMap.class,
-        Reference2ReferenceLinkedOpenHashMap.class
 },
         targets = {
                 "it.unimi.dsi.fastutil.longs.Long2LongOpenHashMap$FastEntryIterator",
@@ -65,8 +54,7 @@ import org.spongepowered.asm.mixin.Mixin;
                 "it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap$MapIterator",
                 "it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap$MapIterator",
                 "it.unimi.dsi.fastutil.objects.Reference2ByteOpenHashMap",
-                "it.unimi.dsi.fastutil.objects.Reference2LongOpenHashMap",
-                "it.unimi.dsi.fastutil.objects.Reference2ReferenceLinkedOpenHashMap"
+                "it.unimi.dsi.fastutil.objects.Reference2LongOpenHashMap"
         }, priority = 50000)
 public class FastUtilsMixin {
 }

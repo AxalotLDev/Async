@@ -1,7 +1,6 @@
 package com.axalotl.async.common.mixin.world;
 
 import com.axalotl.async.common.ParallelProcessor;
-import com.axalotl.async.common.config.AsyncConfig;
 import com.axalotl.async.common.parallelised.ConcurrentCollections;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
@@ -42,7 +41,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
@@ -153,16 +151,5 @@ public abstract class ServerLevelMixin extends Level implements WorldGenLevel {
         synchronized (lock) {
             original.call(source, damageSource, damageCalculator, x, y, z, radius, fire, explosionInteraction, smallExplosionParticles, largeExplosionParticles, explosionSound);
         }
-    }
-
-    @WrapMethod(method = "tickCustomSpawners")
-    private void tickCustomSpawners(boolean spawnEnemies, boolean spawnFriendlies, Operation<Void> original) {
-        if (AsyncConfig.enableAsyncSpawn) {
-            CompletableFuture.runAsync(() -> original.call(spawnEnemies, spawnFriendlies), ParallelProcessor.tickPool).exceptionally(e -> {
-                ParallelProcessor.LOGGER.error("Error in async tick custom spawners, switching to synchronous", e);
-                original.call(spawnEnemies, spawnFriendlies);
-                return null;
-            });
-        } else original.call(spawnEnemies, spawnFriendlies);
     }
 }

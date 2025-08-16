@@ -31,3 +31,6 @@ accessible class net/minecraft/world/level/NaturalSpawner
 accessible method net/minecraft/world/level/NaturalSpawner getRoughBiome (Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/chunk/ChunkAccess;)Lnet/minecraft/world/level/biome/Biome;
 accessible class net/minecraft/world/level/NaturalSpawner$SpawnState
 accessible method net/minecraft/world/level/NaturalSpawner$SpawnState <init> (ILit/unimi/dsi/fastutil/objects/Object2IntOpenHashMap;Lnet/minecraft/world/level/PotentialCalculator;Lnet/minecraft/world/level/LocalMobCapCalculator;)V
+accessible method net/minecraft/server/level/ServerChunkCache tickSpawningChunk (Lnet/minecraft/world/level/chunk/LevelChunk;JLjava/util/List;Lnet/minecraft/world/level/NaturalSpawner$SpawnState;)V
+accessible class net/minecraft/server/level/ChunkMap$DistanceManager
+accessible method net/minecraft/server/level/DistanceManager forEachEntityTickingChunk (Lit/unimi/dsi/fastutil/longs/LongConsumer;)V
