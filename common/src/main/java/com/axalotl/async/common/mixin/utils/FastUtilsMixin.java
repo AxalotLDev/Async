@@ -54,7 +54,6 @@ import org.spongepowered.asm.mixin.Mixin;
                 "it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap$MapIterator",
                 "it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap$MapIterator",
                 "it.unimi.dsi.fastutil.objects.Reference2ByteOpenHashMap",
-                "it.unimi.dsi.fastutil.objects.Reference2LongOpenHashMap"
         }, priority = 50000)
 public class FastUtilsMixin {
 }
