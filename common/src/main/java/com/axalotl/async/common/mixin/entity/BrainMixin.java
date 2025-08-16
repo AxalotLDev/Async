@@ -28,4 +28,18 @@ public class BrainMixin {
             return original.call(type);
         }
     }
+
+    @WrapMethod(method = "clearMemories")
+    private void clearMemories(Operation<Void> original) {
+        synchronized (async$lock) {
+            original.call();
+        }
+    }
+
+    @WrapMethod(method = "setMemoryInternal")
+    private <U> void setMemoryInternal(MemoryModuleType<U> memoryType, Optional<? extends ExpirableValue<?>> memory, Operation<Void> original) {
+        synchronized (async$lock) {
+            original.call(memoryType, memory);
+        }
+    }
 }
