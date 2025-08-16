@@ -9,6 +9,7 @@
     "entity.AnimalMixin",
     "entity.BeehiveBlockEntityBeeMixin",
     "entity.BeeMixin",
+    "entity.BrainMixin",
     "entity.CombatTrackerMixin",
     "entity.DolphinMixin",
     "entity.EntityLookupMixin",
