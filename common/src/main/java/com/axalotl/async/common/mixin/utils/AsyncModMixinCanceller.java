@@ -28,6 +28,6 @@ public class AsyncModMixinCanceller implements MixinCanceller {
         if (mixinClassName.endsWith("com.axalotl.async.common.mixin.vmp.VMPChunkMapMixin")) {
             return !VMP;
         }
-        return false;
+        return mixinClassName.endsWith("com.cupboard.mixin.ServerAddEntityMixin");
     }
 }
