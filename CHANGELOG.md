@@ -3,3 +3,4 @@
 - (Experimental) Add async random ticks
 - Improve performance async spawn
 - Fix deadlock with lithium
+- Fix brain memory
