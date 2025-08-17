@@ -1,8 +1,1 @@
-- Fix VMP crash with Connector mod
-- Fix Shulkers && Boats collusion conflict with lithium (temporally make sync)
-- (Experimental) Add async random ticks
-- Improve performance async spawn
-- Fix deadlock with lithium
-- Fix brain memory
-- Add support cupboard mod
-- Fix block drops in create mod
+- Fix attributes
