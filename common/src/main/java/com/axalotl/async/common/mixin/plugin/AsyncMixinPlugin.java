@@ -1,4 +1,4 @@
-package com.axalotl.async.neoforge.mixin.utils;
+package com.axalotl.async.common.mixin.plugin;
 
 import com.axalotl.async.common.config.AsyncConfig;
 import com.google.common.collect.ArrayListMultimap;
@@ -15,19 +15,45 @@ import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
 
-public class SynchronisePlugin implements IMixinConfigPlugin {
-    private static final Logger LOGGER = LogManager.getLogger();
-    private static final int FINAL_STATIC_PRIVATE_ABSTRACT = 0x1548; // final, static, private, abstract
-    private static final int SYNCHRONIZED = 0x20; // synchronized
+public class AsyncMixinPlugin implements IMixinConfigPlugin {
+    private static final Logger syncLogger = LogManager.getLogger();
     private final Multimap<String, String> mixin2MethodsMap = ArrayListMultimap.create();
     private final Multimap<String, String> mixin2MethodsExcludeMap = ArrayListMultimap.create();
     private final TreeSet<String> syncAllSet = new TreeSet<>();
+
+    private boolean isSodiumLoaded = false;
+    private boolean isLithiumLoaded = false;
+    private boolean isVmpLoaded = false;
 
     @Override
     public void onLoad(String mixinPackage) {
         mixin2MethodsExcludeMap.put("com.axalotl.async.common.mixin.utils.SyncAllMixin", "net.minecraft.world.level.chunk.ChunkStatus.isOrAfter");
         syncAllSet.add("com.axalotl.async.common.mixin.utils.FastUtilsMixin");
         syncAllSet.add("com.axalotl.async.common.mixin.utils.SyncAllMixin");
+
+        try {
+            Class.forName("net.caffeinemc.mods.sodium.client.SodiumClientMod");
+            this.isSodiumLoaded = true;
+            syncLogger.info("Sodium detected. Applying compatibility mixins.");
+        } catch (ClassNotFoundException e) {
+            syncLogger.info("Sodium not detected.");
+        }
+
+        try {
+            Class.forName("me.jellysquid.mods.lithium.common.LithiumMod");
+            this.isLithiumLoaded = true;
+            syncLogger.info("Lithium detected. Applying compatibility mixins.");
+        } catch (ClassNotFoundException e) {
+            syncLogger.info("Lithium not detected.");
+        }
+
+        try {
+            Class.forName("com.ishland.vmp.common.VMPMod");
+            this.isVmpLoaded = true;
+            syncLogger.info("VMP detected. Applying compatibility mixins.");
+        } catch (ClassNotFoundException e) {
+            syncLogger.info("VMP not detected.");
+        }
     }
 
     @Override
@@ -38,12 +64,20 @@ public class SynchronisePlugin implements IMixinConfigPlugin {
     @Override
     public boolean shouldApplyMixin(String targetClassName, String mixinClassName) {
         if (mixinClassName.startsWith("com.axalotl.async.common.mixin.sodium")) {
-            return AsyncConfig.enableSodiumCompatibility && com.axalotl.async.neoforge.AsyncNeoForge.SODIUM;
+            return AsyncConfig.enableSodiumCompatibility && this.isSodiumLoaded;
         }
-        if (AsyncConfig.enableSodiumCompatibility && com.axalotl.async.neoforge.AsyncNeoForge.SODIUM) {
-            if (mixinClassName.startsWith("com.axalotl.async.neoforge.mixin.client")) {
+        if (AsyncConfig.enableSodiumCompatibility && this.isSodiumLoaded) {
+            if (mixinClassName.startsWith("com.axalotl.async.fabric.mixin.client") ||
+                mixinClassName.startsWith("com.axalotl.async.neoforge.mixin.client")) {
+                syncLogger.info("Disabling conflicting mixin for Sodium compatibility: " + mixinClassName);
                 return false;
             }
+        }
+        if (mixinClassName.startsWith("com.axalotl.async.common.mixin.lithium")) {
+            return this.isLithiumLoaded;
+        }
+        if (mixinClassName.startsWith("com.axalotl.async.common.mixin.vmp")) {
+            return this.isVmpLoaded;
         }
         return true;
     }
@@ -69,9 +103,10 @@ public class SynchronisePlugin implements IMixinConfigPlugin {
         if (!targetMethods.isEmpty()) {
             applySynchronizeBit(targetClass, targetMethods, targetClassName);
         } else if (syncAllSet.contains(mixinClassName)) {
+            int negFilter = 5448;
             for (MethodNode method : targetClass.methods) {
-                if ((method.access & FINAL_STATIC_PRIVATE_ABSTRACT) == 0 && !method.name.equals("<init>") && !excludedMethods.contains(method.name)) {
-                    method.access |= SYNCHRONIZED;
+                if ((method.access & negFilter) == 0 && !method.name.equals("<init>") && !excludedMethods.contains(method.name)) {
+                    method.access |= 32;
                     logSynchronize(method.name, targetClassName, mixinClassName);
                 }
             }
@@ -82,7 +117,7 @@ public class SynchronisePlugin implements IMixinConfigPlugin {
         for (MethodNode method : targetClass.methods) {
             for (String targetMethod : targetMethods) {
                 if (method.name.equals(targetMethod)) {
-                    method.access |= SYNCHRONIZED;
+                    method.access |= 32;
                     logSynchronize(method.name, targetClassName, null);
                 }
             }
@@ -92,7 +127,7 @@ public class SynchronisePlugin implements IMixinConfigPlugin {
     private void logSynchronize(String methodName, String targetClassName, String mixinClassName) {
         if (mixinClassName == null || !mixinClassName.equals("com.axalotl.async.mixin.utils.FastUtilsMixin")) {
             String message = "Setting synchronize bit for " + methodName + " in " + targetClassName + ".";
-            LOGGER.debug(message);
+            syncLogger.debug(message);
         }
     }
 }

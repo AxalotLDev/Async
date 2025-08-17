@@ -15,5 +15,5 @@
   "injectors": {
     "defaultRequire": 1
   },
-  "plugin": "com.axalotl.async.fabric.mixin.utils.SynchronisePlugin"
+  "plugin": "com.axalotl.async.common.mixin.plugin.AsyncMixinPlugin"
 }

@@ -81,5 +81,5 @@
   "injectors": {
     "defaultRequire": 1
   },
-  "plugin": "com.axalotl.async.common.mixin.utils.SynchronisePlugin"
+  "plugin": "com.axalotl.async.common.mixin.plugin.AsyncMixinPlugin"
 }
