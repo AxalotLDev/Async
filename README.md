@@ -8,7 +8,7 @@
 </div>
 
 
-## What is Async? 🤔
+
 **Async** is a Fabric mod designed to improve entity performance by processing them in parallel using multiple CPU cores and threads.
 
 
