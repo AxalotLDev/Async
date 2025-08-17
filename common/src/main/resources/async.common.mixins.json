@@ -73,7 +73,8 @@
     "world.ScoreboardMixin",
     "world.SectionStorageMixin",
     "world.ServerLevelMixin",
-    "sodium.SodiumWorldRendererMixin"
+    "sodium.SodiumWorldRendererMixin",
+    "sodium.AsyncSodiumWorldRendererMixin"
   ],
   "client": [],
   "server": [],
