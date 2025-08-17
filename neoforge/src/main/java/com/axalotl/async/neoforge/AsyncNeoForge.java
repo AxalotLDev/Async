@@ -41,7 +41,7 @@ public class AsyncNeoForge {
         loadConfig();
         StatsCommand.runStatsThread();
         ParallelProcessor.setServer(event.getServer());
-        ParallelProcessor.setupThreadPool(getParallelism(), this.getClass());
+        ParallelProcessor.setupThreadPool(getParallelism(), com.axalotl.async.common.config.AsyncConfig.taskQueueSize, this.getClass());
     }
 
     @SubscribeEvent

@@ -20,7 +20,8 @@ import org.apache.logging.log4j.Logger;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Queue;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.*;
@@ -37,17 +38,13 @@ public class ParallelProcessor {
     public static final AtomicInteger currentEntities = new AtomicInteger();
     private static final AtomicInteger threadPoolID = new AtomicInteger();
     public static ExecutorService tickPool;
-    private static final Queue<CompletableFuture<?>> taskQueue = new ConcurrentLinkedQueue<>();
+    private static BlockingQueue<CompletableFuture<?>> taskQueue;
     private static final Set<UUID> blacklistedEntity = ConcurrentHashMap.newKeySet();
     private static final Map<UUID, Integer> portalTickSyncMap = new ConcurrentHashMap<>();
     private static final Map<String, Set<Thread>> mcThreadTracker = new ConcurrentHashMap<>();
-    public static final Set<Class<?>> specialEntities = Set.of(
-            FallingBlockEntity.class,
-            Shulker.class,
-            Boat.class
-    );
 
-    public static void setupThreadPool(int parallelism, Class<?> asyncClass) {
+    public static void setupThreadPool(int parallelism, int queueSize, Class<?> asyncClass) {
+        taskQueue = new LinkedBlockingQueue<>(queueSize);
         ForkJoinPool.ForkJoinWorkerThreadFactory threadFactory = pool -> {
             ForkJoinWorkerThread worker = ForkJoinPool.defaultForkJoinWorkerThreadFactory.newThread(pool);
             worker.setName("Async-Tick-Pool-Thread-" + threadPoolID.getAndIncrement());
@@ -60,7 +57,7 @@ public class ParallelProcessor {
 
         tickPool = new ForkJoinPool(parallelism, threadFactory, (t, e) ->
                 LOGGER.error("Uncaught exception in thread {}: {}", t.getName(), e), true);
-        LOGGER.info("Initialized Pool with {} threads", parallelism);
+        LOGGER.info("Initialized Pool with {} threads and a queue size of {}", parallelism, queueSize);
     }
 
     public static void registerThread(String poolName, Thread thread) {
@@ -88,7 +85,10 @@ public class ParallelProcessor {
                     blacklistedEntity.add(entity.getUUID());
                     return null;
                 });
-                taskQueue.add(future);
+                if (!taskQueue.offer(future)) {
+                    logEntityError("Async tick queue is full, switching to synchronous", entity, null);
+                    tickSynchronously(world, entity);
+                }
             } else {
                 logEntityError("Rejected task due to ExecutorService shutdown", entity, null);
                 tickSynchronously(world, entity);
@@ -102,7 +102,7 @@ public class ParallelProcessor {
                 entity instanceof Projectile ||
                 entity instanceof AbstractMinecart ||
                 entity instanceof ServerPlayer ||
-                specialEntities.contains(entity.getClass()) ||
+                AsyncConfig.specialEntityClasses.contains(entity.getClass().getName()) ||
                 blacklistedEntity.contains(entityId) ||
                 AsyncConfig.synchronizedEntities.contains(EntityType.getKey(entity.getType()));
         if (requiresSyncTick) {
@@ -118,7 +118,7 @@ public class ParallelProcessor {
             }
         }
         if (isPortalTickRequired(entity)) {
-            portalTickSyncMap.put(entityId, 39);
+            portalTickSyncMap.put(entityId, AsyncConfig.portalTickSyncDuration);
             return true;
         }
         return false;
@@ -153,7 +153,10 @@ public class ParallelProcessor {
                 entity.checkDespawn();
                 return null;
             });
-            taskQueue.add(future);
+            if (!taskQueue.offer(future)) {
+                LOGGER.error("Async tick queue is full, despawning synchronously");
+                entity.checkDespawn();
+            }
         } else {
             entity.checkDespawn();
         }
@@ -162,10 +165,7 @@ public class ParallelProcessor {
     public static void postEntityTick() {
         if (!AsyncConfig.disabled) {
             List<CompletableFuture<?>> futuresList = new ArrayList<>();
-            CompletableFuture<?> future;
-            while ((future = taskQueue.poll()) != null) {
-                futuresList.add(future);
-            }
+            taskQueue.drainTo(futuresList);
 
             CompletableFuture<?> allTasks = CompletableFuture.allOf(
                     futuresList.toArray(new CompletableFuture[0])
@@ -195,14 +195,19 @@ public class ParallelProcessor {
         }
     }
 
-    @SuppressWarnings("ResultOfMethodCallIgnored")
     public static void stop() {
         if (tickPool != null) {
             LOGGER.info("Waiting for Async tickPool to shutdown...");
             tickPool.shutdown();
             try {
-                tickPool.awaitTermination(60L, TimeUnit.SECONDS);
-            } catch (InterruptedException ignored) {
+                if (!tickPool.awaitTermination(60L, TimeUnit.SECONDS)) {
+                    LOGGER.warn("Async tickPool did not terminate in 60 seconds. Forcing shutdown...");
+                    tickPool.shutdownNow();
+                }
+            } catch (InterruptedException e) {
+                LOGGER.warn("Async tickPool shutdown interrupted. Forcing shutdown...");
+                tickPool.shutdownNow();
+                Thread.currentThread().interrupt();
             }
         }
     }
