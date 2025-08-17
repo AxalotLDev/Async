@@ -204,8 +204,12 @@ public abstract class LithiumServerChunkCacheMixin extends ChunkSource {
     }
 
     @Unique
+    private static final long X_MASK = 0x0FFFFFFF;
+    private static final int Z_SHIFT = 28;
+    private static final int STATUS_SHIFT = 56;
+
     private static long async$createCacheKey(int chunkX, int chunkZ, ChunkStatus status) {
-        return (long) chunkX & 268435455L | ((long) chunkZ & 268435455L) << 28 | (long) status.getIndex() << 56;
+        return (long) chunkX & X_MASK | ((long) chunkZ & X_MASK) << Z_SHIFT | (long) status.getIndex() << STATUS_SHIFT;
     }
 
     @Unique
