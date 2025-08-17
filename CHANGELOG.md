@@ -5,3 +5,4 @@
 - Fix deadlock with lithium
 - Fix brain memory
 - Add support cupboard mod
+- Fix block drops in create mod
