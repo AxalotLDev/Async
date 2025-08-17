@@ -1,5 +1,5 @@
 <div align="center">
-  
+
 # Async - Minecraft Entity Multi-Threading Mod ⚙️
 
 [![Modrinth Downloads](https://img.shields.io/modrinth/dt/async?style=for-the-badge&logo=modrinth)](https://modrinth.com/mod/async)
@@ -42,7 +42,7 @@ Concurrent Chunk Management Engine, Fabric API, FerriteCore, Lithium, ScalableLu
 </details>
 
 ## ⚠️ Incompatible Mods
-- ❌ Moonrise - Known incompatibility 
+- ❌ Moonrise - Known incompatibility
 - ⚠️ ...and there may be conflicts with other mods.
 
 *If you encounter issues with other mods, please report them on our [GitHub](https://github.com/AxalotLDev/Async/issues) or [Discord](https://discord.com/invite/scvCQ2qKS3).*
