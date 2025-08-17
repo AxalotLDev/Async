@@ -178,13 +178,16 @@ public class ParallelProcessor {
                 return null;
             });
 
+            // Busy-wait for all tasks to complete, while polling for chunk tasks on the main thread.
+            // This is necessary to prevent deadlocks when an async task needs a chunk that is not yet loaded.
             while (!allTasks.isDone()) {
                 boolean hasTask = false;
                 for (ServerLevel world : server.getAllLevels()) {
                     hasTask |= world.getChunkSource().pollTask();
                 }
                 if (!hasTask) {
-                    LockSupport.parkNanos(50_000);
+                    // Park the thread for a short time to avoid busy-spinning.
+                    LockSupport.parkNanos(1_000_000); // 1 millisecond
                 }
             }
 
