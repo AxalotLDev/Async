@@ -8,15 +8,14 @@
 </div>
 
 
-
+## What is Async? 🤔
 **Async** is a Fabric mod designed to improve entity performance by processing them in parallel using multiple CPU cores and threads.
 
 
 ## Important❗
 **Async** is currently in alpha testing and is experimental. Its use may lead to incorrect entity behavior and crashes.
 
-## What is Async? 🤔
-Async is a Fabric mod that enhances the performance of entity processing. The mod leverages multithreading, which allows multiple CPU cores to improve performance when handling a large number of entities.
+
 
 ### 💡 Key Benefits:
 - ⚡ **Improved TPS**: Maintains stable tick times even with a large number of entities.
