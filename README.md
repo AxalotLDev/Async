@@ -49,7 +49,7 @@ Concurrent Chunk Management Engine, Fabric API, FerriteCore, Lithium, ScalableLu
 
 ## 🔧 Commands
 - `/async config toggle` — Enables or disables the mod in-game (no server restart required). Use this command to instantly see how Async improves your server.
-- `/async config setAsyncEntitySpawn` — Enables or disables parallel mob spawn processing (disabled by default). **Warning: Not compatible with VMP mod and Carpet mod's lagFreeSpawning rule.**
+- `/async config setAsyncEntitySpawn` — Enables or disables parallel mob spawn processing (disabled by default). **Warning: Not compatible with Carpet mod lagFreeSpawning rule.**
 - `/async config setAsyncRandomTicks` — Enables or disables async random ticks processing (experimental feature).
 - `/async config synchronizedEntities add` — Adds selected entity to synchronized processing.
 - `/async config synchronizedEntities remove` — Removes selected entity from synchronized processing.
