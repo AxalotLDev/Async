@@ -72,7 +72,8 @@
     "world.RandomSequencesMixin",
     "world.ScoreboardMixin",
     "world.SectionStorageMixin",
-    "world.ServerLevelMixin"
+    "world.ServerLevelMixin",
+    "sodium.SodiumWorldRendererMixin"
   ],
   "client": [],
   "server": [],

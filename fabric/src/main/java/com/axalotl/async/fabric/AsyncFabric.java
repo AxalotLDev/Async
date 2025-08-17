@@ -16,6 +16,7 @@ public class AsyncFabric implements ModInitializer {
     public static final Logger LOGGER = LogManager.getLogger(AsyncFabric.class);
     public static boolean LITHIUM = FabricLoader.getInstance().isModLoaded("lithium");
     public static boolean VMP = FabricLoader.getInstance().isModLoaded("vmp");
+    public static boolean SODIUM = FabricLoader.getInstance().isModLoaded("sodium");
 
     @Override
     public void onInitialize() {

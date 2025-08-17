@@ -18,6 +18,7 @@ public class AsyncConfig {
     public static int taskQueueSize = 10000;
     public static int portalTickSyncDuration = 39;
     public static boolean enableEntityCulling = true;
+    public static boolean enableSodiumCompatibility = true;
 
     public static Set<String> specialEntityClasses = new HashSet<>(Set.of(
             "net.minecraft.world.entity.item.FallingBlockEntity",

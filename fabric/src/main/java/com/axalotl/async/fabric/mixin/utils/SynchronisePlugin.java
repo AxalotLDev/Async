@@ -1,5 +1,6 @@
 package com.axalotl.async.fabric.mixin.utils;
 
+import com.axalotl.async.common.config.AsyncConfig;
 import com.axalotl.async.fabric.AsyncFabric;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Multimap;
@@ -35,6 +36,14 @@ public class SynchronisePlugin implements IMixinConfigPlugin {
 
     @Override
     public boolean shouldApplyMixin(String targetClassName, String mixinClassName) {
+        if (mixinClassName.startsWith("com.axalotl.async.common.mixin.sodium")) {
+            return AsyncConfig.enableSodiumCompatibility && AsyncFabric.SODIUM;
+        }
+        if (AsyncConfig.enableSodiumCompatibility && AsyncFabric.SODIUM) {
+            if (mixinClassName.startsWith("com.axalotl.async.fabric.mixin.client")) {
+                return false;
+            }
+        }
         if (mixinClassName.endsWith("com.axalotl.async.common.mixin.lithium.LithiumServerChunkCacheMixin") ||
                 mixinClassName.endsWith("com.axalotl.async.common.mixin.lithium.LithiumServerLevel")) {
             return AsyncFabric.LITHIUM;

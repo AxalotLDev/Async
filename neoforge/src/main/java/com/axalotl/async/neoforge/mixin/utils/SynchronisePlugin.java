@@ -1,5 +1,6 @@
 package com.axalotl.async.neoforge.mixin.utils;
 
+import com.axalotl.async.common.config.AsyncConfig;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Multimap;
 import org.apache.logging.log4j.LogManager;
@@ -36,6 +37,14 @@ public class SynchronisePlugin implements IMixinConfigPlugin {
 
     @Override
     public boolean shouldApplyMixin(String targetClassName, String mixinClassName) {
+        if (mixinClassName.startsWith("com.axalotl.async.common.mixin.sodium")) {
+            return AsyncConfig.enableSodiumCompatibility && com.axalotl.async.neoforge.AsyncNeoForge.SODIUM;
+        }
+        if (AsyncConfig.enableSodiumCompatibility && com.axalotl.async.neoforge.AsyncNeoForge.SODIUM) {
+            if (mixinClassName.startsWith("com.axalotl.async.neoforge.mixin.client")) {
+                return false;
+            }
+        }
         return true;
     }
 
