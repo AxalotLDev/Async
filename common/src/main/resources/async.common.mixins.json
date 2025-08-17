@@ -61,6 +61,7 @@
     "utils.SyncAllMixin",
     "utils.ThreadingDetectorMixin",
     "vmp.VMPChunkMapMixin",
+    "world.BlockMixin",
     "world.ChunkHolderMixin",
     "world.CollectingNeighborUpdaterMixin",
     "world.DistanceManagerMixin",
