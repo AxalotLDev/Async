@@ -21,7 +21,6 @@
     "entity.LivingEntityMixin",
     "entity.MobMixin",
     "entity.NearestVisibleLivingEntitiesMixin",
-    "entity.OpenDoorsTaskMixin",
     "entity.PandaMixin",
     "entity.PiglinMixin",
     "entity.PlayTagWithOtherKidsMixin",
