@@ -96,6 +96,41 @@ public class ParallelProcessor {
         }
     }
 
+    public static ExecutorService clientTickPool;
+
+    public static void setupClientThreadPool(int parallelism, Class<?> asyncClass) {
+        ForkJoinPool.ForkJoinWorkerThreadFactory threadFactory = pool -> {
+            ForkJoinWorkerThread worker = ForkJoinPool.defaultForkJoinWorkerThreadFactory.newThread(pool);
+            worker.setName("Async-Client-Tick-Pool-Thread-" + threadPoolID.getAndIncrement());
+            registerThread("Async-Client-Tick", worker);
+            worker.setDaemon(true);
+            worker.setPriority(Thread.NORM_PRIORITY);
+            worker.setContextClassLoader(asyncClass.getClassLoader());
+            return worker;
+        };
+
+        clientTickPool = new ForkJoinPool(parallelism, threadFactory, (t, e) ->
+                LOGGER.error("Uncaught exception in thread {}: {}", t.getName(), e), true);
+        LOGGER.info("Initialized Client Pool with {} threads", parallelism);
+    }
+
+    public static void stopClient() {
+        if (clientTickPool != null) {
+            LOGGER.info("Waiting for Async clientTickPool to shutdown...");
+            clientTickPool.shutdown();
+            try {
+                if (!clientTickPool.awaitTermination(60L, TimeUnit.SECONDS)) {
+                    LOGGER.warn("Async clientTickPool did not terminate in 60 seconds. Forcing shutdown...");
+                    clientTickPool.shutdownNow();
+                }
+            } catch (InterruptedException e) {
+                LOGGER.warn("Async clientTickPool shutdown interrupted. Forcing shutdown...");
+                clientTickPool.shutdownNow();
+                Thread.currentThread().interrupt();
+            }
+        }
+    }
+
     public static boolean shouldTickSynchronously(Entity entity) {
         UUID entityId = entity.getUUID();
         boolean requiresSyncTick = AsyncConfig.disabled ||

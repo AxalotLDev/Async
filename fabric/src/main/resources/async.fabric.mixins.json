@@ -9,6 +9,7 @@
     "utils.UtilMixin"
   ],
   "client": [
+    "client.LevelRendererMixin"
   ],
   "server": [],
   "injectors": {

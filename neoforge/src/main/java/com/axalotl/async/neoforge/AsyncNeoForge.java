@@ -11,6 +11,7 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.config.ModConfig;
 import net.neoforged.fml.javafmlmod.FMLModContainer;
+import net.neoforged.fml.loading.FMLEnvironment;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.neoforge.event.server.ServerStartingEvent;
@@ -30,6 +31,9 @@ public class AsyncNeoForge {
         LOGGER.info("Initializing Async...");
         NeoForgePlatformEvents.init();
         NeoForge.EVENT_BUS.register(this);
+        if (FMLEnvironment.dist.isClient()) {
+            NeoForge.EVENT_BUS.register(AsyncNeoForgeClient.class);
+        }
         LOGGER.info("Initializing Async Config...");
         container.registerConfig(ModConfig.Type.COMMON, SPEC, "async.toml");
         LOGGER.info("Async Initialized Successfully!");

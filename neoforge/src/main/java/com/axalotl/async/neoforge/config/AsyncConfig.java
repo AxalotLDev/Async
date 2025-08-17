@@ -16,6 +16,7 @@ public class AsyncConfig {
     private static final ModConfigSpec.ConfigValue<List<String>> synchronizedEntities;
     private static final ModConfigSpec.ConfigValue<List<String>> specialEntityClasses;
     private static final ModConfigSpec.ConfigValue<Integer> portalTickSyncDuration;
+    private static final ModConfigSpec.ConfigValue<Boolean> enableEntityCulling;
     private static final ModConfigSpec.ConfigValue<Boolean> enableAsyncSpawn;
     private static final ModConfigSpec.ConfigValue<Boolean> enableAsyncRandomTicks;
 
@@ -37,6 +38,9 @@ public class AsyncConfig {
         portalTickSyncDuration = BUILDER.comment("The duration in ticks for which an entity is ticked synchronously after going through a portal.")
                 .define("portalTickSyncDuration", com.axalotl.async.common.config.AsyncConfig.portalTickSyncDuration);
 
+        enableEntityCulling = BUILDER.comment("Enables entity culling on the client to improve performance.")
+                .define("enableEntityCulling", com.axalotl.async.common.config.AsyncConfig.enableEntityCulling);
+
         enableAsyncSpawn = BUILDER.comment("Enables parallel processing of entity spawns.")
                 .define("enableAsyncSpawn", com.axalotl.async.common.config.AsyncConfig.enableAsyncSpawn);
 
@@ -54,6 +58,7 @@ public class AsyncConfig {
         com.axalotl.async.common.config.AsyncConfig.enableAsyncSpawn = enableAsyncSpawn.get();
         com.axalotl.async.common.config.AsyncConfig.enableAsyncRandomTicks = enableAsyncRandomTicks.get();
         com.axalotl.async.common.config.AsyncConfig.portalTickSyncDuration = portalTickSyncDuration.get();
+        com.axalotl.async.common.config.AsyncConfig.enableEntityCulling = enableEntityCulling.get();
         com.axalotl.async.common.config.AsyncConfig.specialEntityClasses = new HashSet<>(specialEntityClasses.get());
         com.axalotl.async.common.config.AsyncConfig.synchronizedEntities = new HashSet<>();
         List<String> ids = synchronizedEntities.get();
@@ -77,6 +82,7 @@ public class AsyncConfig {
         enableAsyncSpawn.set(com.axalotl.async.common.config.AsyncConfig.enableAsyncSpawn);
         enableAsyncRandomTicks.set(com.axalotl.async.common.config.AsyncConfig.enableAsyncRandomTicks);
         portalTickSyncDuration.set(com.axalotl.async.common.config.AsyncConfig.portalTickSyncDuration);
+        enableEntityCulling.set(com.axalotl.async.common.config.AsyncConfig.enableEntityCulling);
         specialEntityClasses.set(new java.util.ArrayList<>(com.axalotl.async.common.config.AsyncConfig.specialEntityClasses));
         synchronizedEntities.set(new java.util.ArrayList<>(com.axalotl.async.common.config.AsyncConfig.synchronizedEntities.stream().map(ResourceLocation::toString).toList()));
         SPEC.save();
