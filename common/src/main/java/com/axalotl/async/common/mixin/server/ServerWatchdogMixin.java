@@ -14,8 +14,9 @@ import java.util.Map;
 @Mixin(ServerWatchdog.class)
 public class ServerWatchdogMixin {
 
+    @SuppressWarnings("InvalidInjectorMethodSignature")
     @Inject(method = "run", at = @At(value = "INVOKE", target = "Lnet/minecraft/CrashReport;addCategory(Ljava/lang/String;)Lnet/minecraft/CrashReportCategory;"), locals = LocalCapture.CAPTURE_FAILSOFT)
-    private void addCustomCrashReport(CallbackInfo ci, long i, long j, long k, String message, CrashReport crashreport){
+    private void addCustomCrashReport(CallbackInfo ci, long i, long j, long k, CrashReport crashreport){
         CrashReportCategory threadDumpSection = crashreport.addCategory("Async thread dump");
         threadDumpSection.setDetail("All Threads", () -> {
             StringBuilder sb = new StringBuilder();
