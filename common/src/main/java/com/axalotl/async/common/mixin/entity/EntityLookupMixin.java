@@ -49,7 +49,6 @@ public abstract class EntityLookupMixin<T extends EntityAccess> {
         return uuid == null ? null : original.call(uuid);
     }
 
-
     @WrapMethod(method = "getEntity(I)Lnet/minecraft/world/level/entity/EntityAccess;")
     private T getEntity1(int id, Operation<T> original) {
         return id == 0 ? null : original.call(id);
