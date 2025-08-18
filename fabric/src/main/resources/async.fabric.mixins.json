@@ -9,7 +9,9 @@
     "utils.UtilMixin"
   ],
   "client": [
-    "client.LevelRendererMixin"
+    "client.LevelRendererMixin",
+    "sodium.SodiumWorldRendererMixin",
+    "sodium.AsyncSodiumWorldRendererMixin"
   ],
   "server": [],
   "injectors": {

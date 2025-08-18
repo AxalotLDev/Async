@@ -24,6 +24,7 @@ public class AsyncMixinPlugin implements IMixinConfigPlugin {
     private final TreeSet<String> syncAllSet = new TreeSet<>();
     private final Set<String> serverMixins = new HashSet<>();
     private final Set<String> clientMixins = new HashSet<>();
+    private final Set<String> sodiumMixins = new HashSet<>();
 
     private boolean isSodiumLoaded = false;
     private boolean isLithiumLoaded = false;
@@ -43,12 +44,18 @@ public class AsyncMixinPlugin implements IMixinConfigPlugin {
         serverMixins.addAll(Arrays.asList(serverMixinClasses));
 
         String[] clientMixinClasses = {
-            "com.axalotl.async.common.mixin.sodium.SodiumWorldRendererMixin",
-            "com.axalotl.async.common.mixin.sodium.AsyncSodiumWorldRendererMixin",
             "com.axalotl.async.fabric.mixin.client.LevelRendererMixin",
             "com.axalotl.async.neoforge.mixin.client.LevelRendererMixin"
         };
         clientMixins.addAll(Arrays.asList(clientMixinClasses));
+
+        String[] sodiumMixinClasses = {
+            "com.axalotl.async.fabric.mixin.sodium.SodiumWorldRendererMixin",
+            "com.axalotl.async.fabric.mixin.sodium.AsyncSodiumWorldRendererMixin",
+            "com.axalotl.async.neoforge.mixin.sodium.SodiumWorldRendererMixin",
+            "com.axalotl.async.neoforge.mixin.sodium.AsyncSodiumWorldRendererMixin"
+        };
+        sodiumMixins.addAll(Arrays.asList(sodiumMixinClasses));
 
         try {
             Class.forName("net.minecraft.client.Minecraft");
@@ -99,16 +106,10 @@ public class AsyncMixinPlugin implements IMixinConfigPlugin {
             }
         }
 
-        if (mixinClassName.startsWith("com.axalotl.async.common.mixin.sodium")) {
-            return AsyncConfig.enableSodiumCompatibility && this.isSodiumLoaded;
+        if (sodiumMixins.contains(mixinClassName)) {
+            return this.isSodiumLoaded;
         }
-        if (AsyncConfig.enableSodiumCompatibility && this.isSodiumLoaded) {
-            if (mixinClassName.startsWith("com.axalotl.async.fabric.mixin.client") ||
-                mixinClassName.startsWith("com.axalotl.async.neoforge.mixin.client")) {
-                syncLogger.info("Disabling conflicting mixin for Sodium compatibility: " + mixinClassName);
-                return false;
-            }
-        }
+
         if (mixinClassName.startsWith("com.axalotl.async.common.mixin.lithium")) {
             return this.isLithiumLoaded;
         }
