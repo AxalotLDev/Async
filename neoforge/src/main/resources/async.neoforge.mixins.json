@@ -7,10 +7,14 @@
     "utils.ClassInstanceMultiMapMixin",
     "utils.UtilMixin"
   ],
-  "client": [],
+  "client": [
+    "client.LevelRendererMixin",
+    "sodium.SodiumWorldRendererMixin",
+    "sodium.AsyncSodiumWorldRendererMixin"
+  ],
   "server": [],
   "injectors": {
     "defaultRequire": 1
   },
-  "plugin": "com.axalotl.async.neoforge.mixin.utils.SynchronisePlugin"
+  "plugin": "com.axalotl.async.common.mixin.plugin.AsyncMixinPlugin"
 }

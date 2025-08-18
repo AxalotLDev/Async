@@ -15,6 +15,16 @@ public class AsyncConfig {
     public static int paraMax = -1;
     public static boolean enableAsyncSpawn = true;
     public static boolean enableAsyncRandomTicks = false;
+    public static int taskQueueSize = 10000;
+    public static int portalTickSyncDuration = 39;
+    public static boolean enableEntityCulling = true;
+    public static boolean enableSodiumCompatibility = true;
+
+    public static Set<String> specialEntityClasses = new HashSet<>(Set.of(
+            "net.minecraft.world.entity.item.FallingBlockEntity",
+            "net.minecraft.world.entity.monster.Shulker",
+            "net.minecraft.world.entity.vehicle.Boat"
+    ));
 
     public static Set<ResourceLocation> synchronizedEntities = getDefaultSynchronizedEntities();
 

@@ -52,6 +52,15 @@ public class AsyncConfig {
         CONFIG.set("synchronizedEntities", synchronizedEntities.stream().map(ResourceLocation::toString).toList());
         CONFIG.setComment("synchronizedEntities", "List of entity class for sync processing.");
 
+        CONFIG.set("specialEntityClasses", new java.util.ArrayList<>(specialEntityClasses));
+        CONFIG.setComment("specialEntityClasses", "List of entity classes that require special handling and will be ticked synchronously.");
+
+        CONFIG.set("portalTickSyncDuration", portalTickSyncDuration);
+        CONFIG.setComment("portalTickSyncDuration", "The duration in ticks for which an entity is ticked synchronously after going through a portal.");
+
+        CONFIG.set("enableEntityCulling", enableEntityCulling);
+        CONFIG.setComment("enableEntityCulling", "Enables entity culling on the client to improve performance.");
+
         CONFIG.set("enableAsyncSpawn", enableAsyncSpawn);
         CONFIG.setComment("enableAsyncSpawn", "Enables parallel processing of entity spawns. Warning, incompatible with Carpet mod lagFreeSpawning rule.");
 
@@ -67,6 +76,9 @@ public class AsyncConfig {
                 "disabled",
                 "paraMax",
                 "synchronizedEntities",
+                "specialEntityClasses",
+                "portalTickSyncDuration",
+                "enableEntityCulling",
                 "enableAsyncSpawn",
                 "enableAsyncRandomTicks"
         ));
@@ -75,6 +87,10 @@ public class AsyncConfig {
         paraMax = CONFIG.getOrElse("paraMax", paraMax);
         enableAsyncSpawn = CONFIG.getOrElse("enableAsyncSpawn", enableAsyncSpawn);
         enableAsyncRandomTicks = CONFIG.getOrElse("enableAsyncRandomTicks", enableAsyncRandomTicks);
+
+        portalTickSyncDuration = CONFIG.getOrElse("portalTickSyncDuration", portalTickSyncDuration);
+        enableEntityCulling = CONFIG.getOrElse("enableEntityCulling", enableEntityCulling);
+        specialEntityClasses = new HashSet<>(CONFIG.getOrElse("specialEntityClasses", new java.util.ArrayList<>(specialEntityClasses)));
 
         List<String> ids = synchronizedEntities.stream().map(ResourceLocation::toString).toList();
         HashSet<ResourceLocation> set = new HashSet<>();
@@ -111,6 +127,13 @@ public class AsyncConfig {
         paraMax = -1;
         enableAsyncSpawn = true;
         enableAsyncRandomTicks = false;
+        portalTickSyncDuration = 39;
+        enableEntityCulling = true;
         synchronizedEntities = getDefaultSynchronizedEntities();
+        specialEntityClasses = new HashSet<>(Set.of(
+                "net.minecraft.world.entity.item.FallingBlockEntity",
+                "net.minecraft.world.entity.monster.Shulker",
+                "net.minecraft.world.entity.vehicle.Boat"
+        ));
     }
 }

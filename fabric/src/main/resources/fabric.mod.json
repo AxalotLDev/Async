@@ -18,6 +18,9 @@
         "main": [
             "com.axalotl.async.fabric.AsyncFabric"
         ],
+        "client": [
+            "com.axalotl.async.fabric.AsyncFabricClient"
+        ],
         "mixinsquared": [
             "com.axalotl.async.common.mixin.utils.AsyncModMixinCanceller"
         ]
