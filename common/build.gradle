@@ -29,7 +29,6 @@ dependencies {
     implementation("org.ow2.asm:asm-tree:9.8")
     compileOnly 'org.projectlombok:lombok:1.18.32'
     annotationProcessor 'org.projectlombok:lombok:1.18.32'
-    compileOnly "maven.modrinth:sodium:mc1.21.6-0.6.13-fabric"
     implementation 'maven.modrinth:lithium:mc1.21.8-0.18.0-neoforge'
 }
 

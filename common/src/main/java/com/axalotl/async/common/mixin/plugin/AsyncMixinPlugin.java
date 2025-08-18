@@ -14,22 +14,48 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.Arrays;
+import java.util.HashSet;
 
 public class AsyncMixinPlugin implements IMixinConfigPlugin {
     private static final Logger syncLogger = LogManager.getLogger();
     private final Multimap<String, String> mixin2MethodsMap = ArrayListMultimap.create();
     private final Multimap<String, String> mixin2MethodsExcludeMap = ArrayListMultimap.create();
     private final TreeSet<String> syncAllSet = new TreeSet<>();
+    private final Set<String> serverMixins = new HashSet<>();
+    private final Set<String> clientMixins = new HashSet<>();
 
     private boolean isSodiumLoaded = false;
     private boolean isLithiumLoaded = false;
     private boolean isVmpLoaded = false;
+    private boolean isClient = false;
 
     @Override
     public void onLoad(String mixinPackage) {
         mixin2MethodsExcludeMap.put("com.axalotl.async.common.mixin.utils.SyncAllMixin", "net.minecraft.world.level.chunk.ChunkStatus.isOrAfter");
         syncAllSet.add("com.axalotl.async.common.mixin.utils.FastUtilsMixin");
         syncAllSet.add("com.axalotl.async.common.mixin.utils.SyncAllMixin");
+
+        String[] serverMixinClasses = {
+            "com.axalotl.async.common.mixin.server.ServerWatchdogMixin",
+            "com.axalotl.async.common.mixin.vmp.VMPChunkMapMixin"
+        };
+        serverMixins.addAll(Arrays.asList(serverMixinClasses));
+
+        String[] clientMixinClasses = {
+            "com.axalotl.async.common.mixin.sodium.SodiumWorldRendererMixin",
+            "com.axalotl.async.common.mixin.sodium.AsyncSodiumWorldRendererMixin",
+            "com.axalotl.async.fabric.mixin.client.LevelRendererMixin",
+            "com.axalotl.async.neoforge.mixin.client.LevelRendererMixin"
+        };
+        clientMixins.addAll(Arrays.asList(clientMixinClasses));
+
+        try {
+            Class.forName("net.minecraft.client.Minecraft");
+            this.isClient = true;
+        } catch (ClassNotFoundException e) {
+            this.isClient = false;
+        }
 
         try {
             Class.forName("net.caffeinemc.mods.sodium.client.SodiumClientMod");
@@ -63,6 +89,16 @@ public class AsyncMixinPlugin implements IMixinConfigPlugin {
 
     @Override
     public boolean shouldApplyMixin(String targetClassName, String mixinClassName) {
+        if (this.isClient) {
+            if (serverMixins.contains(mixinClassName)) {
+                return false;
+            }
+        } else { // on server
+            if (clientMixins.contains(mixinClassName)) {
+                return false;
+            }
+        }
+
         if (mixinClassName.startsWith("com.axalotl.async.common.mixin.sodium")) {
             return AsyncConfig.enableSodiumCompatibility && this.isSodiumLoaded;
         }
