@@ -1,1 +1,2 @@
 - Fix attributes
+- Fix entity lookup get entity null (for Ice and Fire mod)
