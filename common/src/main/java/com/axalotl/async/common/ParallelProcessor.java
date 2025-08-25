@@ -21,7 +21,6 @@ import org.apache.logging.log4j.Logger;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Queue;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.*;
@@ -38,11 +37,11 @@ public class ParallelProcessor {
     public static final AtomicInteger currentEntities = new AtomicInteger();
     private static final AtomicInteger threadPoolID = new AtomicInteger();
     public static ExecutorService tickPool;
-    private static final Queue<CompletableFuture<?>> taskQueue = new ConcurrentLinkedQueue<>();
+    private static final BlockingQueue<CompletableFuture<?>> taskQueue = new LinkedBlockingQueue<>();
     private static final Set<UUID> blacklistedEntity = ConcurrentHashMap.newKeySet();
     private static final Map<UUID, Integer> portalTickSyncMap = new ConcurrentHashMap<>();
     private static final Map<String, Set<Thread>> mcThreadTracker = new ConcurrentHashMap<>();
-    public static final Set<Class<?>> specialEntities = Set.of(
+    public static final Set<Class<?>> blockedEntities = Set.of(
             FallingBlockEntity.class,
             Shulker.class,
             Boat.class
@@ -103,7 +102,7 @@ public class ParallelProcessor {
                 entity instanceof Projectile ||
                 entity instanceof AbstractMinecart ||
                 entity instanceof ServerPlayer ||
-                specialEntities.contains(entity.getClass()) ||
+                blockedEntities.contains(entity.getClass()) ||
                 blacklistedEntity.contains(entityId) ||
                 AsyncConfig.synchronizedEntities.contains(EntityType.getKey(entity.getType()));
         if (requiresSyncTick) {
@@ -189,10 +188,7 @@ public class ParallelProcessor {
     public static void postEntityTick() {
         if (!AsyncConfig.disabled) {
             List<CompletableFuture<?>> futuresList = new ArrayList<>();
-            CompletableFuture<?> future;
-            while ((future = taskQueue.poll()) != null) {
-                futuresList.add(future);
-            }
+            taskQueue.drainTo(futuresList);
 
             CompletableFuture<?> allTasks = CompletableFuture.allOf(
                     futuresList.toArray(new CompletableFuture[0])
@@ -211,7 +207,7 @@ public class ParallelProcessor {
                     hasTask |= world.getChunkSource().pollTask();
                 }
                 if (!hasTask) {
-                    LockSupport.parkNanos(50_000);
+                    LockSupport.parkNanos(1_000_000);
                 }
             }
 
