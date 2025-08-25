@@ -69,7 +69,7 @@ public abstract class LivingEntityMixin extends Entity {
                     target = "Lnet/minecraft/world/effect/MobEffectInstance;tickServer(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/world/entity/LivingEntity;Ljava/lang/Runnable;)Z"
             )
     )
-    private boolean async$wrapTickEffect(MobEffectInstance instance, ServerLevel level, LivingEntity entity, Runnable onEffectUpdated, Operation<Boolean> original) {
+    private boolean wrapTickEffect(MobEffectInstance instance, ServerLevel level, LivingEntity entity, Runnable onEffectUpdated, Operation<Boolean> original) {
         if (instance != null) {
             return original.call(instance, level, entity, onEffectUpdated);
         } else {
@@ -84,11 +84,32 @@ public abstract class LivingEntityMixin extends Entity {
                     target = "Ljava/util/List;of(Ljava/lang/Object;)Ljava/util/List;"
             )
     )
-    private List<?> async$wrapListOf(Object element, Operation<List<?>> original) {
+    private List<?> wrapListOf(Object element, Operation<List<?>> original) {
         if (element == null) {
             return Collections.emptyList();
         }
         return original.call(element);
+    }
+
+    @WrapMethod(method = "addEffect(Lnet/minecraft/world/effect/MobEffectInstance;Lnet/minecraft/world/entity/Entity;)Z")
+    private boolean addEffect(MobEffectInstance effect, Entity source, Operation<Boolean> original) {
+        synchronized (async$lock) {
+            return original.call(effect, source);
+        }
+    }
+
+    @WrapMethod(method = "removeEffect")
+    private boolean removeEffect(Holder<MobEffect> effect, Operation<Boolean> original) {
+        synchronized (async$lock) {
+            return original.call(effect);
+        }
+    }
+
+    @WrapMethod(method = "removeAllEffects")
+    private boolean removeAllEffects(Operation<Boolean> original) {
+        synchronized (async$lock) {
+            return original.call();
+        }
     }
 
     @Inject(method = "onClimbable", at = @At("HEAD"), cancellable = true)

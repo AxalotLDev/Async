@@ -4,23 +4,25 @@ import com.axalotl.async.common.config.AsyncConfig;
 import lombok.Getter;
 import lombok.Setter;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerChunkCache;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.MobCategory;
 import net.minecraft.world.entity.item.FallingBlockEntity;
 import net.minecraft.world.entity.monster.Shulker;
 import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.entity.vehicle.AbstractMinecart;
 import net.minecraft.world.entity.vehicle.Boat;
 import net.minecraft.world.level.*;
+import net.minecraft.world.level.chunk.LevelChunk;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Queue;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.*;
@@ -37,11 +39,11 @@ public class ParallelProcessor {
     public static final AtomicInteger currentEntities = new AtomicInteger();
     private static final AtomicInteger threadPoolID = new AtomicInteger();
     public static ExecutorService tickPool;
-    private static final Queue<CompletableFuture<?>> taskQueue = new ConcurrentLinkedQueue<>();
+    private static final BlockingQueue<CompletableFuture<?>> taskQueue = new LinkedBlockingQueue<>();
     private static final Set<UUID> blacklistedEntity = ConcurrentHashMap.newKeySet();
     private static final Map<UUID, Integer> portalTickSyncMap = new ConcurrentHashMap<>();
     private static final Map<String, Set<Thread>> mcThreadTracker = new ConcurrentHashMap<>();
-    public static final Set<Class<?>> specialEntities = Set.of(
+    public static final Set<Class<?>> BLOCKED_ENTITIES = Set.of(
             FallingBlockEntity.class,
             Shulker.class,
             Boat.class
@@ -102,7 +104,7 @@ public class ParallelProcessor {
                 entity instanceof Projectile ||
                 entity instanceof AbstractMinecart ||
                 entity instanceof ServerPlayer ||
-                specialEntities.contains(entity.getClass()) ||
+                BLOCKED_ENTITIES.contains(entity.getClass()) ||
                 blacklistedEntity.contains(entityId) ||
                 AsyncConfig.synchronizedEntities.contains(EntityType.getKey(entity.getType()));
         if (requiresSyncTick) {
@@ -142,6 +144,19 @@ public class ParallelProcessor {
             world.tickNonPassenger(entity);
         } finally {
             currentEntities.decrementAndGet();
+        }
+    }
+
+    public static void asyncSpawnForChunk(ServerChunkCache instance, LevelChunk chunk, long timeInhabited, List<MobCategory> spawnCategories, NaturalSpawner.SpawnState spawnState) {
+        if (AsyncConfig.enableAsyncSpawn) {
+            CompletableFuture<Void> future = CompletableFuture.runAsync(() -> instance.tickSpawningChunk(chunk, timeInhabited, spawnCategories, spawnState), ParallelProcessor.tickPool).exceptionally(e -> {
+                ParallelProcessor.LOGGER.error("Error in async spawn, switching to synchronous", e);
+                instance.tickSpawningChunk(chunk, timeInhabited, spawnCategories, spawnState);
+                return null;
+            });
+            taskQueue.add(future);
+        } else {
+            instance.tickSpawningChunk(chunk, timeInhabited, spawnCategories, spawnState);
         }
     }
 
