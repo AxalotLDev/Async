@@ -76,9 +76,4 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
     private void spawnForChunk(ServerLevel level, LevelChunk chunk, NaturalSpawner.SpawnState spawnState, boolean spawnFriendlies, boolean spawnMonsters, boolean forcedDespawn) {
         ParallelProcessor.asyncSpawnForChunk(level, chunk, spawnState, spawnFriendlies, spawnMonsters, forcedDespawn);
     }
-
-    @Redirect(method = "tickChunks", at = @At(value = "INVOKE", target = "Lnet/minecraft/server/level/ServerLevel;tickCustomSpawners(ZZ)V"))
-    private void tickCustomSpawners(ServerLevel instance, boolean spawnEnemies, boolean spawnFriendlies) {
-        ParallelProcessor.asyncTickCustomSpawners(instance, spawnEnemies, spawnFriendlies);
-    }
 }

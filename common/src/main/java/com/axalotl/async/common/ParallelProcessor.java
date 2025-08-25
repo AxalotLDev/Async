@@ -41,7 +41,7 @@ public class ParallelProcessor {
     private static final Set<UUID> blacklistedEntity = ConcurrentHashMap.newKeySet();
     private static final Map<UUID, Integer> portalTickSyncMap = new ConcurrentHashMap<>();
     private static final Map<String, Set<Thread>> mcThreadTracker = new ConcurrentHashMap<>();
-    public static final Set<Class<?>> blockedEntities = Set.of(
+    public static final Set<Class<?>> BLOCKED_ENTITIES = Set.of(
             FallingBlockEntity.class,
             Shulker.class,
             Boat.class
@@ -102,7 +102,7 @@ public class ParallelProcessor {
                 entity instanceof Projectile ||
                 entity instanceof AbstractMinecart ||
                 entity instanceof ServerPlayer ||
-                blockedEntities.contains(entity.getClass()) ||
+                BLOCKED_ENTITIES.contains(entity.getClass()) ||
                 blacklistedEntity.contains(entityId) ||
                 AsyncConfig.synchronizedEntities.contains(EntityType.getKey(entity.getType()));
         if (requiresSyncTick) {
@@ -155,19 +155,6 @@ public class ParallelProcessor {
             taskQueue.add(future);
         } else {
             NaturalSpawner.spawnForChunk(level, chunk, spawnState, spawnFriendlies, spawnMonsters, forcedDespawn);
-        }
-    }
-
-    public static void asyncTickCustomSpawners(ServerLevel instance, boolean spawnEnemies, boolean spawnFriendlies) {
-        if (AsyncConfig.enableAsyncSpawn) {
-            CompletableFuture<Void> future = CompletableFuture.runAsync(() -> instance.tickCustomSpawners(spawnEnemies, spawnFriendlies), ParallelProcessor.tickPool).exceptionally(e -> {
-                ParallelProcessor.LOGGER.error("Error in async tickCustomSpawners, switching to synchronous", e);
-                instance.tickCustomSpawners(spawnEnemies, spawnFriendlies);
-                return null;
-            });
-            taskQueue.add(future);
-        } else {
-            instance.tickCustomSpawners(spawnEnemies, spawnFriendlies);
         }
     }
 
