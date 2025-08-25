@@ -2,7 +2,6 @@ package com.axalotl.async.common.mixin.server;
 
 import com.axalotl.async.common.AsyncCommon;
 import com.axalotl.async.common.ParallelProcessor;
-import com.axalotl.async.common.config.AsyncConfig;
 import net.minecraft.server.level.*;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.NaturalSpawner;
@@ -75,27 +74,11 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
 
     @Redirect(method = "tickChunks", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/NaturalSpawner;spawnForChunk(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/world/level/chunk/LevelChunk;Lnet/minecraft/world/level/NaturalSpawner$SpawnState;ZZZ)V"))
     private void spawnForChunk(ServerLevel level, LevelChunk chunk, NaturalSpawner.SpawnState spawnState, boolean spawnFriendlies, boolean spawnMonsters, boolean forcedDespawn) {
-        if (AsyncConfig.enableAsyncSpawn) {
-            CompletableFuture.runAsync(() -> NaturalSpawner.spawnForChunk(level, chunk, spawnState, spawnFriendlies, spawnMonsters, forcedDespawn), ParallelProcessor.tickPool).exceptionally(e -> {
-                ParallelProcessor.LOGGER.error("Error in async spawn, switching to synchronous", e);
-                NaturalSpawner.spawnForChunk(level, chunk, spawnState, spawnFriendlies, spawnMonsters, forcedDespawn);
-                return null;
-            });
-        } else {
-            NaturalSpawner.spawnForChunk(level, chunk, spawnState, spawnFriendlies, spawnMonsters, forcedDespawn);
-        }
+        ParallelProcessor.asyncSpawnForChunk(level, chunk, spawnState, spawnFriendlies, spawnMonsters, forcedDespawn);
     }
 
     @Redirect(method = "tickChunks", at = @At(value = "INVOKE", target = "Lnet/minecraft/server/level/ServerLevel;tickCustomSpawners(ZZ)V"))
     private void tickCustomSpawners(ServerLevel instance, boolean spawnEnemies, boolean spawnFriendlies) {
-        if (AsyncConfig.enableAsyncSpawn) {
-            CompletableFuture.runAsync(() -> instance.tickCustomSpawners(spawnEnemies, spawnFriendlies), ParallelProcessor.tickPool).exceptionally(e -> {
-                ParallelProcessor.LOGGER.error("Error in async tickCustomSpawners, switching to synchronous", e);
-                instance.tickCustomSpawners(spawnEnemies, spawnFriendlies);
-                return null;
-            });
-        } else {
-            instance.tickCustomSpawners(spawnEnemies, spawnFriendlies);
-        }
+        ParallelProcessor.asyncTickCustomSpawners(instance, spawnEnemies, spawnFriendlies);
     }
 }

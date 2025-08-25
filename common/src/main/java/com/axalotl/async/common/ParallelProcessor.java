@@ -14,6 +14,7 @@ import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.entity.vehicle.AbstractMinecart;
 import net.minecraft.world.entity.vehicle.Boat;
 import net.minecraft.world.level.*;
+import net.minecraft.world.level.chunk.LevelChunk;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -142,6 +143,32 @@ public class ParallelProcessor {
             world.tickNonPassenger(entity);
         } finally {
             currentEntities.decrementAndGet();
+        }
+    }
+
+    public static void asyncSpawnForChunk(ServerLevel level, LevelChunk chunk, NaturalSpawner.SpawnState spawnState, boolean spawnFriendlies, boolean spawnMonsters, boolean forcedDespawn) {
+        if (AsyncConfig.enableAsyncSpawn) {
+            CompletableFuture<Void> future = CompletableFuture.runAsync(() -> NaturalSpawner.spawnForChunk(level, chunk, spawnState, spawnFriendlies, spawnMonsters, forcedDespawn), ParallelProcessor.tickPool).exceptionally(e -> {
+                ParallelProcessor.LOGGER.error("Error in async spawn, switching to synchronous", e);
+                NaturalSpawner.spawnForChunk(level, chunk, spawnState, spawnFriendlies, spawnMonsters, forcedDespawn);
+                return null;
+            });
+            taskQueue.add(future);
+        } else {
+            NaturalSpawner.spawnForChunk(level, chunk, spawnState, spawnFriendlies, spawnMonsters, forcedDespawn);
+        }
+    }
+
+    public static void asyncTickCustomSpawners(ServerLevel instance, boolean spawnEnemies, boolean spawnFriendlies) {
+        if (AsyncConfig.enableAsyncSpawn) {
+            CompletableFuture<Void> future = CompletableFuture.runAsync(() -> instance.tickCustomSpawners(spawnEnemies, spawnFriendlies), ParallelProcessor.tickPool).exceptionally(e -> {
+                ParallelProcessor.LOGGER.error("Error in async tickCustomSpawners, switching to synchronous", e);
+                instance.tickCustomSpawners(spawnEnemies, spawnFriendlies);
+                return null;
+            });
+            taskQueue.add(future);
+        } else {
+            instance.tickCustomSpawners(spawnEnemies, spawnFriendlies);
         }
     }
 
