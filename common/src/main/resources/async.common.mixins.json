@@ -7,6 +7,7 @@
   "mixins": [
     "entity.AllayMixin",
     "entity.AnimalMixin",
+    "entity.AreaEffectCloudMixin",
     "entity.AttributeInstanceMixin",
     "entity.AttributeMapMixin",
     "entity.BeehiveBlockEntityBeeMixin",
