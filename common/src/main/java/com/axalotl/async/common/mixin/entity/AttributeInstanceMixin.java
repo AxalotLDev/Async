@@ -14,14 +14,12 @@ import java.util.Map;
 public class AttributeInstanceMixin {
 
     @Shadow
-    @Final
-    private Map<AttributeModifier.Operation, Map<ResourceLocation, AttributeModifier>> modifiersByOperation = ConcurrentCollections.newHashMap();
+    private final Map<AttributeModifier.Operation, Map<ResourceLocation, AttributeModifier>> modifiersByOperation = ConcurrentCollections.newHashMap();
 
     @Shadow
     @Final
-    private Map<ResourceLocation, AttributeModifier> modifierById = ConcurrentCollections.newHashMap();
+    private final Map<ResourceLocation, AttributeModifier> modifierById = ConcurrentCollections.newHashMap();
 
     @Shadow
-    @Final
-    private Map<ResourceLocation, AttributeModifier> permanentModifiers = ConcurrentCollections.newHashMap();
+    private final Map<ResourceLocation, AttributeModifier> permanentModifiers = ConcurrentCollections.newHashMap();
 }
