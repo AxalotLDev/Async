@@ -4,7 +4,6 @@ import com.axalotl.async.common.config.AsyncConfig;
 import lombok.Getter;
 import lombok.Setter;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.level.ServerChunkCache;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
@@ -147,16 +146,16 @@ public class ParallelProcessor {
         }
     }
 
-    public static void asyncSpawnForChunk(ServerChunkCache instance, LevelChunk chunk, long timeInhabited, List<MobCategory> spawnCategories, NaturalSpawner.SpawnState spawnState) {
+    public static void asyncSpawnForChunk(ServerLevel level, LevelChunk chunk, NaturalSpawner.SpawnState spawnState, List<MobCategory> categories) {
         if (AsyncConfig.enableAsyncSpawn) {
-            CompletableFuture<Void> future = CompletableFuture.runAsync(() -> instance.tickSpawningChunk(chunk, timeInhabited, spawnCategories, spawnState), ParallelProcessor.tickPool).exceptionally(e -> {
+            CompletableFuture<Void> future = CompletableFuture.runAsync(() -> NaturalSpawner.spawnForChunk(level, chunk, spawnState, categories), ParallelProcessor.tickPool).exceptionally(e -> {
                 ParallelProcessor.LOGGER.error("Error in async spawn, switching to synchronous", e);
-                instance.tickSpawningChunk(chunk, timeInhabited, spawnCategories, spawnState);
+                NaturalSpawner.spawnForChunk(level, chunk, spawnState, categories);
                 return null;
             });
             taskQueue.add(future);
         } else {
-            instance.tickSpawningChunk(chunk, timeInhabited, spawnCategories, spawnState);
+            NaturalSpawner.spawnForChunk(level, chunk, spawnState, categories);
         }
     }
 
