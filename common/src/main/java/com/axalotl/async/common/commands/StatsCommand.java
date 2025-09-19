@@ -85,7 +85,7 @@ public class StatsCommand {
                 AtomicInteger worldCount = new AtomicInteger(0);
                 AtomicInteger asyncCount = new AtomicInteger(0);
 
-                world.entityTickList.forEach(entity -> {
+                world.getAllEntities().forEach(entity -> {
                     if (entity != null && entity.isAlive()) {
                         EntityType<?> entityType = entity.getType();
 

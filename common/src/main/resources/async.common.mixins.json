@@ -31,7 +31,6 @@
     "entity.RaiderMixin",
     "entity.RaidMixin",
     "entity.SensingMixin",
-    "entity.ServerEntityMixin",
     "entity.ShowTradesToPlayerMixin",
     "entity.VillagerMixin",
     "entity.breed.AnimalMakeLoveMixin",

@@ -106,9 +106,11 @@ public class ParallelProcessor {
                 BLOCKED_ENTITIES.contains(entity.getClass()) ||
                 blacklistedEntity.contains(entityId) ||
                 AsyncConfig.synchronizedEntities.contains(EntityType.getKey(entity.getType()));
+
         if (requiresSyncTick) {
             return true;
         }
+
         if (portalTickSyncMap.containsKey(entityId)) {
             int ticksLeft = portalTickSyncMap.get(entityId);
             if (ticksLeft > 0) {
@@ -118,6 +120,7 @@ public class ParallelProcessor {
                 portalTickSyncMap.remove(entityId);
             }
         }
+
         if (isPortalTickRequired(entity)) {
             portalTickSyncMap.put(entityId, 39);
             return true;
