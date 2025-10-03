@@ -16,7 +16,7 @@ modrinth {
     versionName = project.version
     versionType = "alpha"
     uploadFile = fileTree(dir: "${project.buildDir}/libs", include: "*.jar").files.find()
-    gameVersions = ["1.21.6", "1.21.7", "1.21.8"]
+    gameVersions = ["1.21.9"]
     loaders = ["fabric", "quilt"]
     dependencies {
         required.project "fabric-api"
@@ -44,7 +44,7 @@ dependencies {
     compileOnly 'org.projectlombok:lombok:1.18.32'
     annotationProcessor 'org.projectlombok:lombok:1.18.32'
 
-    implementation 'maven.modrinth:lithium:mc1.21.8-0.18.0-neoforge'
+    implementation 'maven.modrinth:lithium:mc1.21.9-0.19.1-neoforge'
 }
 
 loom {

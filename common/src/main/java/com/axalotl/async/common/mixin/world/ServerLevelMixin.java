@@ -7,6 +7,7 @@ import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import it.unimi.dsi.fastutil.objects.ObjectLinkedOpenHashSet;
 import net.minecraft.core.Holder;
 import net.minecraft.core.RegistryAccess;
+import net.minecraft.core.particles.ExplosionParticleInfo;
 import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerChunkCache;
@@ -15,6 +16,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.util.profiling.Profiler;
 import net.minecraft.util.profiling.ProfilerFiller;
+import net.minecraft.util.random.WeightedList;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.Mob;
@@ -147,9 +149,30 @@ public abstract class ServerLevelMixin extends Level implements WorldGenLevel {
     }
 
     @WrapMethod(method = "explode")
-    private void createExplosion(@Nullable Entity source, @Nullable DamageSource damageSource, @Nullable ExplosionDamageCalculator damageCalculator, double x, double y, double z, float radius, boolean fire, Level.ExplosionInteraction explosionInteraction, ParticleOptions smallExplosionParticles, ParticleOptions largeExplosionParticles, Holder<SoundEvent> explosionSound, Operation<Void> original) {
+    private void createExplosion(
+            @Nullable Entity source,
+            @Nullable DamageSource damageSource,
+            @Nullable ExplosionDamageCalculator damageCalculator,
+            double x, double y, double z,
+            float radius,
+            boolean fire,
+            Level.ExplosionInteraction explosionInteraction,
+            ParticleOptions smallExplosionParticles,
+            ParticleOptions largeExplosionParticles,
+            WeightedList<ExplosionParticleInfo> particleInfo,
+            Holder<SoundEvent> explosionSound,
+            Operation<Void> original
+    ) {
         synchronized (lock) {
-            original.call(source, damageSource, damageCalculator, x, y, z, radius, fire, explosionInteraction, smallExplosionParticles, largeExplosionParticles, explosionSound);
+            original.call(
+                    source, damageSource, damageCalculator,
+                    x, y, z, radius, fire,
+                    explosionInteraction,
+                    smallExplosionParticles,
+                    largeExplosionParticles,
+                    particleInfo,
+                    explosionSound
+            );
         }
     }
 }

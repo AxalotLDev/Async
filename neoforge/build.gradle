@@ -16,7 +16,7 @@ modrinth {
     versionName = project.version
     versionType = "alpha"
     uploadFile = fileTree(dir: "${project.buildDir}/libs", include: "*.jar").files.find()
-    gameVersions = ["1.21.6", "1.21.7", "1.21.8"]
+    gameVersions = ["1.21.9"]
     loaders = ["neoforge"]
     dependencies {
         optional.project "lithium"
@@ -60,7 +60,7 @@ neoForge {
 dependencies {
     compileOnly(annotationProcessor("com.github.bawnorton.mixinsquared:mixinsquared-common:${mixinsquared_version}"))
     implementation(jarJar("com.github.bawnorton.mixinsquared:mixinsquared-neoforge:${mixinsquared_version}"))
-    implementation 'maven.modrinth:lithium:mc1.21.8-0.18.0-neoforge'
+    implementation 'maven.modrinth:lithium:mc1.21.9-0.19.1-neoforge'
     compileOnly 'org.projectlombok:lombok:1.18.32'
     annotationProcessor 'org.projectlombok:lombok:1.18.32'
 }
