@@ -55,7 +55,6 @@
     "server.ServerChunkCacheMixin",
     "server.ServerLevelEntityCallbacksMixin",
     "server.ServerPlayerMixin",
-    "server.ServerWatchdogMixin",
     "utils.FastUtilsMixin",
     "utils.LockHelperMixin",
     "utils.ShufflingListMixin",

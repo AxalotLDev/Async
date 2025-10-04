@@ -1,4 +1,4 @@
-package com.axalotl.async.common.mixin.server;
+package com.axalotl.async.neoforge.mixin.server;
 
 import net.minecraft.CrashReport;
 import net.minecraft.CrashReportCategory;
