@@ -2,7 +2,6 @@
   "required": true,
   "minVersion": "0.8",
   "package": "com.axalotl.async.common.mixin",
-  "refmap": "${mod_id}.refmap.json",
   "compatibilityLevel": "JAVA_21",
   "mixins": [
     "entity.AllayMixin",
@@ -32,7 +31,6 @@
     "entity.RaidMixin",
     "entity.SensingMixin",
     "entity.ShowTradesToPlayerMixin",
-    "entity.VillagerMixin",
     "entity.breed.AnimalMakeLoveMixin",
     "entity.breed.FoxBreedGoalMixin",
     "entity.breed.FrogMixin",
@@ -77,7 +75,9 @@
     "world.ServerLevelMixin"
   ],
   "client": [],
-  "server": [],
+  "server": [
+    "entity.VillagerMixin"
+  ],
   "injectors": {
     "defaultRequire": 1
   },

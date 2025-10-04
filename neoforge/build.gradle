@@ -1,8 +1,9 @@
 plugins {
     id 'multiloader-loader'
     id 'net.neoforged.moddev'
-    id "com.modrinth.minotaur" version "2.+"
+    id 'java-library'
     id 'idea'
+    id "com.modrinth.minotaur" version "2.+"
 }
 
 repositories {

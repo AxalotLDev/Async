@@ -3,6 +3,7 @@ plugins {
     id 'fabric-loom'
     id "com.modrinth.minotaur" version "2.+"
     id 'idea'
+    id 'java-library'
 }
 
 repositories {
