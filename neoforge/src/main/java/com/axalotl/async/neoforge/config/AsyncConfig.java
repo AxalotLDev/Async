@@ -32,7 +32,7 @@ public class AsyncConfig {
         enableAsyncSpawn = BUILDER.comment("Enables parallel processing of entity spawns.")
                 .define("enableAsyncSpawn", com.axalotl.async.common.config.AsyncConfig.enableAsyncSpawn);
 
-        enableAsyncRandomTicks = BUILDER.comment("Enables async processing of random ticks.")
+        enableAsyncRandomTicks = BUILDER.comment("Experimental! Enables async processing of random ticks.")
                 .define("enableAsyncRandomTicks", com.axalotl.async.common.config.AsyncConfig.enableAsyncRandomTicks);
 
         BUILDER.pop();

@@ -56,7 +56,7 @@ public class AsyncConfig {
         CONFIG.setComment("enableAsyncSpawn", "Enables parallel processing of entity spawns. Warning, incompatible with Carpet mod lagFreeSpawning rule.");
 
         CONFIG.set("enableAsyncRandomTicks", enableAsyncRandomTicks);
-        CONFIG.setComment("enableAsyncRandomTicks", "Enables async processing of random ticks.");
+        CONFIG.setComment("enableAsyncRandomTicks", "Experimental! Enables async processing of random ticks.");
 
         CONFIG.save();
         LOGGER.info("Configuration saved successfully.");
