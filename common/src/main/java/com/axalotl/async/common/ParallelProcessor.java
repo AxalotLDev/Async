@@ -150,7 +150,7 @@ public class ParallelProcessor {
     }
 
     public static void asyncSpawnForChunk(ServerLevel level, LevelChunk chunk, NaturalSpawner.SpawnState spawnState, List<MobCategory> categories) {
-        if (AsyncConfig.enableAsyncSpawn) {
+        if (!AsyncConfig.disabled && AsyncConfig.enableAsyncSpawn) {
             CompletableFuture<Void> future = CompletableFuture.runAsync(() -> NaturalSpawner.spawnForChunk(level, chunk, spawnState, categories), ParallelProcessor.tickPool).exceptionally(e -> {
                 ParallelProcessor.LOGGER.error("Error in async spawn, switching to synchronous", e);
                 NaturalSpawner.spawnForChunk(level, chunk, spawnState, categories);
@@ -163,7 +163,7 @@ public class ParallelProcessor {
     }
 
     public static void asyncDespawn(Entity entity) {
-        if (AsyncConfig.enableAsyncSpawn) {
+        if (!AsyncConfig.disabled && AsyncConfig.enableAsyncSpawn) {
             CompletableFuture<Void> future = CompletableFuture.runAsync(entity::checkDespawn, tickPool
             ).exceptionally(e -> {
                 LOGGER.error("Error in async spawn tick, switching to synchronous", e);
@@ -177,39 +177,39 @@ public class ParallelProcessor {
     }
 
     public static void postEntityTick() {
-        if (!AsyncConfig.disabled) {
-            List<CompletableFuture<?>> futuresList = new ArrayList<>();
-            CompletableFuture<?> future;
-            while ((future = taskQueue.poll()) != null) {
-                futuresList.add(future);
-            }
+        if (AsyncConfig.disabled) return;
 
-            CompletableFuture<?> allTasks = CompletableFuture.allOf(
-                    futuresList.toArray(new CompletableFuture[0])
-            );
-
-            allTasks.exceptionally(ex -> {
-                Throwable cause = ex instanceof java.util.concurrent.CompletionException
-                        ? ex.getCause() : ex;
-                LOGGER.error("Error during entity tick processing: ", cause);
-                return null;
-            });
-
-            while (!allTasks.isDone()) {
-                boolean hasTask = false;
-                for (ServerLevel world : server.getAllLevels()) {
-                    hasTask |= world.getChunkSource().pollTask();
-                }
-                if (!hasTask) {
-                    LockSupport.parkNanos(50_000);
-                }
-            }
-
-            server.getAllLevels().forEach(world -> {
-                world.getChunkSource().pollTask();
-                world.getChunkSource().mainThreadProcessor.managedBlock(allTasks::isDone);
-            });
+        List<CompletableFuture<?>> futuresList = new ArrayList<>();
+        CompletableFuture<?> future;
+        while ((future = taskQueue.poll()) != null) {
+            futuresList.add(future);
         }
+
+        CompletableFuture<?> allTasks = CompletableFuture.allOf(
+                futuresList.toArray(new CompletableFuture[0])
+        );
+
+        allTasks.exceptionally(ex -> {
+            Throwable cause = ex instanceof java.util.concurrent.CompletionException
+                    ? ex.getCause() : ex;
+            LOGGER.error("Error during entity tick processing: ", cause);
+            return null;
+        });
+
+        while (!allTasks.isDone()) {
+            boolean hasTask = false;
+            for (ServerLevel world : server.getAllLevels()) {
+                hasTask |= world.getChunkSource().pollTask();
+            }
+            if (!hasTask) {
+                LockSupport.parkNanos(50_000);
+            }
+        }
+
+        server.getAllLevels().forEach(world -> {
+            world.getChunkSource().pollTask();
+            world.getChunkSource().mainThreadProcessor.managedBlock(allTasks::isDone);
+        });
     }
 
     @SuppressWarnings("ResultOfMethodCallIgnored")

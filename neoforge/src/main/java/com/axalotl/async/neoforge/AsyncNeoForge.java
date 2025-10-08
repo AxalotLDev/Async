@@ -3,7 +3,6 @@ package com.axalotl.async.neoforge;
 import com.axalotl.async.common.ParallelProcessor;
 import com.axalotl.async.common.commands.AsyncCommand;
 import com.axalotl.async.common.commands.StatsCommand;
-import com.axalotl.async.neoforge.platform.NeoForgePlatformEvents;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.logging.LogUtils;
 import net.minecraft.commands.CommandSourceStack;
@@ -28,7 +27,6 @@ public class AsyncNeoForge {
 
     public AsyncNeoForge(FMLModContainer container) {
         LOGGER.info("Initializing Async...");
-        NeoForgePlatformEvents.init();
         NeoForge.EVENT_BUS.register(this);
         LOGGER.info("Initializing Async Config...");
         container.registerConfig(ModConfig.Type.COMMON, SPEC, "async.toml");

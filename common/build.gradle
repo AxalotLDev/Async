@@ -1,5 +1,7 @@
 plugins {
     id 'net.neoforged.moddev'
+    id 'idea'
+    id 'java-library'
 }
 
 neoForge {
@@ -8,10 +10,6 @@ neoForge {
     def at = file('src/main/resources/META-INF/accesstransformer.cfg')
     if (at.exists()) {
         accessTransformers.from(at.absolutePath)
-    }
-    parchment {
-        minecraftVersion = parchment_minecraft
-        mappingsVersion = parchment_version
     }
 }
 

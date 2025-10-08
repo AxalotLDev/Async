@@ -1,5 +1,6 @@
 package com.axalotl.async.common.mixin.utils;
 
+import com.axalotl.async.common.platform.PlatformEvents;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Multimap;
 import org.apache.logging.log4j.LogManager;
@@ -31,7 +32,7 @@ public class SynchronisePlugin implements IMixinConfigPlugin {
 
     @Override
     public String getRefMapperConfig() {
-        return null;
+        return PlatformEvents.getInstance().platformUsesRefmap() ? "async.refmap.json" : null;
     }
 
     @Override
