@@ -1,2 +1,5 @@
 - Fix attributes
 - Fix entity lookup get entity null (for Ice and Fire mod)
+- Fix client side bugs
+- Fix refmap
+- Fix ghost entities
