@@ -98,7 +98,7 @@ public class ParallelProcessor {
 
     public static boolean shouldTickSynchronously(Entity entity) {
         if (entity.level().isClientSide()) {
-            return false;
+            return true;
         }
 
         UUID entityId = entity.getUUID();
