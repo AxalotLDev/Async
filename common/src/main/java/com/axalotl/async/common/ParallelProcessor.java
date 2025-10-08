@@ -98,6 +98,10 @@ public class ParallelProcessor {
     }
 
     public static boolean shouldTickSynchronously(Entity entity) {
+        if (entity.level().isClientSide()) {
+            return false;
+        }
+
         UUID entityId = entity.getUUID();
         boolean requiresSyncTick = AsyncConfig.disabled ||
                 entity instanceof Projectile ||
