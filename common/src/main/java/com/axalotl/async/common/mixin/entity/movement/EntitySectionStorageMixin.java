@@ -30,6 +30,10 @@ public abstract class EntitySectionStorageMixin<T extends EntityAccess> {
 
     @WrapMethod(method = "getExistingSectionsInChunk")
     private Stream<EntitySection<T>> getExistingSections(long pos, Operation<Stream<EntitySection<T>>> original) {
-        return this.getExistingSectionPositionsInChunk(pos).mapToObj(this.sections::get).filter(Objects::nonNull).toList().stream();
+        return this.getExistingSectionPositionsInChunk(pos)
+                .mapToObj(this.sections::get)
+                .filter(Objects::nonNull)
+                .toList()
+                .stream();
     }
 }

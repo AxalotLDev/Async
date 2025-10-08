@@ -2,7 +2,6 @@
   "required": true,
   "minVersion": "0.8",
   "package": "com.axalotl.async.common.mixin",
-  "refmap": "${mod_id}.refmap.json",
   "compatibilityLevel": "JAVA_21",
   "mixins": [
     "entity.AllayMixin",
@@ -30,7 +29,6 @@
     "entity.RaiderMixin",
     "entity.RaidMixin",
     "entity.SensingMixin",
-    "entity.ServerEntityMixin",
     "entity.ShowTradesToPlayerMixin",
     "entity.VillagerMixin",
     "entity.breed.AnimalMakeLoveMixin",
@@ -57,7 +55,6 @@
     "server.ServerChunkCacheMixin",
     "server.ServerLevelEntityCallbacksMixin",
     "server.ServerPlayerMixin",
-    "server.ServerWatchdogMixin",
     "utils.FastUtilsMixin",
     "utils.LockHelperMixin",
     "utils.ShufflingListMixin",
