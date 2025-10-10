@@ -14,11 +14,11 @@ apply plugin: 'com.modrinth.minotaur'
 modrinth {
     token = System.getenv("MODRINTH_TOKEN")
     projectId = "async"
-    versionNumber = project.version
-    versionName = project.version
+    versionNumber = project.version as Property<String>
+    versionName = project.version as Property<String>
     versionType = "alpha"
-    uploadFile = fileTree(dir: "${project.buildDir}/libs", include: "*.jar").files.find()
-    gameVersions = ["1.21.9"]
+    def libsDir = layout.buildDirectory.dir("libs").get().asFile
+    uploadFile = libsDir.listFiles().find { it.name.endsWith(".jar") }
     loaders = ["fabric", "quilt"]
     dependencies {
         required.project "fabric-api"
@@ -34,6 +34,14 @@ dependencies {
     minecraft "com.mojang:minecraft:${minecraft_version}"
     mappings loom.layered {
         officialMojangMappings()
+        if (project.hasProperty('parchment_minecraft_version') && project.hasProperty('parchment_mappings_version')) {
+            def mcVer = project.parchment_minecraft_version
+            def mapVer = project.parchment_mappings_version
+
+            if (mcVer != null && mapVer != null && !mcVer.isBlank() && !mapVer.isBlank()) {
+                parchment("org.parchmentmc.data:parchment-${mcVer}:${mapVer}@zip")
+            }
+        }
     }
     modImplementation "net.fabricmc:fabric-loader:${fabric_loader_version}"
     modImplementation "net.fabricmc.fabric-api:fabric-api:${fabric_version}"
