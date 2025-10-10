@@ -14,8 +14,8 @@ apply plugin: 'com.modrinth.minotaur'
 modrinth {
     token = System.getenv("MODRINTH_TOKEN")
     projectId = "async"
-    versionNumber = project.version as Property<String>
-    versionName = project.version as Property<String>
+    versionNumber.set(project.version.toString())
+    versionName.set(project.version.toString())
     versionType = "alpha"
     def libsDir = layout.buildDirectory.dir("libs").get().asFile
     uploadFile = libsDir.listFiles().find { it.name.endsWith(".jar") }
