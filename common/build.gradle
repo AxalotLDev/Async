@@ -1,17 +1,28 @@
 plugins {
     id 'net.neoforged.moddev'
+    id 'idea'
+    id 'java-library'
 }
 
 neoForge {
-    version = neoforge_version
+    neoFormVersion = neoform_version
     // Automatically enable AccessTransformers if the file exists
     def at = file('src/main/resources/META-INF/accesstransformer.cfg')
     if (at.exists()) {
         accessTransformers.from(at.absolutePath)
     }
-    parchment {
-        minecraftVersion = parchment_minecraft
-        mappingsVersion = parchment_version
+    if (project.hasProperty('parchment_mappings_version') && project.hasProperty('parchment_minecraft_version')) {
+        def parchmentMappings = project.parchment_mappings_version
+        def parchmentMinecraft = project.parchment_minecraft_version
+
+        if (parchmentMappings != null && parchmentMinecraft != null &&
+                !parchmentMappings.toString().isBlank() && !parchmentMinecraft.toString().isBlank()) {
+
+            parchment {
+                mappingsVersion = parchmentMappings
+                minecraftVersion = parchmentMinecraft
+            }
+        }
     }
 }
 
@@ -25,8 +36,8 @@ dependencies {
     annotationProcessor("io.github.llamalad7:mixinextras-common:${mixinextras_version}")
     compileOnly("org.spongepowered:mixin:${mixin_version}")
     implementation(annotationProcessor("com.github.bawnorton.mixinsquared:mixinsquared-common:${mixinsquared_version}"))
-    implementation("org.ow2.asm:asm:9.8")
-    implementation("org.ow2.asm:asm-tree:9.8")
+    implementation("org.ow2.asm:asm:9.6")
+    implementation("org.ow2.asm:asm-tree:9.6")
     compileOnly 'org.projectlombok:lombok:1.18.32'
     annotationProcessor 'org.projectlombok:lombok:1.18.32'
     implementation 'maven.modrinth:lithium:mc1.21.8-0.18.0-neoforge'

@@ -16,10 +16,7 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.chunk.storage.ChunkStorage;
 import net.minecraft.world.level.chunk.storage.RegionStorageInfo;
-import org.spongepowered.asm.mixin.Final;
-import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Mutable;
-import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.*;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -62,12 +59,12 @@ public abstract class ChunkMapMixin extends ChunkStorage implements ChunkHolder.
     }
 
     @WrapMethod(method = "addEntity")
-    private synchronized void loadEntity(Entity entity, Operation<Void> original) {
+    private synchronized void addEntity(Entity entity, Operation<Void> original) {
         original.call(entity);
     }
 
     @WrapMethod(method = "removeEntity")
-    private synchronized void unloadEntity(Entity entity, Operation<Void> original) {
+    private synchronized void removeEntity(Entity entity, Operation<Void> original) {
         original.call(entity);
     }
 
@@ -83,7 +80,7 @@ public abstract class ChunkMapMixin extends ChunkStorage implements ChunkHolder.
 
     @WrapMethod(method = "forEachBlockTickingChunk")
     private void forEachBlockTickingChunk(Consumer<LevelChunk> action, Operation<Void> original) {
-        if (AsyncConfig.enableAsyncRandomTicks) {
+        if (!AsyncConfig.disabled && AsyncConfig.enableAsyncRandomTicks) {
             CompletableFuture.runAsync(() -> original.call(action), ParallelProcessor.tickPool).exceptionally(e -> {
                 ParallelProcessor.LOGGER.error("Error in async random tick, switching to synchronous", e);
                 original.call(action);
@@ -96,7 +93,7 @@ public abstract class ChunkMapMixin extends ChunkStorage implements ChunkHolder.
 
     @WrapMethod(method = "forEachBlockTickingChunk")
     private void forEachBlockTicking(Consumer<LevelChunk> action, Operation<Void> original) {
-        if (AsyncConfig.enableAsyncRandomTicks) {
+        if (!AsyncConfig.disabled && AsyncConfig.enableAsyncRandomTicks) {
             List<Long> keys = new ArrayList<>();
             distanceManager.forEachEntityTickingChunk(keys::add);
 

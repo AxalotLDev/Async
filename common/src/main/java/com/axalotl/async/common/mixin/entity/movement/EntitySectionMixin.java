@@ -20,6 +20,8 @@ public class EntitySectionMixin<T extends EntityAccess> {
     @Shadow
     @Final
     private ClassInstanceMultiMap<T> storage;
+    @Shadow
+    private Visibility chunkStatus;
     @Unique
     private static final Object async$lock = new Object();
 
@@ -37,10 +39,19 @@ public class EntitySectionMixin<T extends EntityAccess> {
         }
     }
 
+    @WrapMethod(method = "getStatus")
+    private Visibility getStatus(Operation<Visibility> original) {
+        return this.chunkStatus != null ? this.chunkStatus : Visibility.HIDDEN;
+    }
+
     @WrapMethod(method = "updateChunkStatus")
     private Visibility updateChunkStatus(Visibility status, Operation<Visibility> original) {
         synchronized (async$lock) {
-            return original.call(status);
+            if (this.chunkStatus == null) {
+                this.chunkStatus = Visibility.HIDDEN;
+            }
+            Visibility safeStatus = (status != null ? status : Visibility.HIDDEN);
+            return original.call(safeStatus);
         }
     }
 

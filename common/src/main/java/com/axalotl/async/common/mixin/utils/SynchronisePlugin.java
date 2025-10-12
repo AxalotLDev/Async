@@ -1,5 +1,6 @@
 package com.axalotl.async.common.mixin.utils;
 
+import com.axalotl.async.common.platform.PlatformEvents;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Multimap;
 import org.apache.logging.log4j.LogManager;
@@ -15,7 +16,9 @@ import java.util.Set;
 import java.util.TreeSet;
 
 public class SynchronisePlugin implements IMixinConfigPlugin {
-    private static final Logger syncLogger = LogManager.getLogger();
+    private static final Logger LOGGER = LogManager.getLogger();
+    private static final int FINAL_STATIC_PRIVATE_ABSTRACT = 0x1548; // final, static, private, abstract
+    private static final int SYNCHRONIZED = 0x20; // synchronized
     private final Multimap<String, String> mixin2MethodsMap = ArrayListMultimap.create();
     private final Multimap<String, String> mixin2MethodsExcludeMap = ArrayListMultimap.create();
     private final TreeSet<String> syncAllSet = new TreeSet<>();
@@ -29,7 +32,7 @@ public class SynchronisePlugin implements IMixinConfigPlugin {
 
     @Override
     public String getRefMapperConfig() {
-        return null;
+        return PlatformEvents.getInstance().platformUsesRefmap() ? "async.refmap.json" : null;
     }
 
     @Override
@@ -58,10 +61,9 @@ public class SynchronisePlugin implements IMixinConfigPlugin {
         if (!targetMethods.isEmpty()) {
             applySynchronizeBit(targetClass, targetMethods, targetClassName);
         } else if (syncAllSet.contains(mixinClassName)) {
-            int negFilter = 5448;
             for (MethodNode method : targetClass.methods) {
-                if ((method.access & negFilter) == 0 && !method.name.equals("<init>") && !excludedMethods.contains(method.name)) {
-                    method.access |= 32;
+                if ((method.access & FINAL_STATIC_PRIVATE_ABSTRACT) == 0 && !method.name.equals("<init>") && !excludedMethods.contains(method.name)) {
+                    method.access |= SYNCHRONIZED;
                     logSynchronize(method.name, targetClassName, mixinClassName);
                 }
             }
@@ -72,7 +74,7 @@ public class SynchronisePlugin implements IMixinConfigPlugin {
         for (MethodNode method : targetClass.methods) {
             for (String targetMethod : targetMethods) {
                 if (method.name.equals(targetMethod)) {
-                    method.access |= 32;
+                    method.access |= SYNCHRONIZED;
                     logSynchronize(method.name, targetClassName, null);
                 }
             }
@@ -82,7 +84,7 @@ public class SynchronisePlugin implements IMixinConfigPlugin {
     private void logSynchronize(String methodName, String targetClassName, String mixinClassName) {
         if (mixinClassName == null || !mixinClassName.equals("com.axalotl.async.mixin.utils.FastUtilsMixin")) {
             String message = "Setting synchronize bit for " + methodName + " in " + targetClassName + ".";
-            syncLogger.debug(message);
+            LOGGER.debug(message);
         }
     }
 }
