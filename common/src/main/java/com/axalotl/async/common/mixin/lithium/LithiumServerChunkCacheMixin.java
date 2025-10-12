@@ -100,16 +100,14 @@ public abstract class LithiumServerChunkCacheMixin extends ChunkSource {
 
     @Unique
     private ChunkAccess async$getChunkOffThread(int x, int z, ChunkStatus status, boolean create) {
-        final ChunkHolder holder = this.getVisibleChunkIfPresent(ChunkPos.asLong(x, z));
-        if (holder != null) {
-            final CompletableFuture<ChunkResult<ChunkAccess>> future = holder.scheduleChunkGenerationTask(status, this.chunkMap);
-            if (future.isDone()) {
-                ChunkAccess chunk = future.getNow(ChunkHolder.UNLOADED_CHUNK).orElse(null);
-                if (chunk instanceof ImposterProtoChunk readOnlyChunk) chunk = readOnlyChunk.getWrapped();
-                if (chunk != null) {
-                    return chunk;
-                }
+        final long pos = ChunkPos.asLong(x, z);
+        final ChunkHolder holder = this.getVisibleChunkIfPresent(pos);
+        final ChunkAccess ifPresent = holder == null ? null : holder.getChunkIfPresent(status);
+        if (ifPresent != null) {
+            if (ifPresent instanceof ImposterProtoChunk proto) {
+                return proto.getWrapped();
             }
+            return ifPresent;
         }
 
         return create ? this.async$syncLoad(x, z, status) : null;
