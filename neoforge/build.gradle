@@ -1,6 +1,8 @@
 plugins {
     id 'multiloader-loader'
     id 'net.neoforged.moddev'
+    id 'java-library'
+    id 'idea'
     id "com.modrinth.minotaur" version "2.+"
 }
 
@@ -12,10 +14,11 @@ apply plugin: 'com.modrinth.minotaur'
 modrinth {
     token = System.getenv("MODRINTH_TOKEN")
     projectId = "async"
-    versionNumber = project.version
-    versionName = project.version
+    versionNumber.set(project.version.toString())
+    versionName.set(project.version.toString())
     versionType = "alpha"
-    uploadFile = fileTree(dir: "${project.buildDir}/libs", include: "*.jar").files.find()
+    def libsDir = layout.buildDirectory.dir("libs").get().asFile
+    uploadFile = libsDir.listFiles().find { it.name.endsWith(".jar") }
     gameVersions = ["1.21", "1.21.1"]
     loaders = ["neoforge"]
     dependencies {
@@ -36,7 +39,7 @@ neoForge {
     }
     runs {
         configureEach {
-            systemProperty('neoforge.enabledGameTestNamespaces', mod_id)
+            systemProperty("neoforge.enabledGameTestNamespaces", mod_id.toString())
             ideName = "NeoForge ${it.name.capitalize()} (${project.path})" // Unify the run config names with fabric
         }
         client {
@@ -52,6 +55,19 @@ neoForge {
     mods {
         "${mod_id}" {
             sourceSet sourceSets.main
+        }
+    }
+    if (project.hasProperty('parchment_mappings_version') && project.hasProperty('parchment_minecraft_version')) {
+        def parchmentMappings = project.parchment_mappings_version
+        def parchmentMinecraft = project.parchment_minecraft_version
+
+        if (parchmentMappings != null && parchmentMinecraft != null &&
+                !parchmentMappings.toString().isBlank() && !parchmentMinecraft.toString().isBlank()) {
+
+            parchment {
+                mappingsVersion = parchmentMappings
+                minecraftVersion = parchmentMinecraft
+            }
         }
     }
 }
