@@ -3,3 +3,4 @@
 - Fix client side bugs
 - Fix refmap
 - Fix ghost entities
+- Fix climbing fall damage
