@@ -19,6 +19,7 @@ import net.minecraft.world.level.chunk.LevelChunk;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -41,7 +42,7 @@ public class ParallelProcessor {
     private static final BlockingQueue<CompletableFuture<?>> taskQueue = new LinkedBlockingQueue<>();
     private static final Set<UUID> blacklistedEntity = ConcurrentHashMap.newKeySet();
     private static final Map<UUID, Integer> portalTickSyncMap = new ConcurrentHashMap<>();
-    private static final Map<String, Set<Thread>> mcThreadTracker = new ConcurrentHashMap<>();
+    private static final Map<String, Set<WeakReference<Thread>>> mcThreadTracker = new ConcurrentHashMap<>();
     public static final Set<Class<?>> BLOCKED_ENTITIES = Set.of(
             FallingBlockEntity.class,
             Shulker.class,
@@ -65,11 +66,15 @@ public class ParallelProcessor {
     }
 
     public static void registerThread(String poolName, Thread thread) {
-        mcThreadTracker.computeIfAbsent(poolName, key -> ConcurrentHashMap.newKeySet()).add(thread);
+        mcThreadTracker
+                .computeIfAbsent(poolName, key -> ConcurrentHashMap.newKeySet())
+                .add(new WeakReference<>(thread));
     }
 
     private static boolean isThreadInPool(Thread thread) {
-        return mcThreadTracker.getOrDefault("Async-Tick", Set.of()).contains(thread);
+        return mcThreadTracker.getOrDefault("Async-Tick", Set.of()).stream()
+                .map(WeakReference::get)
+                .anyMatch(thread::equals);
     }
 
     public static boolean isServerExecutionThread() {
