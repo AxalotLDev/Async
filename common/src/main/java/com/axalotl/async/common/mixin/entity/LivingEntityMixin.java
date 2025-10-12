@@ -11,14 +11,12 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.state.BlockState;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -61,7 +59,7 @@ public abstract class LivingEntityMixin extends Entity {
     }
 
     @WrapOperation(method = "tickEffects", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/effect/MobEffectInstance;tick(Lnet/minecraft/world/entity/LivingEntity;Ljava/lang/Runnable;)Z"))
-    private boolean async$wrapTickEffect(MobEffectInstance instance, LivingEntity entity, Runnable runnable, Operation<Boolean> original) {
+    private boolean tickEffects(MobEffectInstance instance, LivingEntity entity, Runnable runnable, Operation<Boolean> original) {
         if (instance != null) {
             return original.call(instance, entity, runnable);
         } else {
@@ -70,15 +68,30 @@ public abstract class LivingEntityMixin extends Entity {
     }
 
     @Inject(method = "onEffectRemoved", at = @At("HEAD"), cancellable = true)
-    private void async$onEffectRemoved(MobEffectInstance effectInstance, CallbackInfo ci) {
+    private void onEffectRemoved(MobEffectInstance effectInstance, CallbackInfo ci) {
         if (effectInstance == null) {
             ci.cancel();
         }
     }
 
-    @Inject(method = "onClimbable", at = @At("HEAD"), cancellable = true)
-    private void isClimbing(CallbackInfoReturnable<Boolean> cir) {
-        BlockState blockState = this.getInBlockState();
-        if (blockState == null) cir.setReturnValue(false);
+    @WrapMethod(method = "addEffect(Lnet/minecraft/world/effect/MobEffectInstance;Lnet/minecraft/world/entity/Entity;)Z")
+    private boolean addEffect(MobEffectInstance effect, Entity source, Operation<Boolean> original) {
+        synchronized (async$lock) {
+            return original.call(effect, source);
+        }
+    }
+
+    @WrapMethod(method = "removeEffect")
+    private boolean removeEffect(Holder<MobEffect> effect, Operation<Boolean> original) {
+        synchronized (async$lock) {
+            return original.call(effect);
+        }
+    }
+
+    @WrapMethod(method = "removeAllEffects")
+    private boolean removeAllEffects(Operation<Boolean> original) {
+        synchronized (async$lock) {
+            return original.call();
+        }
     }
 }

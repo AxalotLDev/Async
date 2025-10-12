@@ -4,7 +4,6 @@ import com.axalotl.async.common.ParallelProcessor;
 import com.axalotl.async.common.commands.AsyncCommand;
 import com.axalotl.async.common.commands.StatsCommand;
 import com.axalotl.async.common.config.AsyncConfig;
-import com.axalotl.async.fabric.platform.FabricPlatformEvents;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
@@ -21,7 +20,6 @@ public class AsyncFabric implements ModInitializer {
     public void onInitialize() {
         LOGGER.info("Initializing Async...");
         com.axalotl.async.fabric.config.AsyncConfig.init();
-        FabricPlatformEvents.init();
 
         StatsCommand.runStatsThread();
 

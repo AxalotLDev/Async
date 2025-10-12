@@ -1,7 +1,7 @@
 package com.axalotl.async.common.commands;
 
 import com.axalotl.async.common.config.AsyncConfig;
-import com.axalotl.async.common.platform.PlatformEventBus;
+import com.axalotl.async.common.platform.PlatformEvents;
 import com.mojang.brigadier.arguments.BoolArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import net.minecraft.ChatFormatting;
@@ -16,7 +16,6 @@ import net.minecraft.resources.ResourceLocation;
 import java.util.Set;
 
 import static com.axalotl.async.common.commands.AsyncCommand.prefix;
-import static com.axalotl.async.common.platform.PlatformEventBus.saveConfig;
 import static net.minecraft.commands.Commands.literal;
 
 public class ConfigCommand {
@@ -24,7 +23,7 @@ public class ConfigCommand {
         return root.then(literal("config")
                 .then(literal("toggle").requires(cmdSrc -> cmdSrc.hasPermission(4)).executes(cmdCtx -> {
                     AsyncConfig.disabled = !AsyncConfig.disabled;
-                    saveConfig();
+                    PlatformEvents.getInstance().saveConfig();
                     MutableComponent message = prefix.copy().append(Component.literal("Async is now ").withStyle(style -> style.withColor(ChatFormatting.WHITE)))
                             .append(Component.literal(AsyncConfig.disabled ? "disabled" : "enabled").withStyle(style -> style.withColor(ChatFormatting.GREEN)));
                     cmdCtx.getSource().sendSuccess(() -> message, true);
@@ -102,7 +101,7 @@ public class ConfigCommand {
                         .then(Commands.argument("value", BoolArgumentType.bool()).executes(cmdCtx -> {
                             boolean value = BoolArgumentType.getBool(cmdCtx, "value");
                             AsyncConfig.enableAsyncSpawn = value;
-                            PlatformEventBus.saveConfig();
+                            PlatformEvents.getInstance().saveConfig();
                             MutableComponent message = prefix.copy().append(Component.literal("Async Entity Spawn set to ").withStyle(style -> style.withColor(ChatFormatting.WHITE)))
                                     .append(Component.literal(String.valueOf(value)).withStyle(style -> style.withColor(ChatFormatting.GREEN)));
                             cmdCtx.getSource().sendSuccess(() -> message, true);
@@ -120,7 +119,7 @@ public class ConfigCommand {
                         .then(Commands.argument("value", BoolArgumentType.bool()).executes(cmdCtx -> {
                             boolean value = BoolArgumentType.getBool(cmdCtx, "value");
                             AsyncConfig.enableAsyncRandomTicks = value;
-                            PlatformEventBus.saveConfig();
+                            PlatformEvents.getInstance().saveConfig();
                             MutableComponent message = prefix.copy().append(Component.literal("Async Random Ticks set to ").withStyle(style -> style.withColor(ChatFormatting.WHITE)))
                                     .append(Component.literal(String.valueOf(value)).withStyle(style -> style.withColor(ChatFormatting.GREEN)));
                             cmdCtx.getSource().sendSuccess(() -> message, true);

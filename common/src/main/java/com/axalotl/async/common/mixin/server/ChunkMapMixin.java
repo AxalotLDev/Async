@@ -48,12 +48,12 @@ public abstract class ChunkMapMixin extends ChunkStorage implements ChunkHolder.
     }
 
     @WrapMethod(method = "addEntity")
-    private synchronized void loadEntity(Entity entity, Operation<Void> original) {
+    private synchronized void addEntity(Entity entity, Operation<Void> original) {
         original.call(entity);
     }
 
     @WrapMethod(method = "removeEntity")
-    private synchronized void unloadEntity(Entity entity, Operation<Void> original) {
+    private synchronized void removeEntity(Entity entity, Operation<Void> original) {
         original.call(entity);
     }
 
