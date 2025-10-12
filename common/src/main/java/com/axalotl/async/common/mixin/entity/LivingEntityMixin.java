@@ -3,8 +3,11 @@ package com.axalotl.async.common.mixin.entity;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.tags.BlockTags;
+import net.minecraft.util.Mth;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.effect.MobEffectInstance;
@@ -112,9 +115,13 @@ public abstract class LivingEntityMixin extends Entity {
         }
     }
 
-    @Inject(method = "onClimbable", at = @At("HEAD"), cancellable = true)
-    private void isClimbing(CallbackInfoReturnable<Boolean> cir) {
-        BlockState blockState = this.getInBlockState();
-        if (blockState == null) cir.setReturnValue(false);
+    @Inject(method = "causeFallDamage", at = @At("HEAD"), cancellable = true)
+    private void causeFallDamage(double fallDistance, float multiplier, DamageSource source, CallbackInfoReturnable<Boolean> cir) {
+        BlockPos pos = new BlockPos(Mth.floor(this.getX()), Mth.floor(this.getY()), Mth.floor(this.getZ()));
+        BlockState currentBlock = this.level().getBlockState(pos);
+
+        if (currentBlock.is(BlockTags.CLIMBABLE)) {
+            cir.setReturnValue(false);
+        }
     }
 }
