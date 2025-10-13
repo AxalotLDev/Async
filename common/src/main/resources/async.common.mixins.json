@@ -71,7 +71,8 @@
     "world.RandomSequencesMixin",
     "world.ScoreboardMixin",
     "world.SectionStorageMixin",
-    "world.ServerLevelMixin"
+    "world.ServerLevelMixin",
+    "opac.OpacCreeperExplosionFix"
   ],
   "client": [],
   "server": [],

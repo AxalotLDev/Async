@@ -8,6 +8,7 @@ plugins {
 
 repositories {
     maven { url 'https://api.modrinth.com/maven' }
+    maven { url "https://cursemaven.com" }
 }
 
 apply plugin: 'com.modrinth.minotaur'
@@ -78,6 +79,7 @@ dependencies {
     implementation 'maven.modrinth:lithium:mc1.21.1-0.15.0-neoforge'
     compileOnly 'org.projectlombok:lombok:1.18.32'
     annotationProcessor 'org.projectlombok:lombok:1.18.32'
+    compileOnly "curse.maven:open-parties-and-claims-636608:6999185"
 }
 
 sourceSets.main.resources { srcDir 'src/generated/resources' }
