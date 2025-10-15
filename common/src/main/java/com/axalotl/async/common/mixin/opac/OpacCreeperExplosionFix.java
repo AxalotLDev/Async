@@ -34,12 +34,17 @@ public abstract class OpacCreeperExplosionFix {
     private static boolean shouldRouteToMainThread(ServerLevel world, Entity entity) {
         if (world.getServer().isSameThread()) return false;
 
-        // Creeper only route if it's about to explode
         if (entity instanceof Creeper creeper) {
             try {
+                // Manual ignition (flint & steel etc.)
                 if (creeper.isIgnited()) return true;
-            } catch (Throwable ignored) {
-            }
+                // im still in shock that i didnt notice this when testing LOL
+                float swelling = creeper.getSwelling(1.0F);
+                int swellDir = creeper.getSwellDir();
+
+                if (swelling > 0.01F) return true;
+                if (swellDir > 0) return true;
+            } catch (Throwable ignored) {}
         }
 
         return false;
