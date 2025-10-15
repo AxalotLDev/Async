@@ -72,7 +72,7 @@
     "world.ScoreboardMixin",
     "world.SectionStorageMixin",
     "world.ServerLevelMixin",
-    "opac.OpacCreeperExplosionFix"
+    "opac.OpacExplosionFix"
   ],
   "client": [],
   "server": [],
