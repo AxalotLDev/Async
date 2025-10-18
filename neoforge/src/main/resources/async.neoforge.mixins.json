@@ -6,12 +6,12 @@
   "mixins": [
     "server.ServerWatchdogMixin",
     "utils.ClassInstanceMultiMapMixin",
-    "utils.UtilMixin"
+    "utils.UtilMixin",
+    "world.LevelMixin"
   ],
   "client": [],
   "server": [],
   "injectors": {
     "defaultRequire": 1
-  },
-  "plugin": "com.axalotl.async.neoforge.mixin.utils.SynchronisePlugin"
+  }
 }
