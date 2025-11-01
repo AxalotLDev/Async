@@ -10,7 +10,7 @@ pluginManagement {
                 }
             }
             filter {
-                includeGroupByRegex("net\\.fabricmc(\\..+)?") // 💡 захватывает net.fabricmc и всё внутри, включая unpick
+                includeGroupByRegex("net\\.fabricmc(\\..+)?")
                 includeGroup('fabric-loom')
             }
         }
