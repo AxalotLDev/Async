@@ -207,7 +207,7 @@ public class ParallelProcessor {
                 hasTask |= world.getChunkSource().pollTask();
             }
             if (!hasTask) {
-                LockSupport.parkNanos(1_000_000);
+                LockSupport.parkNanos(50_000);
             }
         }
 
