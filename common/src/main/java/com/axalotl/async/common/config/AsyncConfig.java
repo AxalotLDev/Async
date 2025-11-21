@@ -11,7 +11,7 @@ public class AsyncConfig {
     public static final Logger LOGGER = LoggerFactory.getLogger("Async Config");
 
     public static boolean disabled = false;
-    public static int paraMax = -1;
+    public static int maxThreads = -1;
     public static boolean enableAsyncSpawn = true;
     public static boolean enableAsyncRandomTicks = false;
 
@@ -26,8 +26,8 @@ public class AsyncConfig {
     }
 
     public static int getParallelism() {
-        if (paraMax <= 0) return Runtime.getRuntime().availableProcessors();
-        return Math.max(1, Math.min(Runtime.getRuntime().availableProcessors(), paraMax));
+        if (maxThreads <= 0) return Runtime.getRuntime().availableProcessors();
+        return Math.max(1, Math.min(Runtime.getRuntime().availableProcessors(), maxThreads));
     }
 
     public static void syncEntity(ResourceLocation entityId) {
