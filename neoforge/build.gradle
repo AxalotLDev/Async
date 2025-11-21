@@ -1,9 +1,9 @@
 plugins {
     id 'multiloader-loader'
     id 'net.neoforged.moddev'
-    id 'java-library'
-    id 'idea'
     id "com.modrinth.minotaur" version "2.+"
+    id 'idea'
+    id 'java-library'
 }
 
 repositories {
@@ -39,7 +39,7 @@ neoForge {
     }
     runs {
         configureEach {
-            systemProperty("neoforge.enabledGameTestNamespaces", mod_id.toString())
+            systemProperty('neoforge.enabledGameTestNamespaces', String.valueOf(mod_id))
             ideName = "NeoForge ${it.name.capitalize()} (${project.path})" // Unify the run config names with fabric
         }
         client {
@@ -54,25 +54,12 @@ neoForge {
             sourceSet sourceSets.main
         }
     }
-    if (project.hasProperty('parchment_mappings_version') && project.hasProperty('parchment_minecraft_version')) {
-        def parchmentMappings = project.parchment_mappings_version
-        def parchmentMinecraft = project.parchment_minecraft_version
-
-        if (parchmentMappings != null && parchmentMinecraft != null &&
-                !parchmentMappings.toString().isBlank() && !parchmentMinecraft.toString().isBlank()) {
-
-            parchment {
-                mappingsVersion = parchmentMappings
-                minecraftVersion = parchmentMinecraft
-            }
-        }
-    }
 }
 
 dependencies {
     compileOnly(annotationProcessor("com.github.bawnorton.mixinsquared:mixinsquared-common:${mixinsquared_version}"))
     implementation(jarJar("com.github.bawnorton.mixinsquared:mixinsquared-neoforge:${mixinsquared_version}"))
-    implementation 'maven.modrinth:lithium:mc1.21.9-0.19.1-neoforge'
+    implementation 'maven.modrinth:lithium:mc1.21.8-0.18.0-neoforge'
     compileOnly 'org.projectlombok:lombok:1.18.32'
     annotationProcessor 'org.projectlombok:lombok:1.18.32'
 }
