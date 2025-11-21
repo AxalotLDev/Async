@@ -1,87 +1,131 @@
 package com.axalotl.async.fabric.config;
 
+import com.electronwill.nightconfig.core.CommentedConfig;
 import com.electronwill.nightconfig.core.file.CommentedFileConfig;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.resources.ResourceLocation;
 
-import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 import static com.axalotl.async.common.config.AsyncConfig.*;
-import static com.axalotl.async.common.config.AsyncConfig.getDefaultSynchronizedEntities;
 
 public class AsyncConfig {
+
     private static final Supplier<CommentedFileConfig> configSupplier =
-            () -> CommentedFileConfig.builder(FabricLoader.getInstance().getConfigDir().resolve("async.toml"))
+            () -> CommentedFileConfig.builder(
+                            FabricLoader.getInstance().getConfigDir().resolve("async.toml"))
                     .preserveInsertionOrder()
                     .sync()
                     .build();
 
     private static CommentedFileConfig CONFIG;
 
+    private static final Set<String> VALID_KEYS = Set.of(
+            "disabled",
+            "maxThreads",
+            "synchronizedEntities",
+            "enableAsyncSpawn",
+            "enableAsyncRandomTicks"
+    );
+
     public static void init() {
         LOGGER.info("Initializing Async Config...");
         CONFIG = configSupplier.get();
+
         try {
             if (!CONFIG.getFile().exists()) {
-                LOGGER.warn("Configuration file not found, creating default configuration.");
+                LOGGER.warn("Configuration not found. Creating defaults...");
                 setDefaultValues();
                 saveConfig();
             } else {
                 CONFIG.load();
                 loadConfigValues();
-                LOGGER.info("Configuration successfully loaded.");
+                LOGGER.info("Configuration loaded.");
             }
         } catch (Throwable t) {
-            LOGGER.error("Error loading configuration, resetting to default values.", t);
+            LOGGER.error("Error loading configuration. Resetting to defaults.", t);
             setDefaultValues();
             saveConfig();
         }
     }
 
     public static void saveConfig() {
-        CONFIG.set("disabled", disabled);
-        CONFIG.setComment("disabled", "Enables parallel processing of entity.");
-
-        CONFIG.set("paraMax", paraMax);
-        CONFIG.setComment("paraMax", "Maximum number of threads to use for parallel processing. Set to -1 to use default value. Note: If 'virtualThreads' is enabled, this setting will be ignored.");
-
-        CONFIG.set("synchronizedEntities", synchronizedEntities.stream().map(ResourceLocation::toString).toList());
-        CONFIG.setComment("synchronizedEntities", "List of entity class for sync processing.");
-
-        CONFIG.set("enableAsyncSpawn", enableAsyncSpawn);
-        CONFIG.setComment("enableAsyncSpawn", "Enables parallel processing of entity spawns. Warning, incompatible with Carpet mod lagFreeSpawning rule.");
-
-        CONFIG.set("enableAsyncRandomTicks", enableAsyncRandomTicks);
-        CONFIG.setComment("enableAsyncRandomTicks", "Experimental! Enables async processing of random ticks.");
+        setWithComment("disabled", disabled, "Enables parallel processing of entities.");
+        setWithComment("maxThreads", maxThreads, "Maximum worker threads. -1 = auto.");
+        setWithComment("synchronizedEntities",
+                synchronizedEntities.stream().map(ResourceLocation::toString).toList(),
+                "List of entity IDs that must ALWAYS tick synchronously.");
+        setWithComment("enableAsyncSpawn", enableAsyncSpawn,
+                "Enables async entity spawning. WARNING: incompatible with Carpet's lagFreeSpawning.");
+        setWithComment("enableAsyncRandomTicks", enableAsyncRandomTicks,
+                "Experimental! Enables async random ticks.");
 
         CONFIG.save();
-        LOGGER.info("Configuration saved successfully.");
+        LOGGER.info("Configuration saved.");
+    }
+
+    private static void setWithComment(String key, Object value, String comment) {
+        CONFIG.set(key, value);
+        CONFIG.setComment(key, comment);
     }
 
     private static void loadConfigValues() {
+        removeUnusedKeys();
+
         disabled = CONFIG.getOrElse("disabled", disabled);
-        paraMax = CONFIG.getOrElse("paraMax", paraMax);
+        maxThreads = CONFIG.getOrElse("maxThreads", maxThreads);
         enableAsyncSpawn = CONFIG.getOrElse("enableAsyncSpawn", enableAsyncSpawn);
         enableAsyncRandomTicks = CONFIG.getOrElse("enableAsyncRandomTicks", enableAsyncRandomTicks);
 
         List<String> ids = CONFIG.get("synchronizedEntities");
         if (ids != null) {
-            HashSet<ResourceLocation> set = new HashSet<>();
-            for (String id : ids) {
-                ResourceLocation rl = ResourceLocation.tryParse(id);
-                if (rl != null) {
-                    set.add(rl);
-                }
+            synchronizedEntities = ids.stream()
+                    .map(ResourceLocation::tryParse)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toSet());
+        }
+
+        restoreComments();
+        CONFIG.save();
+    }
+
+    private static void restoreComments() {
+        setCommentIfExists("disabled", "Enables parallel processing of entities.");
+        setCommentIfExists("maxThreads", "Maximum worker threads. -1 = auto.");
+        setCommentIfExists("synchronizedEntities", "List of entity IDs that must ALWAYS tick synchronously.");
+        setCommentIfExists("enableAsyncSpawn", "Enables async entity spawning. WARNING: incompatible with Carpet's lagFreeSpawning.");
+        setCommentIfExists("enableAsyncRandomTicks", "Experimental! Enables async random ticks.");
+    }
+
+    private static void setCommentIfExists(String key, String comment) {
+        if (CONFIG.contains(key)) {
+            CONFIG.setComment(key, comment);
+        }
+    }
+
+    private static void removeUnusedKeys() {
+        List<String> keysToRemove = new java.util.ArrayList<>();
+
+        for (CommentedConfig.Entry entry : CONFIG.entrySet()) {
+            String key = entry.getKey();
+            if (!VALID_KEYS.contains(key)) {
+                keysToRemove.add(key);
             }
-            com.axalotl.async.common.config.AsyncConfig.synchronizedEntities = set;
+        }
+
+        for (String key : keysToRemove) {
+            CONFIG.remove(key);
+            LOGGER.warn("Removed unused config key: {}", key);
         }
     }
 
     private static void setDefaultValues() {
         disabled = false;
-        paraMax = -1;
+        maxThreads = -1;
         enableAsyncSpawn = true;
         enableAsyncRandomTicks = false;
         synchronizedEntities = getDefaultSynchronizedEntities();
