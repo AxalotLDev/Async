@@ -69,15 +69,11 @@ public abstract class LivingEntityMixin extends Entity {
             method = "tickEffects",
             at = @At(
                     value = "INVOKE",
-                    target = "Lnet/minecraft/world/effect/MobEffectInstance;tick(Lnet/minecraft/world/entity/LivingEntity;Ljava/lang/Runnable;)Z"
+                    target = "Lnet/minecraft/world/effect/MobEffectInstance;tickServer(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/world/entity/LivingEntity;Ljava/lang/Runnable;)Z"
             )
     )
-    private boolean wrapTickEffect(MobEffectInstance instance, LivingEntity i, Runnable runnable, Operation<Boolean> original) {
-        if (instance != null) {
-            return original.call(instance, i, runnable);
-        } else {
-            return false;
-        }
+    private boolean wrapTickEffect(MobEffectInstance instance, ServerLevel level, LivingEntity entity, Runnable onEffectUpdated, Operation<Boolean> original) {
+        return instance != null ? original.call(instance, level, entity, onEffectUpdated) : false;
     }
 
     @WrapOperation(
@@ -87,25 +83,27 @@ public abstract class LivingEntityMixin extends Entity {
                     target = "Ljava/util/List;of(Ljava/lang/Object;)Ljava/util/List;"
             )
     )
-    private List<?> async$wrapListOf(Object element, Operation<List<?>> original) {
-        if (element == null) {
-            return Collections.emptyList();
-        }
-        return original.call(element);
+    private List<?> wrapListOf(Object element, Operation<List<?>> original) {
+        return element != null ? original.call(element) : Collections.emptyList();
     }
 
     @WrapMethod(method = "addEffect(Lnet/minecraft/world/effect/MobEffectInstance;Lnet/minecraft/world/entity/Entity;)Z")
     private boolean addEffect(MobEffectInstance effect, Entity source, Operation<Boolean> original) {
         synchronized (async$lock) {
-            return original.call(effect, source);
+            return effect != null ? original.call(effect, source) : false;
         }
     }
 
     @WrapMethod(method = "removeEffect")
     private boolean removeEffect(Holder<MobEffect> effect, Operation<Boolean> original) {
         synchronized (async$lock) {
-            return original.call(effect);
+            return effect != null ? original.call(effect) : false;
         }
+    }
+
+    @WrapMethod(method = "hasEffect")
+    public boolean hasEffect(Holder<MobEffect> effect, Operation<Boolean> original) {
+        return effect != null ? original.call(effect) : false;
     }
 
     @WrapMethod(method = "removeAllEffects")
@@ -116,7 +114,7 @@ public abstract class LivingEntityMixin extends Entity {
     }
 
     @Inject(method = "causeFallDamage", at = @At("HEAD"), cancellable = true)
-    private void causeFallDamage(float fallDistance, float multiplier, DamageSource damageSource, CallbackInfoReturnable<Boolean> cir) {
+    private void causeFallDamage(double fallDistance, float multiplier, DamageSource source, CallbackInfoReturnable<Boolean> cir) {
         BlockPos pos = new BlockPos(Mth.floor(this.getX()), Mth.floor(this.getY()), Mth.floor(this.getZ()));
         BlockState currentBlock = this.level().getBlockState(pos);
 
