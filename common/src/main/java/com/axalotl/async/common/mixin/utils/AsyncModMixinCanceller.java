@@ -22,6 +22,7 @@ public class AsyncModMixinCanceller implements MixinCanceller {
                 return true;
         }
         if (mixinClassName.endsWith("com.axalotl.async.common.mixin.lithium.LithiumServerChunkCacheMixin") ||
+                mixinClassName.endsWith("com.axalotl.async.neoforge.mixin.lithium.LithiumChunkLoadTricksMixin") ||
                 mixinClassName.endsWith("com.axalotl.async.common.mixin.lithium.LithiumServerLevel")) {
             return !LITHIUM;
         }
