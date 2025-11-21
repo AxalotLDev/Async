@@ -73,11 +73,7 @@ public abstract class LivingEntityMixin extends Entity {
             )
     )
     private boolean wrapTickEffect(MobEffectInstance instance, ServerLevel level, LivingEntity entity, Runnable onEffectUpdated, Operation<Boolean> original) {
-        if (instance != null) {
-            return original.call(instance, level, entity, onEffectUpdated);
-        } else {
-            return false;
-        }
+        return instance != null ? original.call(instance, level, entity, onEffectUpdated) : false;
     }
 
     @WrapOperation(
@@ -88,24 +84,26 @@ public abstract class LivingEntityMixin extends Entity {
             )
     )
     private List<?> wrapListOf(Object element, Operation<List<?>> original) {
-        if (element == null) {
-            return Collections.emptyList();
-        }
-        return original.call(element);
+        return element != null ? original.call(element) : Collections.emptyList();
     }
 
     @WrapMethod(method = "addEffect(Lnet/minecraft/world/effect/MobEffectInstance;Lnet/minecraft/world/entity/Entity;)Z")
     private boolean addEffect(MobEffectInstance effect, Entity source, Operation<Boolean> original) {
         synchronized (async$lock) {
-            return original.call(effect, source);
+            return effect != null ? original.call(effect, source) : false;
         }
     }
 
     @WrapMethod(method = "removeEffect")
     private boolean removeEffect(Holder<MobEffect> effect, Operation<Boolean> original) {
         synchronized (async$lock) {
-            return original.call(effect);
+            return effect != null ? original.call(effect) : false;
         }
+    }
+
+    @WrapMethod(method = "hasEffect")
+    public boolean hasEffect(Holder<MobEffect> effect, Operation<Boolean> original) {
+        return effect != null ? original.call(effect) : false;
     }
 
     @WrapMethod(method = "removeAllEffects")
