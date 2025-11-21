@@ -124,7 +124,7 @@ public abstract class LithiumServerChunkCacheMixin extends ChunkSource {
     private ChunkAccess async$getChunkOffThread(int x, int z, ChunkStatus status, boolean create) {
         final long pos = ChunkPos.asLong(x, z);
         final ChunkHolder holder = this.getVisibleChunkIfPresent(pos);
-        final ChunkAccess ifPresent = holder == null ? null : holder.getChunkIfPresentUnchecked(status);
+        final ChunkAccess ifPresent = holder == null ? null : holder.getChunkIfPresent(status);
         if (ifPresent != null) {
             if (ifPresent instanceof ImposterProtoChunk proto) {
                 return proto.getWrapped();
