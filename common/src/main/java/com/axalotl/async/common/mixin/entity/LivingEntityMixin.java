@@ -23,8 +23,6 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-import java.util.Collections;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -51,10 +49,10 @@ public abstract class LivingEntityMixin extends Entity {
         original.call(level, damageSource, playerKill);
     }
 
-    @WrapMethod(method = "knockback")
-    private synchronized void knockback(double strength, double x, double z, Operation<Void> original) {
+    @WrapMethod(method = "blockedByShield")
+    private synchronized void knockback(LivingEntity defender, Operation<Void> original) {
         synchronized (async$lock) {
-            original.call(strength, x, z);
+            original.call(defender);
         }
     }
 
@@ -65,26 +63,9 @@ public abstract class LivingEntityMixin extends Entity {
         }
     }
 
-    @WrapOperation(
-            method = "tickEffects",
-            at = @At(
-                    value = "INVOKE",
-                    target = "Lnet/minecraft/world/effect/MobEffectInstance;tickServer(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/world/entity/LivingEntity;Ljava/lang/Runnable;)Z"
-            )
-    )
-    private boolean wrapTickEffect(MobEffectInstance instance, ServerLevel level, LivingEntity entity, Runnable onEffectUpdated, Operation<Boolean> original) {
-        return instance != null ? original.call(instance, level, entity, onEffectUpdated) : false;
-    }
-
-    @WrapOperation(
-            method = "tickEffects",
-            at = @At(
-                    value = "INVOKE",
-                    target = "Ljava/util/List;of(Ljava/lang/Object;)Ljava/util/List;"
-            )
-    )
-    private List<?> wrapListOf(Object element, Operation<List<?>> original) {
-        return element != null ? original.call(element) : Collections.emptyList();
+    @WrapOperation(method = "tickEffects", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/effect/MobEffectInstance;tick(Lnet/minecraft/world/entity/LivingEntity;Ljava/lang/Runnable;)Z"))
+    private boolean tickEffects(MobEffectInstance instance, LivingEntity entity, Runnable runnable, Operation<Boolean> original) {
+        return instance != null ? original.call(instance, entity, runnable) : false;
     }
 
     @WrapMethod(method = "addEffect(Lnet/minecraft/world/effect/MobEffectInstance;Lnet/minecraft/world/entity/Entity;)Z")
@@ -114,7 +95,7 @@ public abstract class LivingEntityMixin extends Entity {
     }
 
     @Inject(method = "causeFallDamage", at = @At("HEAD"), cancellable = true)
-    private void causeFallDamage(double fallDistance, float multiplier, DamageSource source, CallbackInfoReturnable<Boolean> cir) {
+    private void causeFallDamage(float fallDistance, float multiplier, DamageSource source, CallbackInfoReturnable<Boolean> cir) {
         BlockPos pos = new BlockPos(Mth.floor(this.getX()), Mth.floor(this.getY()), Mth.floor(this.getZ()));
         BlockState currentBlock = this.level().getBlockState(pos);
 
