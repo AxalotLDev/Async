@@ -44,6 +44,7 @@ public class AsyncConfig {
             } else {
                 CONFIG.load();
                 loadConfigValues();
+                saveConfig();
                 LOGGER.info("Configuration loaded.");
             }
         } catch (Throwable t) {
