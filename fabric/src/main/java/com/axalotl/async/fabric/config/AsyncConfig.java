@@ -1,13 +1,11 @@
 package com.axalotl.async.fabric.config;
 
-import com.electronwill.nightconfig.core.CommentedConfig;
 import com.electronwill.nightconfig.core.file.CommentedFileConfig;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.resources.ResourceLocation;
 
 import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.function.Supplier;
 
 import static com.axalotl.async.common.config.AsyncConfig.*;
@@ -63,47 +61,22 @@ public class AsyncConfig {
     }
 
     private static void loadConfigValues() {
-        Set<String> processedKeys = new HashSet<>(List.of(
-                "disabled",
-                "paraMax",
-                "synchronizedEntities",
-                "enableAsyncSpawn",
-                "enableAsyncRandomTicks"
-        ));
-
         disabled = CONFIG.getOrElse("disabled", disabled);
         paraMax = CONFIG.getOrElse("paraMax", paraMax);
         enableAsyncSpawn = CONFIG.getOrElse("enableAsyncSpawn", enableAsyncSpawn);
         enableAsyncRandomTicks = CONFIG.getOrElse("enableAsyncRandomTicks", enableAsyncRandomTicks);
 
-        List<String> ids = synchronizedEntities.stream().map(ResourceLocation::toString).toList();
-        HashSet<ResourceLocation> set = new HashSet<>();
-
-        for (String id : ids) {
-            ResourceLocation rl = ResourceLocation.tryParse(id);
-            if (rl != null) {
-                set.add(rl);
+        List<String> ids = CONFIG.get("synchronizedEntities");
+        if (ids != null) {
+            HashSet<ResourceLocation> set = new HashSet<>();
+            for (String id : ids) {
+                ResourceLocation rl = ResourceLocation.tryParse(id);
+                if (rl != null) {
+                    set.add(rl);
+                }
             }
+            com.axalotl.async.common.config.AsyncConfig.synchronizedEntities = set;
         }
-
-        com.axalotl.async.common.config.AsyncConfig.synchronizedEntities = set.isEmpty()
-                ? getDefaultSynchronizedEntities()
-                : set;
-
-        Set<String> keysToRemove = new HashSet<>();
-        for (CommentedConfig.Entry entry : CONFIG.entrySet()) {
-            String key = entry.getKey();
-            if (!processedKeys.contains(key)) {
-                keysToRemove.add(key);
-            }
-        }
-
-        for (String key : keysToRemove) {
-            LOGGER.warn("Removing unused configuration key: {}", key);
-            CONFIG.remove(key);
-        }
-
-        CONFIG.save();
     }
 
     private static void setDefaultValues() {
