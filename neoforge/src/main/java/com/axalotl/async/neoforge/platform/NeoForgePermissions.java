@@ -2,6 +2,7 @@ package com.axalotl.async.neoforge.platform;
 
 import com.axalotl.async.common.AsyncCommon;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
+import net.neoforged.neoforge.server.permission.events.PermissionGatherEvent;
 import net.neoforged.neoforge.server.permission.nodes.PermissionNode;
 import net.neoforged.neoforge.server.permission.nodes.PermissionTypes;
 
@@ -17,6 +18,11 @@ public class NeoForgePermissions {
         return PERMISSIONS.get(node);
     }
 
+    public static void addNodes(PermissionGatherEvent.Nodes event) {
+        for (PermissionNode<Boolean> node : PERMISSIONS.values()) {
+            event.addNodes(node);
+        }
+    }
 
     private static Map<String, PermissionNode<Boolean>> build(String... nodes) {
         Map<String, PermissionNode<Boolean>> permissions = new Object2ObjectOpenHashMap<>();

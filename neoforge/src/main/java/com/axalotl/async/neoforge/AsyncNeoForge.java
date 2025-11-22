@@ -1,8 +1,10 @@
 package com.axalotl.async.neoforge;
 
+import com.axalotl.async.common.AsyncCommon;
 import com.axalotl.async.common.ParallelProcessor;
+import com.axalotl.async.common.commands.AsyncCommand;
 import com.axalotl.async.common.commands.StatsCommand;
-import com.axalotl.async.neoforge.commands.AsyncNeoForgeCommand;
+import com.axalotl.async.neoforge.platform.NeoForgePermissions;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.logging.LogUtils;
 import net.minecraft.commands.CommandSourceStack;
@@ -14,6 +16,7 @@ import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.neoforge.event.server.ServerStartingEvent;
 import net.neoforged.neoforge.event.server.ServerStoppingEvent;
+import net.neoforged.neoforge.server.permission.events.PermissionGatherEvent;
 import org.slf4j.Logger;
 
 import static com.axalotl.async.common.config.AsyncConfig.getParallelism;
@@ -21,7 +24,7 @@ import static com.axalotl.async.neoforge.config.AsyncConfig.SPEC;
 import static com.axalotl.async.neoforge.config.AsyncConfig.loadConfig;
 
 @Mod(AsyncNeoForge.MOD_ID)
-public class AsyncNeoForge {
+public class AsyncNeoForge extends AsyncCommon {
     public static final String MOD_ID = "async";
     public static final Logger LOGGER = LogUtils.getLogger();
 
@@ -36,6 +39,7 @@ public class AsyncNeoForge {
     @SubscribeEvent
     public void onServerStarting(ServerStartingEvent event) {
         LOGGER.info("Async Setting up thread-pool...");
+        this.initialize();
         loadConfig();
         StatsCommand.runStatsThread();
         ParallelProcessor.setServer(event.getServer());
@@ -45,12 +49,17 @@ public class AsyncNeoForge {
     @SubscribeEvent
     public void registerCommandsEvent(RegisterCommandsEvent event) {
         CommandDispatcher<CommandSourceStack> dispatcher = event.getDispatcher();
-        AsyncNeoForgeCommand.register(dispatcher);
+        AsyncCommand.register(dispatcher);
     }
 
     @SubscribeEvent
     public void onServerStopping(ServerStoppingEvent event) {
         StatsCommand.shutdown();
         ParallelProcessor.stop();
+    }
+
+    @SubscribeEvent
+    public void handlePermissionNodesGather(PermissionGatherEvent.Nodes event) {
+        NeoForgePermissions.addNodes(event);
     }
 }

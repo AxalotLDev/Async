@@ -1,6 +1,6 @@
 package com.axalotl.async.common.config;
 
-import com.axalotl.async.common.platform.PlatformEvents;
+import com.axalotl.async.common.platform.PlatformUtils;
 import net.minecraft.resources.ResourceLocation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,7 +32,7 @@ public class AsyncConfig {
 
     public static void syncEntity(ResourceLocation entityId) {
         if (synchronizedEntities.add(entityId)) {
-            PlatformEvents.getInstance().saveConfig();
+            PlatformUtils.saveConfig();
             LOGGER.info("Sync entity class: {}", entityId);
         } else {
             LOGGER.warn("Entity class already synchronized: {}", entityId);
@@ -41,7 +41,7 @@ public class AsyncConfig {
 
     public static void asyncEntity(ResourceLocation entityId) {
         if (synchronizedEntities.remove(entityId)) {
-            PlatformEvents.getInstance().saveConfig();
+            PlatformUtils.saveConfig();
             LOGGER.info("Enable async process entity class: {}", entityId);
         } else {
             LOGGER.warn("Entity class not found: {}", entityId);

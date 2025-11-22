@@ -1,10 +1,10 @@
 package com.axalotl.async.fabric.platform;
 
-import com.axalotl.async.common.platform.PlatformEvents;
+import com.axalotl.async.common.platform.ModPlatform;
 import com.axalotl.async.fabric.config.AsyncConfig;
 import net.fabricmc.loader.api.FabricLoader;
 
-public class FabricPlatformEvents implements PlatformEvents {
+public class FabricModPlatform implements ModPlatform {
 
     @Override
     public void saveConfig() {

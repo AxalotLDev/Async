@@ -1,10 +1,10 @@
 package com.axalotl.async.neoforge.platform;
 
-import com.axalotl.async.common.platform.PlatformEvents;
+import com.axalotl.async.common.platform.ModPlatform;
 import com.axalotl.async.neoforge.config.AsyncConfig;
 import net.neoforged.fml.loading.FMLLoader;
 
-public class NeoForgePlatformEvents implements PlatformEvents {
+public class NeoForgeModPlatform implements ModPlatform {
 
     @Override
     public void saveConfig() {
