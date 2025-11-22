@@ -15,7 +15,7 @@ import net.minecraft.resources.ResourceLocation;
 
 import java.util.Set;
 
-import static com.axalotl.async.common.commands.AsyncCommand.prefix;
+import static com.axalotl.async.common.AsyncCommon.prefix;
 import static net.minecraft.commands.Commands.literal;
 
 public class ConfigCommand {
