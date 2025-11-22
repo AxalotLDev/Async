@@ -1,9 +1,3 @@
-- Fixed attributes
-- Fixed entity tick list
-- Fixed client side bugs
-- Fixed refmap
-- Fixed ghost entities
-- Fixed climbing fall damage
 - Fixed deadlocks with lithium on neoforge
 - Fixed the config not being saved
 - Fixed bugs with entity effects
