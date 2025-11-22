@@ -55,6 +55,7 @@ dependencies {
     annotationProcessor 'org.projectlombok:lombok:1.18.32'
 
     implementation 'maven.modrinth:lithium:mc1.21.9-0.19.1-neoforge'
+    modImplementation(include("me.lucko:fabric-permissions-api:${project.permission_api}"))
 }
 
 loom {

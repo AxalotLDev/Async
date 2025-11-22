@@ -1,8 +1,8 @@
 package com.axalotl.async.neoforge;
 
 import com.axalotl.async.common.ParallelProcessor;
-import com.axalotl.async.common.commands.AsyncCommand;
 import com.axalotl.async.common.commands.StatsCommand;
+import com.axalotl.async.neoforge.commands.AsyncNeoForgeCommand;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.logging.LogUtils;
 import net.minecraft.commands.CommandSourceStack;
@@ -45,7 +45,7 @@ public class AsyncNeoForge {
     @SubscribeEvent
     public void registerCommandsEvent(RegisterCommandsEvent event) {
         CommandDispatcher<CommandSourceStack> dispatcher = event.getDispatcher();
-        AsyncCommand.register(dispatcher);
+        AsyncNeoForgeCommand.register(dispatcher);
     }
 
     @SubscribeEvent

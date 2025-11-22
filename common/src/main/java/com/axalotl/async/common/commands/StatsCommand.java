@@ -20,7 +20,7 @@ import java.util.*;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static com.axalotl.async.common.commands.AsyncCommand.prefix;
+import static com.axalotl.async.common.AsyncCommon.prefix;
 import static net.minecraft.commands.Commands.argument;
 import static net.minecraft.commands.Commands.literal;
 
