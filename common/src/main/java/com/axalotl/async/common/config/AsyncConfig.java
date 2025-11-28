@@ -1,5 +1,6 @@
 package com.axalotl.async.common.config;
 
+import com.axalotl.async.common.parallelised.utils.ModCompatible;
 import com.axalotl.async.common.platform.PlatformUtils;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
@@ -24,11 +25,13 @@ public class AsyncConfig {
     private static final Set<String> namespaceWildcards = new HashSet<>();
 
     public static Set<String> getDefaultSynchronizedEntities() {
-        return Set.of(
+        final Set<String> defaultSynchronizedEntities = new HashSet<>(ModCompatible.addUnsupportedMods());
+        defaultSynchronizedEntities.addAll(Set.of(
                 "minecraft:tnt",
                 "minecraft:item",
                 "minecraft:experience_orb"
-        );
+        ));
+        return defaultSynchronizedEntities;
     }
 
     public static int getParallelism() {
