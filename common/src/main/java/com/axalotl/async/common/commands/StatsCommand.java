@@ -2,6 +2,7 @@ package com.axalotl.async.common.commands;
 
 import com.axalotl.async.common.ParallelProcessor;
 import com.axalotl.async.common.config.AsyncConfig;
+import com.axalotl.async.common.platform.Permission;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import net.minecraft.ChatFormatting;
@@ -35,14 +36,12 @@ public class StatsCommand {
     private static Thread statsThread;
 
     public static LiteralArgumentBuilder<CommandSourceStack> registerStatus(LiteralArgumentBuilder<CommandSourceStack> root) {
-        return root.then(literal("stats")
-                .requires(cmdSrc -> cmdSrc.hasPermission(4))
+        return root.then(literal("stats").requires(Permission.require("command.statistics", 0))
                 .executes(cmdCtx -> {
                     showGeneralStats(cmdCtx.getSource());
                     return 1;
                 })
                 .then(literal("entity")
-                        .requires(cmdSrc -> cmdSrc.hasPermission(4))
                         .executes(cmdCtx -> {
                             showEntityStats(cmdCtx.getSource(), 0);
                             return 1;

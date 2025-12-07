@@ -6,8 +6,7 @@ import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import net.minecraft.world.entity.ai.Brain;
 import net.minecraft.world.entity.ai.memory.ExpirableValue;
 import net.minecraft.world.entity.ai.memory.MemoryModuleType;
-import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.*;
 
 import java.util.Map;
 import java.util.Optional;
@@ -18,12 +17,20 @@ public class BrainMixin {
     @Shadow
     private final Map<MemoryModuleType<?>, Optional<? extends ExpirableValue<?>>> memories = ConcurrentCollections.newHashMap();
 
-    @WrapMethod(method = "getMemory")
-    private <U> Optional<U> wrapGetMemory(MemoryModuleType<U> type, Operation<Optional<U>> original) {
-        Optional<U> result = original.call(type);
-        if (result == null || result.isEmpty()) {
-            return Optional.empty();
+    @Unique
+    private static final Object async$lock = new Object();
+
+    @WrapMethod(method = "setMemoryInternal")
+    private <U> void setMemoryInternal(MemoryModuleType<U> memoryType, Optional<? extends ExpirableValue<?>> memory, Operation<Void> original) {
+        synchronized (async$lock) {
+            original.call(memoryType, memory);
         }
-        return result;
+    }
+
+    @WrapMethod(method = "clearMemories")
+    private void clearMemories(Operation<Void> original) {
+        synchronized (async$lock) {
+            original.call();
+        }
     }
 }
