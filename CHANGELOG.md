@@ -2,4 +2,6 @@
 - Fixed the config not being saved
 - Fixed bugs with entity effects
 - Update config
-- Add command permissions
+- Added command permissions
+- Added synchronization of incompatible mods (Create, Fowlplay)
+- Fixed entityTickList null (Thanks Tener)
