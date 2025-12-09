@@ -12,10 +12,11 @@ import net.minecraft.server.level.ChunkGenerationTask;
 import net.minecraft.server.level.ChunkHolder;
 import net.minecraft.server.level.ChunkMap;
 import net.minecraft.server.level.GenerationChunkHolder;
+import net.minecraft.util.datafix.DataFixTypes;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.chunk.LevelChunk;
-import net.minecraft.world.level.chunk.storage.ChunkStorage;
 import net.minecraft.world.level.chunk.storage.RegionStorageInfo;
+import net.minecraft.world.level.chunk.storage.SimpleRegionStorage;
 import org.spongepowered.asm.mixin.*;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -29,7 +30,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 
 @Mixin(value = ChunkMap.class, priority = 1500)
-public abstract class ChunkMapMixin extends ChunkStorage implements ChunkHolder.PlayerProvider {
+public abstract class ChunkMapMixin extends SimpleRegionStorage implements ChunkHolder.PlayerProvider {
 
     @Shadow
     @Final
@@ -48,8 +49,8 @@ public abstract class ChunkMapMixin extends ChunkStorage implements ChunkHolder.
     @Shadow
     private volatile Long2ObjectLinkedOpenHashMap<ChunkHolder> visibleChunkMap;
 
-    public ChunkMapMixin(RegionStorageInfo regionStorageInfo, Path directory, DataFixer dataFixer, boolean dsync) {
-        super(regionStorageInfo, directory, dataFixer, dsync);
+    public ChunkMapMixin(RegionStorageInfo p_326109_, Path p_321582_, DataFixer p_321815_, boolean p_321788_, DataFixTypes p_321522_) {
+        super(p_326109_, p_321582_, p_321815_, p_321788_, p_321522_);
     }
 
     @Inject(method = "<init>", at = @At("TAIL"))
@@ -73,7 +74,7 @@ public abstract class ChunkMapMixin extends ChunkStorage implements ChunkHolder.
         original.call(chunk);
     }
 
-    @Inject(method = "addEntity", at = @At(value = "INVOKE", target = "Lnet/minecraft/Util;pauseInIde(Ljava/lang/Throwable;)Ljava/lang/Throwable;"), cancellable = true)
+    @Inject(method = "addEntity", at = @At(value = "INVOKE", target = "Lnet/minecraft/util/Util;pauseInIde(Ljava/lang/Throwable;)Ljava/lang/Throwable;"), cancellable = true)
     private void skipThrowLoadEntity(Entity entity, CallbackInfo ci) {
         ci.cancel();
     }

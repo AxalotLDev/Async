@@ -12,8 +12,8 @@ accessible field net/minecraft/server/level/ServerLevel entityTickList Lnet/mine
 accessible method net/minecraft/server/level/ServerLevel doBlockEvent (Lnet/minecraft/world/level/BlockEventData;)Z
 accessible class net/minecraft/server/level/ServerLevel$EntityCallbacks
 accessible class net/minecraft/world/entity/ai/gossip/GossipContainer$EntityGossips
-accessible method net/minecraft/world/entity/animal/Turtle setHasEgg (Z)V
-accessible class net/minecraft/world/entity/animal/Turtle$TurtleBreedGoal
+accessible method net/minecraft/world/entity/animal/turtle/Turtle setHasEgg (Z)V
+accessible class net/minecraft/world/entity/animal/turtle/Turtle$TurtleBreedGoal
 accessible class net/minecraft/world/level/PotentialCalculator$PointCharge
 accessible method net/minecraft/world/level/Level tickBlockEntities ()V
 accessible class net/minecraft/world/level/block/entity/BeehiveBlockEntity$BeeData
@@ -25,7 +25,7 @@ accessible class net/minecraft/world/level/entity/PersistentEntitySectionManager
 accessible class net/minecraft/world/level/redstone/CollectingNeighborUpdater$NeighborUpdates
 accessible class net/minecraft/world/scores/PlayerScores
 accessible class net/minecraft/world/level/LocalMobCapCalculator$MobCounts
-accessible class net/minecraft/world/entity/animal/Fox$FoxBreedGoal
+accessible class net/minecraft/world/entity/animal/fox/Fox$FoxBreedGoal
 accessible class net/minecraft/world/level/chunk/storage/SectionStorage$PackedChunk
 accessible class net/minecraft/world/level/NaturalSpawner
 accessible method net/minecraft/world/level/NaturalSpawner getRoughBiome (Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/chunk/ChunkAccess;)Lnet/minecraft/world/level/biome/Biome;

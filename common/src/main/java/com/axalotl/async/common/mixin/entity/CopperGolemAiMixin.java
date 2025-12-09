@@ -4,8 +4,8 @@ import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.world.entity.ai.behavior.TransportItemsBetweenContainers;
-import net.minecraft.world.entity.animal.coppergolem.CopperGolemAi;
-import net.minecraft.world.entity.animal.coppergolem.CopperGolemState;
+import net.minecraft.world.entity.animal.golem.CopperGolemAi;
+import net.minecraft.world.entity.animal.golem.CopperGolemState;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 
@@ -24,9 +24,9 @@ public class CopperGolemAiMixin {
     }
 
     @WrapMethod(method = "onReachedTargetInteraction")
-    private static TransportItemsBetweenContainers.OnTargetReachedInteraction onReachedTargetInteraction(CopperGolemState p_435728_, SoundEvent p_432829_, Operation<TransportItemsBetweenContainers.OnTargetReachedInteraction> original) {
+    private static TransportItemsBetweenContainers.OnTargetReachedInteraction onReachedTargetInteraction(CopperGolemState p_479346_, SoundEvent p_480078_, Operation<TransportItemsBetweenContainers.OnTargetReachedInteraction> original) {
         synchronized (async$lock) {
-            return original.call(p_435728_, p_432829_);
+            return original.call(p_479346_, p_480078_);
         }
     }
 }

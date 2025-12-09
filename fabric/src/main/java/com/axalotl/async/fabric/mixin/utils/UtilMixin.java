@@ -2,7 +2,7 @@ package com.axalotl.async.fabric.mixin.utils;
 
 import com.axalotl.async.common.ParallelProcessor;
 import com.llamalad7.mixinextras.sugar.Local;
-import net.minecraft.Util;
+import net.minecraft.util.Util;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;

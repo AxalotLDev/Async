@@ -1,7 +1,7 @@
 package com.axalotl.async.common.mixin.world;
 
 import com.axalotl.async.common.parallelised.ConcurrentCollections;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.RandomSequence;
 import net.minecraft.world.RandomSequences;
 import org.spongepowered.asm.mixin.Mixin;
@@ -13,5 +13,5 @@ import java.util.Map;
 public class RandomSequencesMixin {
 
     @Shadow
-    private final Map<ResourceLocation, RandomSequence> sequences = ConcurrentCollections.newHashMap();
+    private final Map<Identifier, RandomSequence> sequences = ConcurrentCollections.newHashMap();
 }

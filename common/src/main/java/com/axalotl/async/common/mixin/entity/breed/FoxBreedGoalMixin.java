@@ -1,7 +1,7 @@
 package com.axalotl.async.common.mixin.entity.breed;
 
 import net.minecraft.world.entity.ai.goal.BreedGoal;
-import net.minecraft.world.entity.animal.Fox;
+import net.minecraft.world.entity.animal.fox.Fox;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;

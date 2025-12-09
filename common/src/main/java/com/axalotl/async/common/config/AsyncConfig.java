@@ -3,7 +3,7 @@ package com.axalotl.async.common.config;
 import com.axalotl.async.common.parallelised.utils.ModCompatible;
 import com.axalotl.async.common.platform.PlatformUtils;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -20,7 +20,7 @@ public class AsyncConfig {
     public static Set<String> synchronizedEntities = getDefaultSynchronizedEntities();
 
     // Caches
-    private static final Map<ResourceLocation, Boolean> syncCache = new ConcurrentHashMap<>();
+    private static final Map<Identifier, Boolean> syncCache = new ConcurrentHashMap<>();
     private static final Set<String> exactEntities = new HashSet<>();
     private static final Set<String> namespaceWildcards = new HashSet<>();
 
@@ -47,7 +47,7 @@ public class AsyncConfig {
     }
 
     public static boolean existsNamespace(String namespace) {
-        for (ResourceLocation id : BuiltInRegistries.ENTITY_TYPE.keySet()) {
+        for (Identifier id : BuiltInRegistries.ENTITY_TYPE.keySet()) {
             if (id.getNamespace().equals(namespace)) return true;
         }
         return false;
@@ -94,7 +94,7 @@ public class AsyncConfig {
         }
     }
 
-    public static boolean isEntitySynchronized(ResourceLocation entityId) {
+    public static boolean isEntitySynchronized(Identifier entityId) {
         Boolean cached = syncCache.get(entityId);
         if (cached != null) return cached;
 

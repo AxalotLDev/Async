@@ -10,11 +10,11 @@ import com.mojang.brigadier.context.CommandContext;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
-import net.minecraft.commands.arguments.ResourceLocationArgument;
+import net.minecraft.commands.arguments.IdentifierArgument;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 import java.util.Set;
 
@@ -57,13 +57,13 @@ public class ConfigCommand {
 
     private static LiteralArgumentBuilder<CommandSourceStack> buildAddEntityCommand() {
         return literal("add")
-                .then(Commands.argument("entity", ResourceLocationArgument.id())
+                .then(Commands.argument("entity", IdentifierArgument.id())
                         .suggests((context, builder) -> {
                             BuiltInRegistries.ENTITY_TYPE.keySet().forEach(
                                     id -> builder.suggest(id.toString())
                             );
                             BuiltInRegistries.ENTITY_TYPE.keySet().stream()
-                                    .map(ResourceLocation::getNamespace)
+                                    .map(Identifier::getNamespace)
                                     .distinct()
                                     .forEach(ns -> builder.suggest(ns + ":*"));
                             return builder.buildFuture();
@@ -77,7 +77,7 @@ public class ConfigCommand {
 
     private static LiteralArgumentBuilder<CommandSourceStack> buildRemoveEntityCommand() {
         return literal("remove")
-                .then(Commands.argument("entity", ResourceLocationArgument.id())
+                .then(Commands.argument("entity", IdentifierArgument.id())
                         .suggests((context, builder) -> {
                             AsyncConfig.synchronizedEntities.forEach(builder::suggest);
                             return builder.buildFuture();
@@ -155,7 +155,7 @@ public class ConfigCommand {
     }
 
     private static int addEntity(CommandContext<CommandSourceStack> ctx) {
-        ResourceLocation id = ResourceLocationArgument.getId(ctx, "entity");
+        Identifier id = IdentifierArgument.getId(ctx, "entity");
 
         if (!BuiltInRegistries.ENTITY_TYPE.containsKey(id)) {
             sendErrorMessage(ctx, "Error entity class ", id.toString(), " does not exist.");
@@ -187,7 +187,7 @@ public class ConfigCommand {
     }
 
     private static int removeEntity(CommandContext<CommandSourceStack> ctx) {
-        ResourceLocation id = ResourceLocationArgument.getId(ctx, "entity");
+        Identifier id = IdentifierArgument.getId(ctx, "entity");
 
         if (!AsyncConfig.isEntitySynchronized(id)) {
             sendErrorMessage(ctx, "Error entity class ", id.toString(), " is not in the synchronized list.");
@@ -202,7 +202,7 @@ public class ConfigCommand {
 
     private static int removeNamespace(CommandContext<CommandSourceStack> ctx) {
         String namespace = StringArgumentType.getString(ctx, "namespace");
-        ResourceLocation id = ResourceLocation.tryParse(namespace);
+        Identifier id = Identifier.tryParse(namespace);
 
         if (id != null) {
             return 1;

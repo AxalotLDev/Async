@@ -10,7 +10,7 @@ import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.entity.EntityType;
 import org.apache.logging.log4j.LogManager;
@@ -130,7 +130,7 @@ public class StatsCommand {
                         int count = entry.getValue();
                         int asyncCount = asyncEntityTypeCounts.getOrDefault(type, 0);
 
-                        ResourceLocation nameID = BuiltInRegistries.ENTITY_TYPE.getKey(type);
+                        Identifier nameID = BuiltInRegistries.ENTITY_TYPE.getKey(type);
                         String name = nameID.toLanguageKey();
 
                         message.append(Component.literal("\n" + rank + ". ").withStyle(style -> style.withColor(ChatFormatting.GRAY)))
