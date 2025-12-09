@@ -1,10 +1,10 @@
 package com.axalotl.async.neoforge.platform;
 
-import com.axalotl.async.common.platform.PlatformEvents;
+import com.axalotl.async.common.platform.ModPlatform;
 import com.axalotl.async.neoforge.config.AsyncConfig;
-import net.neoforged.fml.loading.LoadingModList;
+import net.neoforged.fml.loading.FMLLoader;
 
-public class NeoForgePlatformEvents implements PlatformEvents {
+public class NeoForgeModPlatform implements ModPlatform {
 
     @Override
     public void saveConfig() {
@@ -13,7 +13,7 @@ public class NeoForgePlatformEvents implements PlatformEvents {
 
     @Override
     public boolean isModLoaded(String id) {
-        return LoadingModList.get().getModFileById(id) != null;
+        return FMLLoader.getLoadingModList().getModFileById(id) != null;
     }
 
     @Override

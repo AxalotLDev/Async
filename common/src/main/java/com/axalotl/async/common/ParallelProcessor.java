@@ -113,7 +113,7 @@ public class ParallelProcessor {
                 entity instanceof ServerPlayer ||
                 BLOCKED_ENTITIES.contains(entity.getClass()) ||
                 blacklistedEntity.contains(entityId) ||
-                AsyncConfig.synchronizedEntities.contains(EntityType.getKey(entity.getType()));
+                AsyncConfig.isEntitySynchronized(EntityType.getKey(entity.getType()));
 
         if (requiresSyncTick) {
             return true;
@@ -221,6 +221,10 @@ public class ParallelProcessor {
         if (tickPool != null && !tickPool.isShutdown()) {
             tickPool.shutdown();
         }
+        AsyncConfig.clearCaches();
+        blacklistedEntity.clear();
+        portalTickSyncMap.clear();
+        taskQueue.clear();
     }
 
     private static void logEntityError(String message, Entity entity, Throwable e) {
