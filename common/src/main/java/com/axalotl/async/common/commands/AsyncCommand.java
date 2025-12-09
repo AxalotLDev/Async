@@ -12,8 +12,8 @@ public class AsyncCommand {
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         LiteralArgumentBuilder<CommandSourceStack> main = literal("async");
-        main = ConfigCommand.registerConfig(main).requires(source -> source.hasPermission(4));
-        main = StatsCommand.registerStatus(main).requires(source -> source.hasPermission(4));
+        main = ConfigCommand.registerConfig(main);
+        main = StatsCommand.registerStatus(main);
         dispatcher.register(main);
     }
 }

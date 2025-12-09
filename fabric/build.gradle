@@ -54,10 +54,12 @@ dependencies {
     compileOnly 'org.projectlombok:lombok:1.18.32'
     annotationProcessor 'org.projectlombok:lombok:1.18.32'
 
-    implementation 'maven.modrinth:lithium:mc1.21.4-0.15.3-neoforge'
+    implementation "maven.modrinth:lithium:${lithium_version}-neoforge"
+    modImplementation(include("me.lucko:fabric-permissions-api:${project.permission_api}"))
 }
 
 loom {
+    mixin.useLegacyMixinAp = true
     def aw = project(':common').file("src/main/resources/async.accesswidener")
     accessWidenerPath.set(project(":common").file("src/main/resources/async.accesswidener"))
     if (aw.exists()) {

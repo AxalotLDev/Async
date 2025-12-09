@@ -1,14 +1,17 @@
 package com.axalotl.async.common.commands;
 
 import com.axalotl.async.common.config.AsyncConfig;
-import com.axalotl.async.common.platform.PlatformEvents;
+import com.axalotl.async.common.platform.Permission;
+import com.axalotl.async.common.platform.PlatformUtils;
 import com.mojang.brigadier.arguments.BoolArgumentType;
+import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
+import com.mojang.brigadier.context.CommandContext;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.ResourceLocationArgument;
-import net.minecraft.commands.synchronization.SuggestionProviders;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.resources.ResourceLocation;
@@ -19,112 +22,226 @@ import static com.axalotl.async.common.commands.AsyncCommand.prefix;
 import static net.minecraft.commands.Commands.literal;
 
 public class ConfigCommand {
+
     public static LiteralArgumentBuilder<CommandSourceStack> registerConfig(LiteralArgumentBuilder<CommandSourceStack> root) {
         return root.then(literal("config")
-                .then(literal("toggle").requires(cmdSrc -> cmdSrc.hasPermission(4)).executes(cmdCtx -> {
-                    AsyncConfig.disabled = !AsyncConfig.disabled;
-                    PlatformEvents.getInstance().saveConfig();
-                    MutableComponent message = prefix.copy().append(Component.literal("Async is now ").withStyle(style -> style.withColor(ChatFormatting.WHITE)))
-                            .append(Component.literal(AsyncConfig.disabled ? "disabled" : "enabled").withStyle(style -> style.withColor(ChatFormatting.GREEN)));
-                    cmdCtx.getSource().sendSuccess(() -> message, true);
+                .requires(Permission.require("command.config", 4))
+                .then(buildToggleCommand())
+                .then(buildSynchronizedEntitiesCommand())
+                .then(buildAsyncEntitySpawnCommand())
+                .then(buildAsyncRandomTicksCommand())
+        );
+    }
+
+    private static LiteralArgumentBuilder<CommandSourceStack> buildToggleCommand() {
+        return literal("toggle").executes(ctx -> {
+            AsyncConfig.disabled = !AsyncConfig.disabled;
+            PlatformUtils.saveConfig();
+
+            sendMessage(ctx, "Async is now ",
+                    AsyncConfig.disabled ? "disabled" : "enabled",
+                    true);
+            return 1;
+        });
+    }
+
+    private static LiteralArgumentBuilder<CommandSourceStack> buildSynchronizedEntitiesCommand() {
+        return literal("synchronizedEntities")
+                .executes(ctx -> {
+                    displaySynchronizedEntities(ctx);
                     return 1;
-                }))
-                .then(literal("synchronizedEntities")
-                        .requires(cmdSrc -> cmdSrc.hasPermission(4))
-                        .executes(cmdCtx -> {
-                            Set<ResourceLocation> currentValue = AsyncConfig.synchronizedEntities;
-                            MutableComponent message = prefix.copy().append(Component.literal("Synchronized Entities: ").withStyle(style -> style.withColor(ChatFormatting.WHITE)));
-                            if (currentValue.isEmpty()) {
-                                message.append(Component.literal("No entities synchronized.").withStyle(style -> style.withColor(ChatFormatting.RED)));
-                            } else {
-                                message.append(Component.literal("\n").withStyle(style -> style.withColor(ChatFormatting.WHITE)));
-                                for (ResourceLocation entity : currentValue) {
-                                    message.append(Component.literal("- ").withStyle(style -> style.withColor(ChatFormatting.GREEN)))
-                                            .append(Component.literal(entity.toString()).withStyle(style -> style.withColor(ChatFormatting.YELLOW)))
-                                            .append(Component.literal("\n"));
-                                }
-                            }
-                            cmdCtx.getSource().sendSuccess(() -> message, false);
-                            return 1;
+                })
+                .then(buildAddEntityCommand())
+                .then(buildRemoveEntityCommand());
+    }
+
+    private static LiteralArgumentBuilder<CommandSourceStack> buildAddEntityCommand() {
+        return literal("add")
+                .then(Commands.argument("entity", ResourceLocationArgument.id())
+                        .suggests((context, builder) -> {
+                            BuiltInRegistries.ENTITY_TYPE.keySet().forEach(
+                                    id -> builder.suggest(id.toString())
+                            );
+                            BuiltInRegistries.ENTITY_TYPE.keySet().stream()
+                                    .map(ResourceLocation::getNamespace)
+                                    .distinct()
+                                    .forEach(ns -> builder.suggest(ns + ":*"));
+                            return builder.buildFuture();
                         })
-                        .then(literal("add")
-                                .then(Commands.argument("entity", ResourceLocationArgument.id()).suggests(SuggestionProviders.SUMMONABLE_ENTITIES).executes(cmdCtx -> {
-                                    ResourceLocation id = ResourceLocationArgument.getId(cmdCtx, "entity");
-                                    if (AsyncConfig.synchronizedEntities.contains(id)) {
-                                        MutableComponent message = prefix.copy()
-                                                .append(Component.literal("Error entity class ").withStyle(style -> style.withColor(ChatFormatting.RED)))
-                                                .append(Component.literal(id.toString()).withStyle(style -> style.withColor(ChatFormatting.RED)))
-                                                .append(Component.literal(" is already synchronized.").withStyle(style -> style.withColor(ChatFormatting.RED)));
-                                        cmdCtx.getSource().sendSuccess(() -> message, true);
-                                        return 1;
-                                    }
-                                    AsyncConfig.syncEntity(id);
-                                    MutableComponent message = prefix.copy()
-                                            .append(Component.literal("Entity class ").withStyle(style -> style.withColor(ChatFormatting.WHITE)))
-                                            .append(Component.literal(id.toString()).withStyle(style -> style.withColor(ChatFormatting.GREEN)))
-                                            .append(Component.literal(" has been added to the synchronized list.").withStyle(style -> style.withColor(ChatFormatting.WHITE)));
-                                    cmdCtx.getSource().sendSuccess(() -> message, true);
-                                    return 1;
-                                })))
-                        .then(literal("remove")
-                                .then(Commands.argument("entity", ResourceLocationArgument.id())
-                                        .suggests((context, builder) -> {
-                                            AsyncConfig.synchronizedEntities.forEach(id -> builder.suggest(id.toString()));
-                                            return builder.buildFuture();
-                                        })
-                                        .executes(cmdCtx -> {
-                                            ResourceLocation identifier = cmdCtx.getArgument("entity", ResourceLocation.class);
-                                            if (!AsyncConfig.synchronizedEntities.contains(identifier)) {
-                                                MutableComponent message = prefix.copy()
-                                                        .append(Component.literal("Error entity class ").withStyle(style -> style.withColor(ChatFormatting.RED)))
-                                                        .append(Component.literal(identifier.toString()).withStyle(style -> style.withColor(ChatFormatting.RED)))
-                                                        .append(Component.literal(" is not in the synchronized list.").withStyle(style -> style.withColor(ChatFormatting.RED)));
-                                                cmdCtx.getSource().sendSuccess(() -> message, true);
-                                                return 1;
-                                            }
-                                            AsyncConfig.asyncEntity(identifier);
-                                            MutableComponent message = prefix.copy()
-                                                    .append(Component.literal("Entity class ").withStyle(style -> style.withColor(ChatFormatting.WHITE)))
-                                                    .append(Component.literal(identifier.toString()).withStyle(style -> style.withColor(ChatFormatting.GREEN)))
-                                                    .append(Component.literal(" has been removed from synchronized list.").withStyle(style -> style.withColor(ChatFormatting.WHITE)));
-                                            cmdCtx.getSource().sendSuccess(() -> message, true);
-                                            return 1;
-                                        }))))
-                .then(literal("setAsyncEntitySpawn").requires(cmdSrc -> cmdSrc.hasPermission(4))
-                        .executes(cmdCtx -> {
-                            boolean currentValue = AsyncConfig.enableAsyncSpawn;
-                            MutableComponent message = prefix.copy().append(Component.literal("Current value of async entity spawn: ").withStyle(style -> style.withColor(ChatFormatting.WHITE)))
-                                    .append(Component.literal(String.valueOf(currentValue)).withStyle(style -> style.withColor(ChatFormatting.GREEN)));
-                            cmdCtx.getSource().sendSuccess(() -> message, false);
-                            return 1;
-                        })
-                        .then(Commands.argument("value", BoolArgumentType.bool()).executes(cmdCtx -> {
-                            boolean value = BoolArgumentType.getBool(cmdCtx, "value");
-                            AsyncConfig.enableAsyncSpawn = value;
-                            PlatformEvents.getInstance().saveConfig();
-                            MutableComponent message = prefix.copy().append(Component.literal("Async Entity Spawn set to ").withStyle(style -> style.withColor(ChatFormatting.WHITE)))
-                                    .append(Component.literal(String.valueOf(value)).withStyle(style -> style.withColor(ChatFormatting.GREEN)));
-                            cmdCtx.getSource().sendSuccess(() -> message, true);
-                            return 1;
-                        }))
+                        .executes(ConfigCommand::addEntity)
                 )
-                .then(literal("setAsyncRandomTicks").requires(cmdSrc -> cmdSrc.hasPermission(4))
-                        .executes(cmdCtx -> {
-                            boolean currentValue = AsyncConfig.enableAsyncRandomTicks;
-                            MutableComponent message = prefix.copy().append(Component.literal("Current value of async random ticks: ").withStyle(style -> style.withColor(ChatFormatting.WHITE)))
-                                    .append(Component.literal(String.valueOf(currentValue)).withStyle(style -> style.withColor(ChatFormatting.GREEN)));
-                            cmdCtx.getSource().sendSuccess(() -> message, false);
+                .then(Commands.argument("namespace", StringArgumentType.greedyString())
+                        .executes(ConfigCommand::addNamespace)
+                );
+    }
+
+    private static LiteralArgumentBuilder<CommandSourceStack> buildRemoveEntityCommand() {
+        return literal("remove")
+                .then(Commands.argument("entity", ResourceLocationArgument.id())
+                        .suggests((context, builder) -> {
+                            AsyncConfig.synchronizedEntities.forEach(builder::suggest);
+                            return builder.buildFuture();
+                        })
+                        .executes(ConfigCommand::removeEntity)
+                )
+                .then(Commands.argument("namespace", StringArgumentType.greedyString())
+                        .executes(ConfigCommand::removeNamespace)
+                );
+    }
+
+    private static LiteralArgumentBuilder<CommandSourceStack> buildAsyncEntitySpawnCommand() {
+        return literal("setAsyncEntitySpawn")
+                .executes(ctx -> {
+                    sendMessage(ctx, "Current value of async entity spawn: ",
+                            String.valueOf(AsyncConfig.enableAsyncSpawn),
+                            false);
+                    return 1;
+                })
+                .then(Commands.argument("value", BoolArgumentType.bool())
+                        .executes(ctx -> {
+                            boolean value = BoolArgumentType.getBool(ctx, "value");
+                            AsyncConfig.enableAsyncSpawn = value;
+                            PlatformUtils.saveConfig();
+
+                            sendMessage(ctx, "Async Entity Spawn set to ",
+                                    String.valueOf(value),
+                                    true);
                             return 1;
                         })
-                        .then(Commands.argument("value", BoolArgumentType.bool()).executes(cmdCtx -> {
-                            boolean value = BoolArgumentType.getBool(cmdCtx, "value");
+                );
+    }
+
+    private static LiteralArgumentBuilder<CommandSourceStack> buildAsyncRandomTicksCommand() {
+        return literal("setAsyncRandomTicks")
+                .executes(ctx -> {
+                    sendMessage(ctx, "Current value of async random ticks: ",
+                            String.valueOf(AsyncConfig.enableAsyncRandomTicks),
+                            false);
+                    return 1;
+                })
+                .then(Commands.argument("value", BoolArgumentType.bool())
+                        .executes(ctx -> {
+                            boolean value = BoolArgumentType.getBool(ctx, "value");
                             AsyncConfig.enableAsyncRandomTicks = value;
-                            PlatformEvents.getInstance().saveConfig();
-                            MutableComponent message = prefix.copy().append(Component.literal("Async Random Ticks set to ").withStyle(style -> style.withColor(ChatFormatting.WHITE)))
-                                    .append(Component.literal(String.valueOf(value)).withStyle(style -> style.withColor(ChatFormatting.GREEN)));
-                            cmdCtx.getSource().sendSuccess(() -> message, true);
+                            PlatformUtils.saveConfig();
+
+                            sendMessage(ctx, "Async Random Ticks set to ",
+                                    String.valueOf(value),
+                                    true);
                             return 1;
-                        }))
-                ));
+                        })
+                );
+    }
+
+    private static void displaySynchronizedEntities(CommandContext<CommandSourceStack> ctx) {
+        Set<String> entities = AsyncConfig.synchronizedEntities;
+        MutableComponent message = prefix.copy()
+                .append(Component.literal("Synchronized Entities: ")
+                        .withStyle(style -> style.withColor(ChatFormatting.WHITE)));
+
+        if (entities.isEmpty()) {
+            message.append(Component.literal("No entities synchronized.")
+                    .withStyle(style -> style.withColor(ChatFormatting.RED)));
+        } else {
+            message.append(Component.literal("\n"));
+            entities.forEach(entity ->
+                    message.append(Component.literal("- ").withStyle(style -> style.withColor(ChatFormatting.GREEN)))
+                            .append(Component.literal(entity).withStyle(style -> style.withColor(ChatFormatting.YELLOW)))
+                            .append(Component.literal("\n"))
+            );
+        }
+
+        ctx.getSource().sendSuccess(() -> message, false);
+    }
+
+    private static int addEntity(CommandContext<CommandSourceStack> ctx) {
+        ResourceLocation id = ResourceLocationArgument.getId(ctx, "entity");
+
+        if (!BuiltInRegistries.ENTITY_TYPE.containsKey(id)) {
+            sendErrorMessage(ctx, "Error entity class ", id.toString(), " does not exist.");
+            return 1;
+        }
+
+        if (AsyncConfig.isEntitySynchronized(id)) {
+            sendErrorMessage(ctx, "Error entity class ", id.toString(), " is already synchronized.");
+            return 1;
+        }
+
+        AsyncConfig.syncEntity(id.toString());
+        sendMessage(ctx, "Entity class ", id.toString(),
+                " has been added to the synchronized list.");
+        return 1;
+    }
+
+    private static int addNamespace(CommandContext<CommandSourceStack> ctx) {
+        String namespace = StringArgumentType.getString(ctx, "namespace");
+
+        if (AsyncConfig.matchesExistingNamespaceWildcard(namespace)) {
+            AsyncConfig.syncEntity(namespace);
+            sendMessage(ctx, "All entities with namespace ", namespace,
+                    " has been added to the synchronized list.");
+        } else {
+            sendErrorMessage(ctx, "Error namespace ", namespace, " does not exist.");
+        }
+        return 1;
+    }
+
+    private static int removeEntity(CommandContext<CommandSourceStack> ctx) {
+        ResourceLocation id = ResourceLocationArgument.getId(ctx, "entity");
+
+        if (!AsyncConfig.isEntitySynchronized(id)) {
+            sendErrorMessage(ctx, "Error entity class ", id.toString(), " is not in the synchronized list.");
+            return 1;
+        }
+
+        AsyncConfig.removeEntity(id.toString());
+        sendMessage(ctx, "Entity class ", id.toString(),
+                " has been removed from synchronized list.");
+        return 1;
+    }
+
+    private static int removeNamespace(CommandContext<CommandSourceStack> ctx) {
+        String namespace = StringArgumentType.getString(ctx, "namespace");
+        ResourceLocation id = ResourceLocation.tryParse(namespace);
+
+        if (id != null) {
+            return 1;
+        }
+
+        if (!AsyncConfig.synchronizedEntities.contains(namespace)) {
+            sendErrorMessage(ctx, "Error namespace ", namespace, " is not in the synchronized list.");
+            return 1;
+        }
+
+        AsyncConfig.removeEntity(namespace);
+        sendMessage(ctx, "All entities with namespace ", namespace,
+                " has been removed from synchronized list.");
+        return 1;
+    }
+
+    private static void sendMessage(CommandContext<CommandSourceStack> ctx, String prefix,
+                                    String highlight, boolean broadcast) {
+        MutableComponent message = AsyncCommand.prefix.copy()
+                .append(Component.literal(prefix).withStyle(style -> style.withColor(ChatFormatting.WHITE)))
+                .append(Component.literal(highlight).withStyle(style -> style.withColor(ChatFormatting.GREEN)));
+        ctx.getSource().sendSuccess(() -> message, broadcast);
+    }
+
+    private static void sendMessage(CommandContext<CommandSourceStack> ctx, String prefix,
+                                    String highlight, String suffix) {
+        MutableComponent message = AsyncCommand.prefix.copy()
+                .append(Component.literal(prefix).withStyle(style -> style.withColor(ChatFormatting.WHITE)))
+                .append(Component.literal(highlight).withStyle(style -> style.withColor(ChatFormatting.GREEN)))
+                .append(Component.literal(suffix).withStyle(style -> style.withColor(ChatFormatting.WHITE)));
+        ctx.getSource().sendSuccess(() -> message, true);
+    }
+
+    private static void sendErrorMessage(CommandContext<CommandSourceStack> ctx, String prefix,
+                                         String error, String suffix) {
+        MutableComponent message = AsyncCommand.prefix.copy()
+                .append(Component.literal(prefix).withStyle(style -> style.withColor(ChatFormatting.RED)))
+                .append(Component.literal(error).withStyle(style -> style.withColor(ChatFormatting.RED)))
+                .append(Component.literal(suffix).withStyle(style -> style.withColor(ChatFormatting.RED)));
+        ctx.getSource().sendSuccess(() -> message, true);
     }
 }

@@ -3,13 +3,12 @@ package com.axalotl.async.fabric.config;
 import com.electronwill.nightconfig.core.CommentedConfig;
 import com.electronwill.nightconfig.core.file.CommentedFileConfig;
 import net.fabricmc.loader.api.FabricLoader;
-import net.minecraft.resources.ResourceLocation;
 
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
-import java.util.Objects;
 import java.util.Set;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 
 import static com.axalotl.async.common.config.AsyncConfig.*;
 
@@ -45,7 +44,7 @@ public class AsyncConfig {
                 CONFIG.load();
                 loadConfigValues();
                 saveConfig();
-                LOGGER.info("Configuration loaded.");
+                com.axalotl.async.common.config.AsyncConfig.onConfigLoaded();
             }
         } catch (Throwable t) {
             LOGGER.error("Error loading configuration. Resetting to defaults.", t);
@@ -57,9 +56,11 @@ public class AsyncConfig {
     public static void saveConfig() {
         setWithComment("disabled", disabled, "Enables parallel processing of entities.");
         setWithComment("maxThreads", maxThreads, "Maximum worker threads. -1 = auto.");
-        setWithComment("synchronizedEntities",
-                synchronizedEntities.stream().map(ResourceLocation::toString).toList(),
-                "List of entity IDs that must ALWAYS tick synchronously.");
+        setWithComment("synchronizedEntities", new ArrayList<>(synchronizedEntities),
+                """
+                        List of entity IDs or namespaces (*):
+                          - 'minecraft:zombie' = specific entity
+                          - 'minecraft:*'      = all entities in namespace""");
         setWithComment("enableAsyncSpawn", enableAsyncSpawn,
                 "Enables async entity spawning. WARNING: incompatible with Carpet's lagFreeSpawning.");
         setWithComment("enableAsyncRandomTicks", enableAsyncRandomTicks,
@@ -82,12 +83,9 @@ public class AsyncConfig {
         enableAsyncSpawn = CONFIG.getOrElse("enableAsyncSpawn", enableAsyncSpawn);
         enableAsyncRandomTicks = CONFIG.getOrElse("enableAsyncRandomTicks", enableAsyncRandomTicks);
 
-        List<String> ids = CONFIG.get("synchronizedEntities");
-        if (ids != null) {
-            synchronizedEntities = ids.stream()
-                    .map(ResourceLocation::tryParse)
-                    .filter(Objects::nonNull)
-                    .collect(Collectors.toSet());
+        List<String> entries = CONFIG.get("synchronizedEntities");
+        if (entries != null) {
+            synchronizedEntities = new HashSet<>(entries);
         }
 
         restoreComments();
@@ -97,7 +95,10 @@ public class AsyncConfig {
     private static void restoreComments() {
         setCommentIfExists("disabled", "Enables parallel processing of entities.");
         setCommentIfExists("maxThreads", "Maximum worker threads. -1 = auto.");
-        setCommentIfExists("synchronizedEntities", "List of entity IDs that must ALWAYS tick synchronously.");
+        setCommentIfExists("synchronizedEntities", """
+                List of entity IDs or namespaces (*):
+                  - 'minecraft:zombie' = specific entity
+                  - 'minecraft:*'      = all entities in namespace""");
         setCommentIfExists("enableAsyncSpawn", "Enables async entity spawning. WARNING: incompatible with Carpet's lagFreeSpawning.");
         setCommentIfExists("enableAsyncRandomTicks", "Experimental! Enables async random ticks.");
     }
