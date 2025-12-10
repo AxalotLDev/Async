@@ -12,6 +12,11 @@ public class FabricModPlatform implements ModPlatform {
     }
 
     @Override
+    public void reloadConfig() {
+        AsyncConfig.init();
+    }
+
+    @Override
     public boolean isModLoaded(String id) {
         return FabricLoader.getInstance().isModLoaded(id);
     }
