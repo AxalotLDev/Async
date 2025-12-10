@@ -27,10 +27,32 @@ public class ConfigCommand {
         return root.then(literal("config")
                 .requires(Permission.require("command.config", 4))
                 .then(buildToggleCommand())
+                .then(buildReloadCommand())
                 .then(buildSynchronizedEntitiesCommand())
                 .then(buildAsyncEntitySpawnCommand())
                 .then(buildAsyncRandomTicksCommand())
         );
+    }
+
+    private static LiteralArgumentBuilder<CommandSourceStack> buildReloadCommand() {
+        return literal("reload")
+                .executes(ctx -> {
+                    try {
+                        PlatformUtils.reloadConfig();
+
+                        MutableComponent msg = prefix.copy()
+                                .append(Component.literal("Configuration reloaded successfully.")
+                                        .withStyle(style -> style.withColor(ChatFormatting.GREEN)));
+                        ctx.getSource().sendSuccess(() -> msg, true);
+
+                    } catch (Exception e) {
+                        MutableComponent msg = prefix.copy()
+                                .append(Component.literal("Failed to reload config: " + e.getMessage())
+                                        .withStyle(style -> style.withColor(ChatFormatting.RED)));
+                        ctx.getSource().sendFailure(msg);
+                    }
+                    return 1;
+                });
     }
 
     private static LiteralArgumentBuilder<CommandSourceStack> buildToggleCommand() {
