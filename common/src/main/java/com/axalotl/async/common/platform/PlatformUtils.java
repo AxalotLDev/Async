@@ -17,7 +17,11 @@ public class PlatformUtils {
     }
 
     public static void saveConfig() {
-         MOD_PLATFORM.saveConfig();
+        MOD_PLATFORM.saveConfig();
+    }
+
+    public static void reloadConfig() {
+        MOD_PLATFORM.reloadConfig();
     }
 
     public static boolean isModLoaded(String modId) {
@@ -27,6 +31,7 @@ public class PlatformUtils {
     public static boolean hasPermission(CommandSourceStack source, String node, int level) {
         return minecraftPlatform.hasPermission(source, node, level);
     }
+
 
     private static <T> T load(Class<T> clazz) {
         return ServiceLoader.load(clazz, clazz.getClassLoader()).findFirst().orElseThrow(() -> new NullPointerException("Failed to load service for " + clazz.getName()));
