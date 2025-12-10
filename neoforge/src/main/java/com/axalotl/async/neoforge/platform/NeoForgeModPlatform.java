@@ -12,6 +12,12 @@ public class NeoForgeModPlatform implements ModPlatform {
     }
 
     @Override
+    public void reloadConfig() {
+        AsyncConfig.loadConfig();
+        com.axalotl.async.common.config.AsyncConfig.onConfigLoaded();
+    }
+
+    @Override
     public boolean isModLoaded(String id) {
         return FMLLoader.getLoadingModList().getModFileById(id) != null;
     }
