@@ -175,7 +175,7 @@ public class ParallelProcessor {
         if (!AsyncConfig.disabled && AsyncConfig.enableAsyncSpawn) {
             CompletableFuture<Void> future = CompletableFuture.runAsync(entity::checkDespawn, tickPool
             ).exceptionally(e -> {
-                LOGGER.error("Error in async spawn tick, switching to synchronous", e);
+                LOGGER.error("Error in async despawn, switching to synchronous", e);
                 entity.checkDespawn();
                 return null;
             });
