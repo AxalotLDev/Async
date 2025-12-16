@@ -115,7 +115,7 @@ public abstract class ServerLevelMixin extends Level implements WorldGenLevel {
             }
         });
         profilerfiller.push("tick");
-        ParallelProcessor.postEntityTick();
+        ParallelProcessor.postEntityTick(this.getLevel());
         profilerfiller.pop();
     }
 

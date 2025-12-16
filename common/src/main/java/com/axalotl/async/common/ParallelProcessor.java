@@ -40,6 +40,7 @@ public class ParallelProcessor {
     private static final AtomicInteger threadPoolID = new AtomicInteger();
     public static ExecutorService tickPool;
     private static final BlockingQueue<CompletableFuture<?>> taskQueue = new LinkedBlockingQueue<>();
+    private static final ThreadLocal<BlockingQueue<CompletableFuture<?>>> threadLocalTaskQueue = ThreadLocal.withInitial(LinkedBlockingQueue::new);
     private static final Set<UUID> blacklistedEntity = ConcurrentHashMap.newKeySet();
     private static final Map<UUID, Integer> portalTickSyncMap = new ConcurrentHashMap<>();
     private static final Map<String, Set<WeakReference<Thread>>> mcThreadTracker = new ConcurrentHashMap<>();
@@ -48,6 +49,16 @@ public class ParallelProcessor {
             Shulker.class,
             Boat.class
     );
+
+     // Gets the appropriate task queue based on whether WorldThreader is loaded.
+     // When WorldThreader is active, each world thread uses its own queue.
+     
+    private static BlockingQueue<CompletableFuture<?>> getTaskQueue() {
+        if (AsyncCommon.WORLDTHREADER) {
+            return threadLocalTaskQueue.get();
+        }
+        return taskQueue;
+    }
 
     public static void setupThreadPool(int parallelism, Class<?> asyncClass) {
         ForkJoinPool.ForkJoinWorkerThreadFactory threadFactory = pool -> {
@@ -94,7 +105,7 @@ public class ParallelProcessor {
                     blacklistedEntity.add(entity.getUUID());
                     return null;
                 });
-                taskQueue.add(future);
+                getTaskQueue().add(future);
             } else {
                 logEntityError("Rejected task due to ExecutorService shutdown", entity, null);
                 tickSynchronously(world, entity);
@@ -165,7 +176,7 @@ public class ParallelProcessor {
                 NaturalSpawner.spawnForChunk(level, chunk, spawnState, categories);
                 return null;
             });
-            taskQueue.add(future);
+            getTaskQueue().add(future);
         } else {
             NaturalSpawner.spawnForChunk(level, chunk, spawnState, categories);
         }
@@ -179,17 +190,22 @@ public class ParallelProcessor {
                 entity.checkDespawn();
                 return null;
             });
-            taskQueue.add(future);
+            getTaskQueue().add(future);
         } else {
             entity.checkDespawn();
         }
     }
 
     public static void postEntityTick() {
+        postEntityTick(null);
+    }
+
+    public static void postEntityTick(ServerLevel currentWorld) {
         if (AsyncConfig.disabled) return;
+        BlockingQueue<CompletableFuture<?>> queue = getTaskQueue();
         List<CompletableFuture<?>> futuresList = new ArrayList<>();
         CompletableFuture<?> future;
-        while ((future = taskQueue.poll()) != null) {
+        while ((future = queue.poll()) != null) {
             futuresList.add(future);
         }
 
@@ -204,20 +220,32 @@ public class ParallelProcessor {
             return null;
         });
 
-        while (!allTasks.isDone()) {
-            boolean hasTask = false;
-            for (ServerLevel world : server.getAllLevels()) {
-                hasTask |= world.getChunkSource().pollTask();
+        // When WorldThreader is loaded, only poll tasks for the current world to avoid
+        // triggering exclusive world access requests that cause deadlocks
+        if (AsyncCommon.WORLDTHREADER && currentWorld != null) {
+            while (!allTasks.isDone()) {
+                if (!currentWorld.getChunkSource().pollTask()) {
+                    LockSupport.parkNanos(50_000);
+                }
             }
-            if (!hasTask) {
-                LockSupport.parkNanos(50_000);
+            currentWorld.getChunkSource().pollTask();
+            currentWorld.getChunkSource().mainThreadProcessor.managedBlock(allTasks::isDone);
+        } else {
+            while (!allTasks.isDone()) {
+                boolean hasTask = false;
+                for (ServerLevel world : server.getAllLevels()) {
+                    hasTask |= world.getChunkSource().pollTask();
+                }
+                if (!hasTask) {
+                    LockSupport.parkNanos(50_000);
+                }
             }
-        }
 
-        server.getAllLevels().forEach(world -> {
-            world.getChunkSource().pollTask();
-            world.getChunkSource().mainThreadProcessor.managedBlock(allTasks::isDone);
-        });
+            server.getAllLevels().forEach(world -> {
+                world.getChunkSource().pollTask();
+                world.getChunkSource().mainThreadProcessor.managedBlock(allTasks::isDone);
+            });
+        }
     }
 
     @SuppressWarnings("ResultOfMethodCallIgnored")

@@ -4,4 +4,5 @@ import com.axalotl.async.common.platform.PlatformEvents;
 
 public class AsyncCommon {
     public static boolean LITHIUM = PlatformEvents.getInstance().isModLoaded("lithium");
+    public static boolean WORLDTHREADER = PlatformEvents.getInstance().isModLoaded("worldthreader");
 }

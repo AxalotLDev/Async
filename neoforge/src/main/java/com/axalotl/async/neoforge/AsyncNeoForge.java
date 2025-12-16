@@ -20,6 +20,8 @@ import static com.axalotl.async.common.config.AsyncConfig.getParallelism;
 import static com.axalotl.async.neoforge.config.AsyncConfig.SPEC;
 import static com.axalotl.async.neoforge.config.AsyncConfig.loadConfig;
 
+import com.axalotl.async.common.AsyncCommon;
+
 @Mod(AsyncNeoForge.MOD_ID)
 public class AsyncNeoForge {
     public static final String MOD_ID = "async";
@@ -30,6 +32,9 @@ public class AsyncNeoForge {
         NeoForge.EVENT_BUS.register(this);
         LOGGER.info("Initializing Async Config...");
         container.registerConfig(ModConfig.Type.COMMON, SPEC, "async.toml");
+        if (AsyncCommon.WORLDTHREADER) {
+            LOGGER.info("WorldThreader detected - Async will use compatibility mode");
+        }
         LOGGER.info("Async Initialized Successfully!");
     }
 

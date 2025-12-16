@@ -15,11 +15,16 @@ public class AsyncFabric implements ModInitializer {
     public static final Logger LOGGER = LogManager.getLogger(AsyncFabric.class);
     public static boolean LITHIUM = FabricLoader.getInstance().isModLoaded("lithium");
     public static boolean VMP = FabricLoader.getInstance().isModLoaded("vmp");
+    public static boolean WORLDTHREADER = FabricLoader.getInstance().isModLoaded("worldthreader");
 
     @Override
     public void onInitialize() {
         LOGGER.info("Initializing Async...");
         com.axalotl.async.fabric.config.AsyncConfig.init();
+
+        if (WORLDTHREADER) {
+            LOGGER.info("WorldThreader detected - Async will use compatibility mode");
+        }
 
         StatsCommand.runStatsThread();
 
