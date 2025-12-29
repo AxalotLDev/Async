@@ -48,6 +48,7 @@
     "entity.sensor.PlayersSensorMixin",
     "entity.spawn.LocalMobCapCalculatorMixin",
     "entity.spawn.PotentialCalculatorMixin",
+    "lithium.LithiumRandomTickCompatMixin",
     "lithium.LithiumServerChunkCacheMixin",
     "lithium.LithiumServerLevel",
     "server.ChunkMapMixin",
