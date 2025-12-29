@@ -140,20 +140,17 @@ public abstract class LithiumServerChunkCacheMixin extends ChunkSource {
         CompletableFuture<ChunkAccess> future = new CompletableFuture<>();
 
         this.mainThreadProcessor.execute(() -> {
-            this.addTicket(new Ticket(TicketType.FORCED, ChunkLevel.byStatus(status)), chunkPos);
+            this.addTicket(new Ticket(TicketType.UNKNOWN, ChunkLevel.byStatus(status)), chunkPos);
             this.runDistanceManagerUpdates();
             ChunkHolder holder = this.getVisibleChunkIfPresent(chunkPos.toLong());
 
             if (holder == null) {
-                this.removeTicketWithRadius(TicketType.FORCED, chunkPos, 0);
                 future.completeExceptionally(new IllegalStateException("ChunkHolder is null"));
                 return;
             }
 
             holder.scheduleChunkGenerationTask(status, this.chunkMap)
                     .whenCompleteAsync((optChunk, throwable) -> {
-                        this.removeTicketWithRadius(TicketType.FORCED, chunkPos, 0);
-
                         if (throwable != null) {
                             future.completeExceptionally(throwable);
                             return;
