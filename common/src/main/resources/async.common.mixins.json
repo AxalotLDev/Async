@@ -49,7 +49,6 @@
     "entity.spawn.LocalMobCapCalculatorMixin",
     "entity.spawn.NaturalSpawnerMixin",
     "entity.spawn.PotentialCalculatorMixin",
-    "lithium.LithiumBehaviorCacheFix",
     "lithium.LithiumRandomTickMixin",
     "lithium.LithiumServerChunkCacheMixin",
     "lithium.LithiumServerLevel",
