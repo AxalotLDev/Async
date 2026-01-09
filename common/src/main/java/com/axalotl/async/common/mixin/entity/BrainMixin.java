@@ -1,8 +1,8 @@
 package com.axalotl.async.common.mixin.entity;
 
+import com.axalotl.async.common.config.AsyncConfig;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
-import it.unimi.dsi.fastutil.objects.Reference2ObjectOpenHashMap;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.Brain;
@@ -18,18 +18,13 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Thread-safe Brain implementation using optimized snapshot approach.
-
- * Optimization: Reuse snapshot if memories haven't changed since last tick.
- * Most ticks don't modify memory, so we avoid expensive map copy.
-
- * Uses Reference2ObjectOpenHashMap (same as Lithium's collections.brain)
- * for faster reference-based key lookups.
-
- * Requires disabling Lithium's mixin.ai.task.memory_change_counting in fabric.mod.json:
- * "custom": { "lithium:options": { "mixin.ai.task.memory_change_counting": false } }
+ * Thread-safe Brain implementation using snapshot approach.
+ *
+ * All reads during tick go through thread-safe snapshot.
+ * Unregistered memory access returns safe defaults instead of throwing.
  */
 @Mixin(value = Brain.class, priority = 1500)
 public class BrainMixin<E extends LivingEntity> {
@@ -38,105 +33,106 @@ public class BrainMixin<E extends LivingEntity> {
     @Final
     private Map<MemoryModuleType<?>, Optional<? extends ExpirableValue<?>>> memories;
 
-    /**
-     * Cached snapshot - reused if memories haven't changed.
-     * Uses Reference2ObjectOpenHashMap for faster lookups (same as Lithium).
-     */
     @Unique
     private volatile Map<MemoryModuleType<?>, Optional<? extends ExpirableValue<?>>> async$cachedSnapshot;
 
-    /**
-     * Flag indicating memories have changed and snapshot needs rebuild.
-     */
     @Unique
-    private volatile boolean async$memoriesChanged = true;
+    private volatile boolean async$needsRebuild = true;
 
-    /**
-     * ThreadLocal snapshot reference for current tick.
-     */
     @Unique
-    private final ThreadLocal<Map<MemoryModuleType<?>, Optional<? extends ExpirableValue<?>>>> async$snapshot = new ThreadLocal<>();
+    private final ThreadLocal<Boolean> async$inTick = ThreadLocal.withInitial(() -> false);
 
-    /**
-     * Lock for write operations.
-     */
     @Unique
     private final Object async$writeLock = new Object();
 
-    /**
-     * Take snapshot at tick start.
-     * Optimization: only create new snapshot if memories changed.
-     */
     @Inject(method = "tick", at = @At("HEAD"))
     private void async$takeSnapshot(ServerLevel level, E entity, CallbackInfo ci) {
-        if (async$memoriesChanged) {
+        if (AsyncConfig.disabled) {
+            return;
+        }
+
+        if (async$needsRebuild || async$cachedSnapshot == null) {
             synchronized (async$writeLock) {
-                if (async$memoriesChanged) {
-                    // Use Reference2ObjectOpenHashMap for faster reference-based lookups
-                    async$cachedSnapshot = new Reference2ObjectOpenHashMap<>(this.memories);
-                    async$memoriesChanged = false;
+                if (async$needsRebuild || async$cachedSnapshot == null) {
+                    async$cachedSnapshot = new ConcurrentHashMap<>(this.memories);
+                    async$needsRebuild = false;
                 }
             }
         }
-        async$snapshot.set(async$cachedSnapshot);
+        async$inTick.set(true);
     }
 
-    /**
-     * Clear snapshot reference after tick.
-     */
     @Inject(method = "tick", at = @At("RETURN"))
     private void async$clearSnapshot(ServerLevel level, E entity, CallbackInfo ci) {
-        async$snapshot.remove();
+        async$inTick.set(false);
     }
 
     /**
-     * Read from snapshot during tick.
+     * Thread-safe read from snapshot.
+     * Returns Optional.empty() for unregistered memories (instead of throwing).
      */
     @Inject(method = "getMemory", at = @At("HEAD"), cancellable = true)
     private <U> void async$getMemoryFromSnapshot(MemoryModuleType<@NotNull U> type, CallbackInfoReturnable<Optional<U>> cir) {
-        Map<MemoryModuleType<?>, Optional<? extends ExpirableValue<?>>> snapshot = async$snapshot.get();
-        if (snapshot != null) {
-            // During tick - read from snapshot for consistency
+        if (AsyncConfig.disabled) {
+            return;
+        }
+
+        Map<MemoryModuleType<?>, Optional<? extends ExpirableValue<?>>> snapshot = async$cachedSnapshot;
+        if (async$inTick.get() && snapshot != null) {
             Optional<? extends ExpirableValue<?>> value = snapshot.get(type);
+
+            // Unregistered memory - return empty (safe for async, vanilla would throw)
             if (value == null) {
                 cir.setReturnValue(Optional.empty());
-            } else {
-                @SuppressWarnings("unchecked")
-                Optional<U> result = (Optional<U>) value.map(ExpirableValue::getValue);
-                cir.setReturnValue(result);
+                return;
             }
+
+            @SuppressWarnings("unchecked")
+            Optional<U> result = (Optional<U>) value.map(ExpirableValue::getValue);
+            cir.setReturnValue(result);
         }
-        // Outside tick - let vanilla handle it
     }
 
-    /**
-     * Check snapshot during tick.
-     */
     @Inject(method = "hasMemoryValue", at = @At("HEAD"), cancellable = true)
     private void async$hasMemoryValueFromSnapshot(MemoryModuleType<?> type, CallbackInfoReturnable<Boolean> cir) {
-        Map<MemoryModuleType<?>, Optional<? extends ExpirableValue<?>>> snapshot = async$snapshot.get();
-        if (snapshot != null) {
-            // During tick - check snapshot
-            Optional<? extends ExpirableValue<?>> value = snapshot.get(type);
-            cir.setReturnValue(value != null && value.isPresent());
+        if (AsyncConfig.disabled) {
+            return;
         }
-        // Outside tick - let vanilla handle it
+
+        Map<MemoryModuleType<?>, Optional<? extends ExpirableValue<?>>> snapshot = async$cachedSnapshot;
+        if (async$inTick.get() && snapshot != null) {
+            Optional<? extends ExpirableValue<?>> value = snapshot.get(type);
+
+            // Unregistered = no value
+            if (value == null) {
+                cir.setReturnValue(false);
+                return;
+            }
+
+            cir.setReturnValue(value.isPresent());
+        }
     }
 
-    /**
-     * Use snapshot for checkMemory during tick.
-     */
     @Inject(method = "checkMemory", at = @At("HEAD"), cancellable = true)
     private void async$checkMemoryFromSnapshot(MemoryModuleType<?> type, MemoryStatus status, CallbackInfoReturnable<Boolean> cir) {
-        Map<MemoryModuleType<?>, Optional<? extends ExpirableValue<?>>> snapshot = async$snapshot.get();
-        if (snapshot != null) {
+        if (AsyncConfig.disabled) {
+            return;
+        }
+
+        Map<MemoryModuleType<?>, Optional<? extends ExpirableValue<?>>> snapshot = async$cachedSnapshot;
+        if (async$inTick.get() && snapshot != null) {
             Optional<? extends ExpirableValue<?>> value = snapshot.get(type);
-            boolean hasValue = value != null && value.isPresent();
+
+            // Unregistered = false for all statuses (vanilla behavior)
+            if (value == null) {
+                cir.setReturnValue(false);
+                return;
+            }
 
             boolean result = switch (status) {
-                case VALUE_PRESENT -> hasValue;
-                case VALUE_ABSENT -> !hasValue;
-                case REGISTERED -> value != null; // key exists in map
+                case REGISTERED -> true;
+                case VALUE_PRESENT -> value.isPresent();
+                case VALUE_ABSENT -> value.isEmpty();
             };
             cir.setReturnValue(result);
         }
@@ -147,17 +143,31 @@ public class BrainMixin<E extends LivingEntity> {
     private <U> void async$setMemoryInternal(MemoryModuleType<@NotNull U> memoryType,
                                              Optional<? extends ExpirableValue<?>> memory,
                                              Operation<Void> original) {
-        synchronized (async$writeLock) {
-            async$memoriesChanged = true;
+        if (AsyncConfig.disabled) {
             original.call(memoryType, memory);
+            return;
+        }
+
+        synchronized (async$writeLock) {
+            original.call(memoryType, memory);
+
+            Map<MemoryModuleType<?>, Optional<? extends ExpirableValue<?>>> snapshot = async$cachedSnapshot;
+            if (snapshot != null && snapshot.containsKey(memoryType)) {
+                snapshot.put(memoryType, memory);
+            }
         }
     }
 
     @WrapMethod(method = "clearMemories")
     private void async$clearMemories(Operation<Void> original) {
-        synchronized (async$writeLock) {
-            async$memoriesChanged = true;
+        if (AsyncConfig.disabled) {
             original.call();
+            return;
+        }
+
+        synchronized (async$writeLock) {
+            original.call();
+            async$needsRebuild = true;
         }
     }
 }

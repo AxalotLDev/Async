@@ -54,9 +54,14 @@ public abstract class ChunkHolderMixin {
         ShortSet shortset = this.changedBlocksPerSection[i];
 
         if (shortset == null) {
-            this.hasChangedSections = true;
-            shortset = new ConcurrentShortHashSet();
-            this.changedBlocksPerSection[i] = shortset;
+            synchronized (this.changedBlocksPerSection) {
+                shortset = this.changedBlocksPerSection[i];
+                if (shortset == null) {
+                    this.hasChangedSections = true;
+                    shortset = new ConcurrentShortHashSet();
+                    this.changedBlocksPerSection[i] = shortset;
+                }
+            }
         }
 
         shortset.add(SectionPos.sectionRelativePos(pos));
