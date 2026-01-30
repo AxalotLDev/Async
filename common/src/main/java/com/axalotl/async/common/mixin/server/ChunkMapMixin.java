@@ -94,18 +94,26 @@ public abstract class ChunkMapMixin extends SimpleRegionStorage implements Chunk
             List<Long> keys = new ArrayList<>();
             distanceManager.forEachEntityTickingChunk(keys::add);
 
-            CompletableFuture.runAsync(() -> {
-                for (long chunkPos : keys) {
-                    ChunkHolder holder = visibleChunkMap.get(chunkPos);
-                    if (holder != null) {
-                        LevelChunk chunk = holder.getTickingChunk();
-                        if (chunk != null) action.accept(chunk);
+            for (long chunkPos : keys) {
+                ChunkHolder holder = visibleChunkMap.get(chunkPos);
+                if (holder != null) {
+                    LevelChunk chunk = holder.getTickingChunk();
+                    if (chunk != null) {
+                        CompletableFuture<Void> future = CompletableFuture.runAsync(
+                                () -> {
+                                    if (chunk.getLevel() != null) {
+                                        action.accept(chunk);
+                                    }
+                                },
+                                ParallelProcessor.tickPool
+                        ).exceptionally(e -> {
+                            ParallelProcessor.LOGGER.error("Error in async random tick", e);
+                            return null;
+                        });
+                        ParallelProcessor.addTask(future);
                     }
                 }
-            }, ParallelProcessor.tickPool).exceptionally(e -> {
-                ParallelProcessor.LOGGER.error("Error in async random tick", e);
-                return null;
-            });
+            }
         } else {
             original.call(action);
         }

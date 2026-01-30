@@ -14,7 +14,7 @@ import net.minecraft.world.entity.monster.Shulker;
 import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.entity.vehicle.boat.Boat;
 import net.minecraft.world.entity.vehicle.minecart.AbstractMinecart;
-import net.minecraft.world.level.*;
+import net.minecraft.world.level.NaturalSpawner;
 import net.minecraft.world.level.chunk.LevelChunk;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -27,7 +27,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.locks.LockSupport;
 
 public class ParallelProcessor {
     public static final Logger LOGGER = LogManager.getLogger(ParallelProcessor.class);
@@ -38,11 +37,19 @@ public class ParallelProcessor {
 
     public static final AtomicInteger currentEntities = new AtomicInteger();
     private static final AtomicInteger threadPoolID = new AtomicInteger();
-    public static ExecutorService tickPool;
-    private static final BlockingQueue<CompletableFuture<?>> taskQueue = new LinkedBlockingQueue<>();
+    public static ForkJoinPool tickPool;
+    private static final ConcurrentLinkedQueue<CompletableFuture<?>> taskQueue = new ConcurrentLinkedQueue<>();
     private static final Set<UUID> blacklistedEntity = ConcurrentHashMap.newKeySet();
     private static final Map<UUID, Integer> portalTickSyncMap = new ConcurrentHashMap<>();
     private static final Map<String, Set<WeakReference<Thread>>> mcThreadTracker = new ConcurrentHashMap<>();
+
+    private static volatile boolean isShuttingDown = false;
+
+    // ========== PARALLEL SPAWN SYSTEM ==========
+
+    private static final Object ENTITY_ADD_LOCK = new Object();
+    private static final ConcurrentLinkedQueue<CompletableFuture<Void>> spawnQueue = new ConcurrentLinkedQueue<>();
+
     public static final Set<Class<?>> BLOCKED_ENTITIES = Set.of(
             FallingBlockEntity.class,
             Shulker.class,
@@ -50,6 +57,8 @@ public class ParallelProcessor {
     );
 
     public static void setupThreadPool(int parallelism, Class<?> asyncClass) {
+        isShuttingDown = false;
+
         ForkJoinPool.ForkJoinWorkerThreadFactory threadFactory = pool -> {
             ForkJoinWorkerThread worker = ForkJoinPool.defaultForkJoinWorkerThreadFactory.newThread(pool);
             worker.setName("Async-Tick-Pool-Thread-" + threadPoolID.getAndIncrement());
@@ -64,6 +73,7 @@ public class ParallelProcessor {
                 LOGGER.error("Uncaught exception in thread {}: {}", t.getName(), e), true);
         LOGGER.info("Initialized Pool with {} threads", parallelism);
     }
+
 
     public static void registerThread(String poolName, Thread thread) {
         mcThreadTracker
@@ -82,6 +92,11 @@ public class ParallelProcessor {
     }
 
     public static void callEntityTick(ServerLevel world, Entity entity) {
+        if (isShuttingDown) {
+            tickSynchronously(world, entity);
+            return;
+        }
+
         if (shouldTickSynchronously(entity)) {
             tickSynchronously(world, entity);
         } else {
@@ -90,13 +105,11 @@ public class ParallelProcessor {
                         performAsyncEntityTick(world, entity), tickPool
                 ).exceptionally(e -> {
                     logEntityError("Error in async tick, switching to synchronous", entity, e);
-                    tickSynchronously(world, entity);
                     blacklistedEntity.add(entity.getUUID());
                     return null;
                 });
                 taskQueue.add(future);
             } else {
-                logEntityError("Rejected task due to ExecutorService shutdown", entity, null);
                 tickSynchronously(world, entity);
             }
         }
@@ -158,82 +171,135 @@ public class ParallelProcessor {
         }
     }
 
-    public static void asyncSpawnForChunk(ServerLevel level, LevelChunk chunk, NaturalSpawner.SpawnState spawnState, List<MobCategory> categories) {
-        if (!AsyncConfig.disabled && AsyncConfig.enableAsyncSpawn) {
-            CompletableFuture<Void> future = CompletableFuture.runAsync(() -> NaturalSpawner.spawnForChunk(level, chunk, spawnState, categories), ParallelProcessor.tickPool).exceptionally(e -> {
-                ParallelProcessor.LOGGER.error("Error in async spawn, switching to synchronous", e);
-                NaturalSpawner.spawnForChunk(level, chunk, spawnState, categories);
-                return null;
-            });
-            taskQueue.add(future);
-        } else {
-            NaturalSpawner.spawnForChunk(level, chunk, spawnState, categories);
+    public static Object getEntityAddLock() {
+        return ENTITY_ADD_LOCK;
+    }
+
+    public static void asyncSpawnForChunk(
+            ServerLevel level,
+            LevelChunk chunk,
+            NaturalSpawner.SpawnState spawnState,
+            List<MobCategory> categories
+    ) {
+        if (!chunk.loaded) {
+            return;
         }
+
+        if (isShuttingDown || AsyncConfig.disabled || !AsyncConfig.enableAsyncSpawn) {
+            NaturalSpawner.spawnForChunk(level, chunk, spawnState, categories);
+            return;
+        }
+
+        if (categories.isEmpty()) {
+            return;
+        }
+
+        List<MobCategory> categoriesCopy = List.copyOf(categories);
+
+        CompletableFuture<Void> future = CompletableFuture.runAsync(() ->
+                NaturalSpawner.spawnForChunk(level, chunk, spawnState, categoriesCopy), tickPool
+        ).exceptionally(e -> {
+            LOGGER.error("Error in async spawn for chunk {}: {}", chunk.getPos(), e.getMessage());
+            return null;
+        });
+
+        spawnQueue.add(future);
     }
 
     public static void asyncDespawn(Entity entity) {
-        if (!AsyncConfig.disabled && AsyncConfig.enableAsyncSpawn) {
-            CompletableFuture<Void> future = CompletableFuture.runAsync(entity::checkDespawn, tickPool
-            ).exceptionally(e -> {
-                LOGGER.error("Error in async spawn tick, switching to synchronous", e);
-                entity.checkDespawn();
-                return null;
-            });
-            taskQueue.add(future);
-        } else {
+        if (isShuttingDown || AsyncConfig.disabled || !AsyncConfig.enableAsyncSpawn) {
             entity.checkDespawn();
+            return;
         }
+
+        CompletableFuture<Void> future = CompletableFuture.runAsync(
+                entity::checkDespawn, tickPool
+        ).exceptionally(e -> {
+            LOGGER.error("Error in async despawn for {}: {}", entity.getType(), e.getMessage());
+            return null;
+        });
+
+        taskQueue.add(future);
+    }
+
+    public static void addTask(CompletableFuture<?> future) {
+        taskQueue.add(future);
     }
 
     public static void postEntityTick() {
         if (AsyncConfig.disabled) return;
-        List<CompletableFuture<?>> futuresList = new ArrayList<>();
+
+        List<CompletableFuture<?>> entityTasks = new ArrayList<>();
         CompletableFuture<?> future;
         while ((future = taskQueue.poll()) != null) {
-            futuresList.add(future);
+            entityTasks.add(future);
         }
 
-        CompletableFuture<?> allTasks = CompletableFuture.allOf(
-                futuresList.toArray(new CompletableFuture[0])
+        List<CompletableFuture<?>> spawnTasks = new ArrayList<>();
+        CompletableFuture<Void> spawnFuture;
+        while ((spawnFuture = spawnQueue.poll()) != null) {
+            spawnTasks.add(spawnFuture);
+        }
+
+        List<CompletableFuture<?>> allTasks = new ArrayList<>(entityTasks.size() + spawnTasks.size());
+        allTasks.addAll(entityTasks);
+        allTasks.addAll(spawnTasks);
+
+        if (allTasks.isEmpty()) {
+            return;
+        }
+
+        CompletableFuture<Void> allTasksFuture = CompletableFuture.allOf(
+                allTasks.toArray(new CompletableFuture[0])
         );
 
-        allTasks.exceptionally(ex -> {
-            Throwable cause = ex instanceof java.util.concurrent.CompletionException
-                    ? ex.getCause() : ex;
-            LOGGER.error("Error during entity tick processing: ", cause);
-            return null;
-        });
-
-        while (!allTasks.isDone()) {
-            boolean hasTask = false;
+        while (!allTasksFuture.isDone()) {
+            boolean didWork = false;
             for (ServerLevel world : server.getAllLevels()) {
-                hasTask |= world.getChunkSource().pollTask();
+                didWork |= world.getChunkSource().pollTask();
             }
-            if (!hasTask) {
-                LockSupport.parkNanos(50_000);
+
+            if (!didWork) {
+                Thread.onSpinWait();
             }
         }
 
-        server.getAllLevels().forEach(world -> {
+        for (ServerLevel world : server.getAllLevels()) {
             world.getChunkSource().pollTask();
-            world.getChunkSource().mainThreadProcessor.managedBlock(allTasks::isDone);
-        });
+        }
+
+
     }
 
-    @SuppressWarnings("ResultOfMethodCallIgnored")
     public static void stop() {
+        isShuttingDown = true;
+
+        List<CompletableFuture<?>> remaining = new ArrayList<>();
+        CompletableFuture<?> f;
+        while ((f = taskQueue.poll()) != null) {
+            remaining.add(f);
+        }
+        CompletableFuture<Void> sf;
+        while ((sf = spawnQueue.poll()) != null) {
+            remaining.add(sf);
+        }
+
+        if (!remaining.isEmpty()) {
+            CompletableFuture.allOf(remaining.toArray(new CompletableFuture[0])).join();
+        }
+
         if (tickPool != null) {
-            LOGGER.info("Waiting for Async tickPool to shutdown...");
             tickPool.shutdown();
-            try {
-                tickPool.awaitTermination(60L, TimeUnit.SECONDS);
-            } catch (InterruptedException ignored) {
+            boolean quiesced = tickPool.awaitQuiescence(10, TimeUnit.SECONDS);
+            if (!quiesced) {
+                LOGGER.warn("The pool did not stop in time! Forcing shutdown...");
+                tickPool.shutdownNow();
             }
         }
+
         AsyncConfig.clearCaches();
         blacklistedEntity.clear();
         portalTickSyncMap.clear();
-        taskQueue.clear();
     }
 
     private static void logEntityError(String message, Entity entity, Throwable e) {

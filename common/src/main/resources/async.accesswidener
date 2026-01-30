@@ -34,3 +34,5 @@ accessible method net/minecraft/world/level/NaturalSpawner$SpawnState <init> (IL
 accessible method net/minecraft/server/level/ServerChunkCache tickSpawningChunk (Lnet/minecraft/world/level/chunk/LevelChunk;JLjava/util/List;Lnet/minecraft/world/level/NaturalSpawner$SpawnState;)V
 accessible class net/minecraft/server/level/ChunkMap$DistanceManager
 accessible method net/minecraft/server/level/DistanceManager forEachEntityTickingChunk (Lit/unimi/dsi/fastutil/longs/LongConsumer;)V
+accessible field net/minecraft/world/entity/Entity boardingCooldown I
+accessible field net/minecraft/world/level/chunk/LevelChunk loaded Z

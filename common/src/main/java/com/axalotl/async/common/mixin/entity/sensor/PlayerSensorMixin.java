@@ -2,9 +2,9 @@ package com.axalotl.async.common.mixin.entity.sensor;
 
 import com.axalotl.async.common.config.AsyncConfig;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.entity.Mob;
-import net.minecraft.world.entity.ai.sensing.NearestItemSensor;
-import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.ai.sensing.PlayerSensor;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
@@ -14,13 +14,13 @@ import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.function.ToDoubleFunction;
 
-@Mixin(value = NearestItemSensor.class, priority = 1500)
-public class NearestItemSensorMixin {
+@Mixin(value = PlayerSensor.class, priority = 1500)
+public class PlayerSensorMixin {
 
-    @Redirect(method = "doTick(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/world/entity/Mob;)V",
+    @Redirect(method = "doTick(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/world/entity/LivingEntity;)V",
             at = @At(value = "INVOKE", target = "Ljava/util/Comparator;comparingDouble(Ljava/util/function/ToDoubleFunction;)Ljava/util/Comparator;"))
-    private <T extends ItemEntity> Comparator<T> async$safeComparator(ToDoubleFunction<? super T> keyExtractor,
-                                                                      ServerLevel world, Mob entity) {
+    private <T extends ServerPlayer> Comparator<T> async$safeComparator(ToDoubleFunction<? super T> keyExtractor,
+                                                                        ServerLevel world, LivingEntity entity) {
         if (AsyncConfig.disabled) {
             return Comparator.comparingDouble(keyExtractor);
         }

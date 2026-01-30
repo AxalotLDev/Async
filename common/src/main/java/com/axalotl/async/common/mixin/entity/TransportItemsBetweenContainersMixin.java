@@ -10,17 +10,16 @@ import net.minecraft.world.level.Level;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 
-import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 @Mixin(TransportItemsBetweenContainers.class)
 public class TransportItemsBetweenContainersMixin {
 
     @Unique
     private static final Object async$lock = new Object();
+
     @Unique
-    private static final Map<BlockPos, AtomicBoolean> async$containerFlags = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap.KeySetView<BlockPos, Boolean> async$activeContainers = ConcurrentHashMap.newKeySet();
 
     @WrapMethod(method = "pickUpItems")
     private void pickUpItems(PathfinderMob mob, Container counter, Operation<Void> original) {
@@ -43,17 +42,15 @@ public class TransportItemsBetweenContainersMixin {
             Operation<Boolean> original
     ) {
         BlockPos pos = target.pos();
-        AtomicBoolean flag = async$containerFlags.computeIfAbsent(pos, p -> new AtomicBoolean(false));
 
-        if (!flag.compareAndSet(false, true)) {
+        if (!async$activeContainers.add(pos)) {
             return true;
         }
 
         try {
             return original.call(target, level);
         } finally {
-            flag.set(false);
-            async$containerFlags.remove(pos, flag);
+            async$activeContainers.remove(pos);
         }
     }
 }

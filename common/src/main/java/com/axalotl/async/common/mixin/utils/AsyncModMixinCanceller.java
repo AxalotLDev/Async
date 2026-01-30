@@ -19,11 +19,11 @@ public class AsyncModMixinCanceller implements MixinCanceller {
         switch (mixinClassName) {
             case "com.ishland.c2me.fixes.general.threading_issues.mixin.asynccatchers.MixinThreadedAnvilChunkStorage":
             case "com.ishland.c2me.fixes.worldgen.threading_issues.mixin.threading_detections.random_instances.MixinWorld":
+            case "com.ishland.c2me.base.mixin.instrumentation.MixinServerChunkManager":
+            case "me.wesley1808.servercore.mixin.optimizations.ticking.chunk.cache.ServerChunkCacheMixin":
                 return true;
         }
-        if (mixinClassName.endsWith("com.axalotl.async.common.mixin.lithium.LithiumServerChunkCacheMixin") ||
-                mixinClassName.endsWith("com.axalotl.async.neoforge.mixin.lithium.LithiumChunkLoadTricksMixin") ||
-                mixinClassName.endsWith("com.axalotl.async.common.mixin.lithium.LithiumServerLevel") ||
+        if (mixinClassName.endsWith("com.axalotl.async.common.mixin.lithium.LithiumServerLevel") ||
                 mixinClassName.endsWith("com.axalotl.async.common.mixin.lithium.LithiumRandomTickMixin")) {
             return !LITHIUM;
         }

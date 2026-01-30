@@ -50,7 +50,6 @@ public class StatsCommand {
         MinecraftServer server = source.getServer();
 
         double mspt = server.getAverageTickTimeNanos() / 1_000_000.0;
-        double tps = Math.min(20.0, 1000.0 / Math.max(mspt, 1));
 
         int totalEntities = 0;
         int asyncEntities = 0;
@@ -73,6 +72,8 @@ public class StatsCommand {
         }
 
         boolean enabled = !AsyncConfig.disabled;
+        boolean asyncSpawn = AsyncConfig.enableAsyncSpawn;
+        boolean asyncRandomTicks = AsyncConfig.enableAsyncRandomTicks;
 
         MutableComponent message = prefix.copy()
                 .append(Component.literal("Performance Statistics").withStyle(ChatFormatting.GOLD))
@@ -81,9 +82,15 @@ public class StatsCommand {
                 .append(Component.literal(enabled ? "Enabled" : "Disabled")
                         .withStyle(enabled ? ChatFormatting.GREEN : ChatFormatting.RED))
 
-                .append(Component.literal("\nTPS: ").withStyle(ChatFormatting.WHITE))
-                .append(Component.literal(DECIMAL_FORMAT.format(tps)).withStyle(getTpsColor(tps)))
-                .append(Component.literal(" | MSPT: ").withStyle(ChatFormatting.GRAY))
+                .append(Component.literal("\nAsync Spawn: ").withStyle(ChatFormatting.WHITE))
+                .append(Component.literal(asyncSpawn ? "Enabled" : "Disabled")
+                        .withStyle(asyncSpawn ? ChatFormatting.GREEN : ChatFormatting.RED))
+
+                .append(Component.literal("\nAsync Random Ticks: ").withStyle(ChatFormatting.WHITE))
+                .append(Component.literal(asyncRandomTicks ? "Enabled" : "Disabled")
+                        .withStyle(asyncRandomTicks ? ChatFormatting.GREEN : ChatFormatting.RED))
+
+                .append(Component.literal("\nMSPT: ").withStyle(ChatFormatting.WHITE))
                 .append(Component.literal(DECIMAL_FORMAT.format(mspt) + "ms").withStyle(getMsptColor(mspt)))
 
                 .append(Component.literal("\nEntities: ").withStyle(ChatFormatting.WHITE))
@@ -144,7 +151,6 @@ public class StatsCommand {
                     .append(Component.literal(String.valueOf(totalAsyncEntities.get())).withStyle(ChatFormatting.AQUA))
                     .append(Component.literal(" async)").withStyle(ChatFormatting.GRAY));
 
-            // Top entities
             if (topCount > 0 && !entityTypeCounts.isEmpty()) {
                 message.append(Component.literal("\n\nTop " + topCount + " Entity Types:").withStyle(ChatFormatting.GOLD));
 
@@ -158,7 +164,7 @@ public class StatsCommand {
                             boolean isAsync = entityTypeAsync.getOrDefault(type, false);
 
                             Identifier id = BuiltInRegistries.ENTITY_TYPE.getKey(type);
-                            String name = id != null ? id.getPath() : type.toString();
+                            String name = id.getPath();
 
                             message.append(Component.literal("\n" + rank[0] + ". ").withStyle(ChatFormatting.GRAY))
                                     .append(Component.literal(name).withStyle(ChatFormatting.YELLOW))
@@ -175,12 +181,6 @@ public class StatsCommand {
 
             source.sendSuccess(() -> message, false);
         });
-    }
-
-    private static ChatFormatting getTpsColor(double tps) {
-        if (tps >= 19) return ChatFormatting.GREEN;
-        if (tps >= 15) return ChatFormatting.YELLOW;
-        return ChatFormatting.RED;
     }
 
     private static ChatFormatting getMsptColor(double mspt) {

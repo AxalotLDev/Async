@@ -10,6 +10,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiFunction;
+import java.util.function.LongFunction;
 
 /**
  * A thread-safe implementation of Long2ObjectMap using ConcurrentHashMap as backing storage.
@@ -95,7 +96,7 @@ public final class Long2ObjectConcurrentHashMap<V> implements Long2ObjectMap<V> 
     @Override
     public V remove(long key) {
         V previous = backing.remove(key);
-        return (previous == null && !backing.containsKey(key)) ? defaultReturnValue : previous;
+        return (previous == null) ? defaultReturnValue : previous;
     }
 
     @Override
@@ -104,13 +105,21 @@ public final class Long2ObjectConcurrentHashMap<V> implements Long2ObjectMap<V> 
     }
 
     /**
-     * Returns the value to which the specified key is mapped, or defaultValue if
-     * this map contains no mapping for the key.
-     *
-     * @param key          the key whose associated value is to be returned
-     * @param defaultValue the default mapping of the key
-     * @return the value to which the specified key is mapped, or defaultValue
+     * CRITICAL: Atomic computeIfAbsent for thread-safety.
+     * Default Long2ObjectMap implementation is NOT thread-safe!
      */
+    @Override
+    public V computeIfAbsent(long key, @NotNull LongFunction<? extends V> mappingFunction) {
+        Objects.requireNonNull(mappingFunction);
+        return backing.computeIfAbsent(key, k -> mappingFunction.apply(k));
+    }
+
+    @Override
+    public V compute(long key, @NotNull BiFunction<? super Long, ? super V, ? extends V> remappingFunction) {
+        Objects.requireNonNull(remappingFunction, "Remapping function cannot be null");
+        return backing.compute(key, remappingFunction);
+    }
+
     public V getOrDefault(long key, V defaultValue) {
         V value = backing.get(key);
         return (value == null && !backing.containsKey(key)) ? defaultValue : value;
@@ -125,7 +134,7 @@ public final class Long2ObjectConcurrentHashMap<V> implements Long2ObjectMap<V> 
      */
     public V putIfAbsent(long key, V value) {
         V previous = backing.putIfAbsent(key, value);
-        return (previous == null && !backing.containsKey(key)) ? defaultReturnValue : previous;
+        return (previous == null) ? defaultReturnValue : previous;
     }
 
     /**
@@ -136,8 +145,7 @@ public final class Long2ObjectConcurrentHashMap<V> implements Long2ObjectMap<V> 
      * @return true if the value was removed
      */
     public boolean remove(long key, Object value) {
-        V previous = backing.remove(key);
-        return backing.remove(key, previous);
+        return backing.remove(key, value);
     }
 
     /**
@@ -161,21 +169,7 @@ public final class Long2ObjectConcurrentHashMap<V> implements Long2ObjectMap<V> 
      */
     public V replace(long key, V value) {
         V previous = backing.replace(key, value);
-        return (previous == null && !backing.containsKey(key)) ? defaultReturnValue : previous;
-    }
-
-    /**
-     * Attempts to compute a mapping for the specified key and its current mapped value
-     *
-     * @param key               key with which the specified value is to be associated
-     * @param remappingFunction the function to compute a value
-     * @return the new value associated with the specified key, or defaultReturnValue if none
-     */
-    @Override
-    public V compute(long key, BiFunction<? super Long, ? super V, ? extends V> remappingFunction) {
-        Objects.requireNonNull(remappingFunction, "Remapping function cannot be null");
-        V newValue = backing.compute(key, remappingFunction);
-        return (newValue == null && !backing.containsKey(key)) ? defaultReturnValue : newValue;
+        return (previous == null) ? defaultReturnValue : previous;
     }
 
     @Override
