@@ -89,7 +89,6 @@ public abstract class AsyncPathNavigationMixin implements AsyncSafeNavigation {
 
             double newMaxDistSq = (double) remainingNodes * remainingNodes;
 
-            // Обновляем только если центр сместился >1 блока или remaining изменилось значительно
             if (dx * dx + dy * dy + dz * dz > 1.0 ||
                     Math.abs(newMaxDistSq - currentSnapshot.maxDistanceSq()) > remainingNodes) {
                 this.async$snapshot = new PathSnapshot(newCenterX, newCenterY, newCenterZ, newMaxDistSq);

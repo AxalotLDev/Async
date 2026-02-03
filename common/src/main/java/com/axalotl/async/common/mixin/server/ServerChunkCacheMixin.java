@@ -43,6 +43,61 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
     @Shadow
     protected abstract CompletableFuture<ChunkResult<ChunkAccess>> getChunkFutureMainThread(int x, int z, ChunkStatus leastStatus, boolean create);
 
+    @Unique
+    private static final ThreadLocal<long[]> asyncMultiloader$asyncCacheKeys = ThreadLocal.withInitial(() -> {
+        long[] keys = new long[4];
+        java.util.Arrays.fill(keys, Long.MAX_VALUE);
+        return keys;
+    });
+
+    @Unique
+    private static final ThreadLocal<ChunkAccess[]> asyncMultiloader$asyncCacheChunks = ThreadLocal.withInitial(() -> new ChunkAccess[4]);
+
+    @Unique
+    private static long async$createCacheKey(int x, int z, ChunkStatus status) {
+        return ((long) x & 0xfffffffL) | (((long) z & 0xfffffffL) << 28) | ((long) status.getIndex() << 56);
+    }
+
+    @Unique
+    private static void async$addToCache(long key, @Nullable ChunkAccess chunk) {
+        long[] keys = asyncMultiloader$asyncCacheKeys.get();
+        ChunkAccess[] chunks = asyncMultiloader$asyncCacheChunks.get();
+        for (int i = 3; i > 0; --i) {
+            keys[i] = keys[i - 1];
+            chunks[i] = chunks[i - 1];
+        }
+        keys[0] = key;
+        chunks[0] = chunk;
+    }
+
+    @Unique
+    private static @Nullable ChunkAccess async$getFromCache(long key) {
+        long[] keys = asyncMultiloader$asyncCacheKeys.get();
+        ChunkAccess[] chunks = asyncMultiloader$asyncCacheChunks.get();
+        for (int i = 0; i < 4; ++i) {
+            if (keys[i] == key) {
+                return chunks[i];
+            }
+        }
+        return null;
+    }
+
+    @Unique
+    private static boolean async$isInCache(long key) {
+        long[] keys = asyncMultiloader$asyncCacheKeys.get();
+        for (int i = 0; i < 4; ++i) {
+            if (keys[i] == key) return true;
+        }
+        return false;
+    }
+
+    @Unique
+    private static @Nullable ChunkAccess async$unwrap(@Nullable ChunkAccess chunk) {
+        if (chunk instanceof ImposterProtoChunk imposter) {
+            return imposter.getWrapped();
+        }
+        return chunk;
+    }
 
     //TODO: Implement our own getChunk without modifying the vanilla method
     @Inject(method = "getChunk(IILnet/minecraft/world/level/chunk/status/ChunkStatus;Z)Lnet/minecraft/world/level/chunk/ChunkAccess;",
@@ -51,8 +106,19 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
                                 CallbackInfoReturnable<ChunkAccess> cir) {
         if (Thread.currentThread() == this.mainThread) return;
 
+        long cacheKey = async$createCacheKey(x, z, leastStatus);
+
+        if (async$isInCache(cacheKey)) {
+            ChunkAccess cached = async$getFromCache(cacheKey);
+            if (cached != null || !create) {
+                cir.setReturnValue(cached);
+                return;
+            }
+        }
+
         ChunkAccess fast = async$tryGetChunkFast(x, z, leastStatus);
         if (fast != null) {
+            async$addToCache(cacheKey, fast);
             cir.setReturnValue(fast);
             return;
         }
@@ -63,11 +129,8 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
                 )
                 .thenCompose(f -> f);
 
-        ChunkAccess chunk = future.join().orElse(null);
-        if (chunk instanceof ImposterProtoChunk imposter) {
-            chunk = imposter.getWrapped();
-        }
-
+        ChunkAccess chunk = async$unwrap(future.join().orElse(null));
+        async$addToCache(cacheKey, chunk);
         cir.setReturnValue(chunk);
     }
 
@@ -76,21 +139,12 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
         ChunkHolder holder = this.getVisibleChunkIfPresent(ChunkPos.asLong(x, z));
         if (holder == null) return null;
 
-        ChunkAccess chunk = holder.getChunkIfPresent(leastStatus);
-        if (chunk != null) {
-            if (chunk instanceof ImposterProtoChunk imposter) {
-                return imposter.getWrapped();
-            }
-            return chunk;
-        }
+        ChunkAccess chunk = async$unwrap(holder.getChunkIfPresent(leastStatus));
+        if (chunk != null) return chunk;
 
         CompletableFuture<ChunkResult<ChunkAccess>> future = holder.scheduleChunkGenerationTask(leastStatus, this.chunkMap);
-        if (future.isDone()) {
-            ChunkAccess result = future.join().orElse(null);
-            if (result instanceof ImposterProtoChunk imposter) {
-                return imposter.getWrapped();
-            }
-            return result;
+        if (future.isDone() && !future.isCompletedExceptionally()) {
+            return async$unwrap(future.join().orElse(null));
         }
 
         return null;
@@ -100,14 +154,55 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
     private void async$getChunkNow(int chunkX, int chunkZ, CallbackInfoReturnable<LevelChunk> cir) {
         if (Thread.currentThread() == this.mainThread) return;
 
-        ChunkHolder holder = this.getVisibleChunkIfPresent(ChunkPos.asLong(chunkX, chunkZ));
-        if (holder != null) {
-            ChunkAccess chunk = holder.getChunkIfPresent(ChunkStatus.FULL);
-            if (chunk instanceof LevelChunk levelChunk) {
+        long cacheKey = async$createCacheKey(chunkX, chunkZ, ChunkStatus.FULL);
+
+        if (async$isInCache(cacheKey)) {
+            ChunkAccess cached = async$getFromCache(cacheKey);
+            if (cached instanceof LevelChunk levelChunk) {
                 cir.setReturnValue(levelChunk);
                 return;
             }
+            cir.setReturnValue(null);
+            return;
         }
+
+        long pos = ChunkPos.asLong(chunkX, chunkZ);
+        ChunkHolder holder = this.getVisibleChunkIfPresent(pos);
+
+        if (holder == null) {
+            async$addToCache(cacheKey, null);
+            cir.setReturnValue(null);
+            return;
+        }
+
+        ChunkAccess chunk = async$unwrap(holder.getChunkIfPresent(ChunkStatus.FULL));
+        if (chunk instanceof LevelChunk levelChunk) {
+            async$addToCache(cacheKey, levelChunk);
+            cir.setReturnValue(levelChunk);
+            return;
+        }
+
+        CompletableFuture<ChunkResult<LevelChunk>> fullFuture = holder.getFullChunkFuture();
+        if (fullFuture.isDone() && !fullFuture.isCompletedExceptionally()) {
+            LevelChunk result = fullFuture.join().orElse(null);
+            if (result != null) {
+                async$addToCache(cacheKey, result);
+                cir.setReturnValue(result);
+                return;
+            }
+        }
+
+        CompletableFuture<ChunkResult<LevelChunk>> tickingFuture = holder.getTickingChunkFuture();
+        if (tickingFuture.isDone() && !tickingFuture.isCompletedExceptionally()) {
+            LevelChunk result = tickingFuture.join().orElse(null);
+            if (result != null) {
+                async$addToCache(cacheKey, result);
+                cir.setReturnValue(result);
+                return;
+            }
+        }
+
+        async$addToCache(cacheKey, null);
         cir.setReturnValue(null);
     }
 

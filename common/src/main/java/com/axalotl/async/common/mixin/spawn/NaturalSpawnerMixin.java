@@ -13,70 +13,30 @@ import net.minecraft.world.level.NaturalSpawner;
 import net.minecraft.world.level.PotentialCalculator;
 import net.minecraft.world.level.biome.MobSpawnSettings;
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Overwrite;
 import org.spongepowered.asm.mixin.Unique;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
-@Mixin(NaturalSpawner.class)
+@Mixin(value = NaturalSpawner.class, priority = 900)
 public abstract class NaturalSpawnerMixin {
 
-    /**
-     * @author Axalotl
-     * @reason Lock-free parallel mob counting for spawn state creation
-     */
-    @Overwrite
-    public static NaturalSpawner.SpawnState createState(
+    @Inject(method = "createState", at = @At("HEAD"), cancellable = true)
+    private static void async$createState(
             int spawnableChunkCount,
             Iterable<Entity> entities,
             NaturalSpawner.ChunkGetter chunkGetter,
-            LocalMobCapCalculator localMobCapCalculator
+            LocalMobCapCalculator localMobCapCalculator,
+            CallbackInfoReturnable<NaturalSpawner.SpawnState> cir
     ) {
         if (AsyncConfig.disabled || !AsyncConfig.enableAsyncSpawn) {
-            return async$createStateVanilla(spawnableChunkCount, entities, chunkGetter, localMobCapCalculator);
+            return;
         }
-
-        return async$createStateParallel(spawnableChunkCount, entities, chunkGetter, localMobCapCalculator);
-    }
-
-    @Unique
-    private static NaturalSpawner.SpawnState async$createStateVanilla(
-            int spawnableChunkCount,
-            Iterable<Entity> entities,
-            NaturalSpawner.ChunkGetter chunkGetter,
-            LocalMobCapCalculator localMobCapCalculator
-    ) {
-        PotentialCalculator potentialCalculator = new PotentialCalculator();
-        Object2IntOpenHashMap<MobCategory> mobCounts = new Object2IntOpenHashMap<>();
-
-        for (Entity entity : entities) {
-            if (entity instanceof Mob mob && (mob.isPersistenceRequired() || mob.requiresCustomPersistence())) {
-                continue;
-            }
-
-            MobCategory category = entity.getType().getCategory();
-            if (category != MobCategory.MISC) {
-                BlockPos blockPos = entity.blockPosition();
-                chunkGetter.query(ChunkPos.asLong(blockPos), chunk -> {
-                    MobSpawnSettings.MobSpawnCost cost = NaturalSpawner.getRoughBiome(blockPos, chunk)
-                            .getMobSettings()
-                            .getMobSpawnCost(entity.getType());
-                    if (cost != null) {
-                        potentialCalculator.addCharge(blockPos, cost.charge());
-                    }
-
-                    if (entity instanceof Mob) {
-                        localMobCapCalculator.addMob(chunk.getPos(), category);
-                    }
-
-                    mobCounts.addTo(category, 1);
-                });
-            }
-        }
-
-        return new NaturalSpawner.SpawnState(spawnableChunkCount, mobCounts, potentialCalculator, localMobCapCalculator);
+        cir.setReturnValue(async$createStateParallel(spawnableChunkCount, entities, chunkGetter, localMobCapCalculator));
     }
 
     @Unique
@@ -86,7 +46,6 @@ public abstract class NaturalSpawnerMixin {
             NaturalSpawner.ChunkGetter chunkGetter,
             LocalMobCapCalculator localMobCapCalculator
     ) {
-        // Быстрее чем forEach
         List<Entity> entityList;
         if (entities instanceof List<Entity> list) {
             entityList = list;

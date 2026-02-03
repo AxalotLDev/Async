@@ -35,20 +35,17 @@ public class ParallelProcessor {
     @Setter
     private static MinecraftServer server;
 
-    public static final AtomicInteger currentEntities = new AtomicInteger();
-    private static final AtomicInteger threadPoolID = new AtomicInteger();
     public static ForkJoinPool tickPool;
-    private static final ConcurrentLinkedQueue<CompletableFuture<?>> taskQueue = new ConcurrentLinkedQueue<>();
+    public static final AtomicInteger currentEntities = new AtomicInteger();
+    private static final Object ENTITY_ADD_LOCK = new Object();
+    private static final AtomicInteger threadPoolID = new AtomicInteger();
     private static final Set<UUID> blacklistedEntity = ConcurrentHashMap.newKeySet();
     private static final Map<UUID, Integer> portalTickSyncMap = new ConcurrentHashMap<>();
     private static final Map<String, Set<WeakReference<Thread>>> mcThreadTracker = new ConcurrentHashMap<>();
-
+    private static final ConcurrentLinkedQueue<CompletableFuture<?>> taskQueue = new ConcurrentLinkedQueue<>();
+    private static final ConcurrentLinkedQueue<CompletableFuture<Void>> spawnQueue = new ConcurrentLinkedQueue<>();
     private static volatile boolean isShuttingDown = false;
 
-    // ========== PARALLEL SPAWN SYSTEM ==========
-
-    private static final Object ENTITY_ADD_LOCK = new Object();
-    private static final ConcurrentLinkedQueue<CompletableFuture<Void>> spawnQueue = new ConcurrentLinkedQueue<>();
 
     public static final Set<Class<?>> BLOCKED_ENTITIES = Set.of(
             FallingBlockEntity.class,

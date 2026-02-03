@@ -69,7 +69,6 @@ public class BrainMixin<E extends LivingEntity> {
         if (async$inTick && snapshot != null) {
             Optional<? extends ExpirableValue<?>> value = snapshot.get(type);
             if (value == null) {
-                cir.setReturnValue(Optional.empty());
                 return;
             }
             @SuppressWarnings("unchecked")
@@ -86,7 +85,6 @@ public class BrainMixin<E extends LivingEntity> {
         if (async$inTick && snapshot != null) {
             Optional<? extends ExpirableValue<?>> value = snapshot.get(type);
             if (value == null) {
-                cir.setReturnValue(false);
                 return;
             }
             cir.setReturnValue(value.isPresent());
@@ -101,7 +99,6 @@ public class BrainMixin<E extends LivingEntity> {
         if (async$inTick && snapshot != null) {
             Optional<? extends ExpirableValue<?>> value = snapshot.get(type);
             if (value == null) {
-                cir.setReturnValue(false);
                 return;
             }
             boolean result = switch (status) {
