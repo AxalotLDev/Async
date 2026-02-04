@@ -24,6 +24,9 @@ public abstract class PersistentEntitySectionManagerMixin implements AutoCloseab
     @WrapMethod(method = "getEffectiveStatus")
     private static <T extends EntityAccess> Visibility getEffectiveStatus(T entity, Visibility visibility, Operation<Visibility> original) {
         Visibility result = original.call(entity, visibility);
-        return result != null ? result : Visibility.HIDDEN;
+        if (result == null) {
+            return entity.isAlwaysTicking() ? Visibility.TICKING : Visibility.TRACKED;
+        }
+        return result;
     }
 }
