@@ -86,8 +86,7 @@ public class BrainMixin<E extends LivingEntity> {
         Optional<? extends ExpirableValue<?>> value = snapshot.get(type);
 
         boolean result = switch (status) {
-            case REGISTERED -> value != null;
-            case VALUE_PRESENT -> value != null && value.isPresent();
+            case REGISTERED, VALUE_PRESENT -> value != null && value.isPresent();
             case VALUE_ABSENT -> value == null || value.isEmpty();
         };
 

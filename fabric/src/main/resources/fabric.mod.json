@@ -1,44 +1,45 @@
 {
-    "schemaVersion": 1,
-    "id": "async",
-    "version": "${version}",
-    "name": "${mod_name}",
-    "description": "${description}",
-    "authors": [
-        "${mod_author}"
+  "schemaVersion": 1,
+  "id": "async",
+  "version": "${version}",
+  "name": "${mod_name}",
+  "description": "${description}",
+  "authors": [
+    "${mod_author}"
+  ],
+  "contact": {
+    "homepage": "https://fabricmc.net/",
+    "sources": "https://github.com/FabricMC/fabric-example-mod"
+  },
+  "license": "${license}",
+  "icon": "async/icon.png",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "com.axalotl.async.fabric.AsyncFabric"
     ],
-    "contact": {
-        "homepage": "https://fabricmc.net/",
-        "sources": "https://github.com/FabricMC/fabric-example-mod"
-    },
-    "license": "${license}",
-    "icon": "async/icon.png",
-    "environment": "*",
-    "entrypoints": {
-        "main": [
-            "com.axalotl.async.fabric.AsyncFabric"
-        ],
-        "mixinsquared": [
-            "com.axalotl.async.common.mixin.utils.AsyncModMixinCanceller"
-        ]
-    },
-    "mixins": [
-        "async.common.mixins.json",
-        "async.fabric.mixins.json"
-    ],
-    "accessWidener": "async.accesswidener",
-    "depends": {
-        "fabricloader": "*",
-        "fabric-api": "*",
-        "minecraft": ">=1.21.6",
-        "java": ">=21"
-    },
-    "breaks": {
-        "moonrise": "*"
-    },
-    "custom": {
-      "lithium:options": {
-        "mixin.alloc.chunk_random": false
-      }
+    "mixinsquared": [
+      "com.axalotl.async.common.mixin.utils.AsyncModMixinCanceller"
+    ]
+  },
+  "mixins": [
+    "async.common.mixins.json",
+    "async.fabric.mixins.json"
+  ],
+  "accessWidener": "async.accesswidener",
+  "depends": {
+    "fabricloader": "*",
+    "fabric-api": "*",
+    "minecraft": ">=1.21.6",
+    "java": ">=21"
+  },
+  "breaks": {
+    "moonrise": "*"
+  },
+  "custom": {
+    "lithium:options": {
+      "mixin.alloc.chunk_random": false,
+      "mixin.ai.task.memory_change_counting": false
     }
+  }
 }
