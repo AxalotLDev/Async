@@ -21,7 +21,9 @@ import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Mixin(value = ServerChunkCache.class, priority = 1500)
 public abstract class ServerChunkCacheMixin extends ChunkSource {
@@ -43,13 +45,16 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
     @Shadow
     protected abstract CompletableFuture<ChunkResult<ChunkAccess>> getChunkFutureMainThread(int x, int z, ChunkStatus leastStatus, boolean create);
 
+    @Shadow
+    private final Set<ChunkHolder> chunkHoldersToBroadcast = ConcurrentHashMap.newKeySet();
+
     @Inject(method = "getChunk(IILnet/minecraft/world/level/chunk/status/ChunkStatus;Z)Lnet/minecraft/world/level/chunk/ChunkAccess;", at = @At("HEAD"), cancellable = true)
     private void async$getChunk(int x, int z, ChunkStatus leastStatus, boolean create, CallbackInfoReturnable<ChunkAccess> cir) {
         if (Thread.currentThread() == this.mainThread) return;
 
-        ChunkAccess fast = async$tryGetChunkFast(x, z, leastStatus);
-        if (fast != null) {
-            cir.setReturnValue(fast);
+        ChunkAccess access = async$tryGetChunk(x, z, leastStatus);
+        if (access != null) {
+            cir.setReturnValue(access);
             return;
         }
 
@@ -65,7 +70,7 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
     }
 
     @Unique
-    private @Nullable ChunkAccess async$tryGetChunkFast(int x, int z, ChunkStatus leastStatus) {
+    private @Nullable ChunkAccess async$tryGetChunk(int x, int z, ChunkStatus leastStatus) {
         ChunkHolder holder = this.getVisibleChunkIfPresent(ChunkPos.asLong(x, z));
         if (holder == null) return null;
 
@@ -98,7 +103,6 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
                 ChunkAccess chunk = future.getNow(ChunkHolder.UNLOADED_CHUNK).orElse(null);
                 if (chunk instanceof LevelChunk worldChunk) {
                     cir.setReturnValue(worldChunk);
-                    return;
                 }
             }
         }
