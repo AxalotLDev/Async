@@ -19,24 +19,20 @@ public class InteractWithDoorMixin {
             at = @At("HEAD"),
             cancellable = true
     )
-    private static void injectIsMobComingThroughDoor(
-            Brain<?> brain,
-            BlockPos pos,
-            CallbackInfoReturnable<Boolean> cir
-    ) {
+    private static void injectIsMobComingThroughDoor(Brain<?> brain, BlockPos pos, CallbackInfoReturnable<Boolean> cir) {
         Path path = brain.getMemory(MemoryModuleType.PATH).orElse(null);
-
         if (path == null || path.isDone()) {
             cir.setReturnValue(false);
             return;
         }
 
-        Node prev = path.getPreviousNode();
-        Node next = path.getNextNode();
+        Node prevNode = path.getPreviousNode();
+        if (prevNode == null) {
+            cir.setReturnValue(false);
+            return;
+        }
 
-        cir.setReturnValue(
-                prev != null && pos.equals(prev.asBlockPos()) ||
-                        pos.equals(next.asBlockPos())
-        );
+        Node nextNode = path.getNextNode();
+        cir.setReturnValue(pos.equals(prevNode.asBlockPos()) || pos.equals(nextNode.asBlockPos()));
     }
 }
