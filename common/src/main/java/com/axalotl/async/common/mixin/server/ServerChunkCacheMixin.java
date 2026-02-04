@@ -1,6 +1,5 @@
 package com.axalotl.async.common.mixin.server;
 
-import com.axalotl.async.common.AsyncCommon;
 import com.axalotl.async.common.ParallelProcessor;
 import net.minecraft.server.level.*;
 import net.minecraft.world.entity.MobCategory;
@@ -15,6 +14,7 @@ import org.jetbrains.annotations.Nullable;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
@@ -28,31 +28,65 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
     @Shadow
     @Final
     public ChunkMap chunkMap;
+
     @Shadow
     @Final
     Thread mainThread;
 
     @Shadow
+    @Final
+    public ServerChunkCache.MainThreadExecutor mainThreadProcessor;
+
+    @Shadow
     public abstract @Nullable ChunkHolder getVisibleChunkIfPresent(long pos);
 
-    @Inject(method = "getChunk(IILnet/minecraft/world/level/chunk/status/ChunkStatus;Z)Lnet/minecraft/world/level/chunk/ChunkAccess;",
-            at = @At("HEAD"), cancellable = true)
-    private void shortcutGetChunk(int x, int z, ChunkStatus leastStatus, boolean create, CallbackInfoReturnable<ChunkAccess> cir) {
-        if (AsyncCommon.LITHIUM) return;
-        if (Thread.currentThread() != this.mainThread) {
-            final ChunkHolder holder = this.getVisibleChunkIfPresent(ChunkPos.asLong(x, z));
-            if (holder != null) {
-                final CompletableFuture<ChunkResult<ChunkAccess>> future = holder.scheduleChunkGenerationTask(leastStatus, this.chunkMap);
-                if (future.isDone()) {
-                    ChunkAccess chunk = future.getNow(ChunkHolder.UNLOADED_CHUNK).orElse(null);
-                    if (chunk instanceof ImposterProtoChunk readOnlyChunk) chunk = readOnlyChunk.getWrapped();
-                    if (chunk != null) {
-                        cir.setReturnValue(chunk);
-                        return;
-                    }
-                }
-            }
+    @Shadow
+    protected abstract CompletableFuture<ChunkResult<ChunkAccess>> getChunkFutureMainThread(int x, int z, ChunkStatus leastStatus, boolean create);
+
+    @Inject(method = "getChunk(IILnet/minecraft/world/level/chunk/status/ChunkStatus;Z)Lnet/minecraft/world/level/chunk/ChunkAccess;", at = @At("HEAD"), cancellable = true)
+    private void async$getChunk(int x, int z, ChunkStatus leastStatus, boolean create, CallbackInfoReturnable<ChunkAccess> cir) {
+        if (Thread.currentThread() == this.mainThread) return;
+
+        ChunkAccess fast = async$tryGetChunkFast(x, z, leastStatus);
+        if (fast != null) {
+            cir.setReturnValue(fast);
+            return;
         }
+
+        CompletableFuture<ChunkResult<ChunkAccess>> future = CompletableFuture.supplyAsync(
+                        () -> this.getChunkFutureMainThread(x, z, leastStatus, create), this.mainThreadProcessor)
+                .thenCompose(f -> f);
+
+        ChunkAccess chunk = future.join().orElse(null);
+        if (chunk instanceof ImposterProtoChunk imposter) {
+            chunk = imposter.getWrapped();
+        }
+        cir.setReturnValue(chunk);
+    }
+
+    @Unique
+    private @Nullable ChunkAccess async$tryGetChunkFast(int x, int z, ChunkStatus leastStatus) {
+        ChunkHolder holder = this.getVisibleChunkIfPresent(ChunkPos.asLong(x, z));
+        if (holder == null) return null;
+
+        ChunkAccess chunk = holder.getChunkIfPresent(leastStatus);
+        if (chunk != null) {
+            if (chunk instanceof ImposterProtoChunk imposter) {
+                return imposter.getWrapped();
+            }
+            return chunk;
+        }
+
+        CompletableFuture<ChunkResult<ChunkAccess>> future = holder.scheduleChunkGenerationTask(leastStatus, this.chunkMap);
+        if (future.isDone()) {
+            ChunkAccess result = future.join().orElse(null);
+            if (result instanceof ImposterProtoChunk imposter) {
+                return imposter.getWrapped();
+            }
+            return result;
+        }
+
+        return null;
     }
 
     @Inject(method = "getChunkNow", at = @At("HEAD"), cancellable = true)
