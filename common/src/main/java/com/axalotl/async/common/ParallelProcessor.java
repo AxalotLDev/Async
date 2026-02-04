@@ -27,7 +27,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.locks.LockSupport;
 
 public class ParallelProcessor {
     public static final Logger LOGGER = LogManager.getLogger(ParallelProcessor.class);
@@ -39,7 +38,7 @@ public class ParallelProcessor {
     public static final AtomicInteger currentEntities = new AtomicInteger();
     private static final AtomicInteger threadPoolID = new AtomicInteger();
     public static ExecutorService tickPool;
-    private static final BlockingQueue<CompletableFuture<?>> taskQueue = new LinkedBlockingQueue<>();
+    private static final ConcurrentLinkedQueue<CompletableFuture<?>> taskQueue = new ConcurrentLinkedQueue<>();
     private static final Set<UUID> blacklistedEntity = ConcurrentHashMap.newKeySet();
     private static final Map<UUID, Integer> portalTickSyncMap = new ConcurrentHashMap<>();
     private static final Map<String, Set<WeakReference<Thread>>> mcThreadTracker = new ConcurrentHashMap<>();
@@ -48,8 +47,10 @@ public class ParallelProcessor {
             Shulker.class,
             Boat.class
     );
+    private static volatile boolean isShuttingDown = false;
 
     public static void setupThreadPool(int parallelism, Class<?> asyncClass) {
+        isShuttingDown = false;
         ForkJoinPool.ForkJoinWorkerThreadFactory threadFactory = pool -> {
             ForkJoinWorkerThread worker = ForkJoinPool.defaultForkJoinWorkerThreadFactory.newThread(pool);
             worker.setName("Async-Tick-Pool-Thread-" + threadPoolID.getAndIncrement());
@@ -103,6 +104,9 @@ public class ParallelProcessor {
     }
 
     public static boolean shouldTickSynchronously(Entity entity) {
+        if (isShuttingDown) {
+            return true;
+        }
         if (entity.level().isClientSide()) {
             return true;
         }
@@ -187,14 +191,14 @@ public class ParallelProcessor {
 
     public static void postEntityTick() {
         if (AsyncConfig.disabled) return;
-        List<CompletableFuture<?>> futuresList = new ArrayList<>();
+        List<CompletableFuture<?>> tasks = new ArrayList<>();
         CompletableFuture<?> future;
         while ((future = taskQueue.poll()) != null) {
-            futuresList.add(future);
+            tasks.add(future);
         }
 
         CompletableFuture<?> allTasks = CompletableFuture.allOf(
-                futuresList.toArray(new CompletableFuture[0])
+                tasks.toArray(new CompletableFuture[0])
         );
 
         allTasks.exceptionally(ex -> {
@@ -210,7 +214,7 @@ public class ParallelProcessor {
                 hasTask |= world.getChunkSource().pollTask();
             }
             if (!hasTask) {
-                LockSupport.parkNanos(50_000);
+                Thread.onSpinWait();
             }
         }
 
@@ -222,6 +226,7 @@ public class ParallelProcessor {
 
     @SuppressWarnings("ResultOfMethodCallIgnored")
     public static void stop() {
+        isShuttingDown = true;
         if (tickPool != null) {
             LOGGER.info("Waiting for Async tickPool to shutdown...");
             tickPool.shutdown();
