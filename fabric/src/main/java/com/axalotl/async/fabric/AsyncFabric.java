@@ -3,7 +3,6 @@ package com.axalotl.async.fabric;
 import com.axalotl.async.common.AsyncCommon;
 import com.axalotl.async.common.ParallelProcessor;
 import com.axalotl.async.common.commands.AsyncCommand;
-import com.axalotl.async.common.commands.StatsCommand;
 import com.axalotl.async.common.config.AsyncConfig;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
@@ -20,8 +19,6 @@ public class AsyncFabric extends AsyncCommon implements ModInitializer {
         this.initialize();
         com.axalotl.async.fabric.config.AsyncConfig.init();
 
-        StatsCommand.runStatsThread();
-
         ServerLifecycleEvents.SERVER_STARTING.register(server -> {
             LOGGER.info("Async Setting up thread-pool...");
             ParallelProcessor.setServer(server);
@@ -30,10 +27,7 @@ public class AsyncFabric extends AsyncCommon implements ModInitializer {
 
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> AsyncCommand.register(dispatcher));
 
-        ServerLifecycleEvents.SERVER_STOPPING.register(server -> {
-            StatsCommand.shutdown();
-            ParallelProcessor.stop();
-        });
+        ServerLifecycleEvents.SERVER_STOPPING.register(server -> ParallelProcessor.stop());
 
         LOGGER.info("Async Initialized Successfully!");
     }
