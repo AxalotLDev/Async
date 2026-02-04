@@ -36,4 +36,9 @@ public abstract class EntitySectionStorageMixin<T extends EntityAccess> {
                 .toList()
                 .stream();
     }
+
+    @WrapMethod(method = "getOrCreateSection")
+    private EntitySection<T> getOrCreateSection(long pos, Operation<EntitySection<T>> original) {
+        return this.sections.computeIfAbsent(pos, original::call);
+    }
 }
