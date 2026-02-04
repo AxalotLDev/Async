@@ -18,9 +18,9 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Mixin(value = Brain.class, priority = 1500)
 public class BrainMixin<E extends LivingEntity> {
@@ -30,15 +30,30 @@ public class BrainMixin<E extends LivingEntity> {
     private Map<MemoryModuleType<?>, Optional<? extends ExpirableValue<?>>> memories;
 
     @Unique
-    private Map<MemoryModuleType<?>, Optional<? extends ExpirableValue<?>>> async$snapshot;
+    private volatile Map<MemoryModuleType<?>, Optional<? extends ExpirableValue<?>>> async$snapshot;
+
+    @Unique
+    private volatile boolean async$needsRebuild = true;
 
     @Unique
     private volatile boolean async$inTick;
 
+    @Unique
+    private final Object async$writeLock = new Object();
+
     @Inject(method = "tick", at = @At("HEAD"))
     private void async$buildSnapshot(ServerLevel level, E entity, CallbackInfo ci) {
         if (AsyncConfig.disabled) return;
-        async$snapshot = new HashMap<>(this.memories);
+
+        if (async$needsRebuild || async$snapshot == null) {
+            synchronized (async$writeLock) {
+                if (async$needsRebuild || async$snapshot == null) {
+                    async$snapshot = new ConcurrentHashMap<>(this.memories);
+                    async$needsRebuild = false;
+                }
+            }
+        }
+
         async$inTick = true;
     }
 
@@ -49,48 +64,48 @@ public class BrainMixin<E extends LivingEntity> {
 
     @Inject(method = "getMemory", at = @At("HEAD"), cancellable = true)
     private <U> void async$getMemory(MemoryModuleType<U> type, CallbackInfoReturnable<Optional<U>> cir) {
-        if (AsyncConfig.disabled || !async$inTick) return;
+        if (AsyncConfig.disabled) return;
 
         Map<MemoryModuleType<?>, Optional<? extends ExpirableValue<?>>> snapshot = async$snapshot;
-        if (snapshot == null) return;
-
-        Optional<? extends ExpirableValue<?>> value = snapshot.get(type);
-        if (value == null) {
-            cir.setReturnValue(Optional.empty());
-            return;
+        if (async$inTick && snapshot != null) {
+            Optional<? extends ExpirableValue<?>> value = snapshot.get(type);
+            if (value == null) {
+                cir.setReturnValue(Optional.empty());
+                return;
+            }
+            @SuppressWarnings("unchecked")
+            Optional<U> result = (Optional<U>) value.map(ExpirableValue::getValue);
+            cir.setReturnValue(result);
         }
-
-        @SuppressWarnings("unchecked")
-        Optional<U> result = (Optional<U>) value.map(ExpirableValue::getValue);
-        cir.setReturnValue(result);
     }
 
     @Inject(method = "hasMemoryValue", at = @At("HEAD"), cancellable = true)
     private void async$hasMemoryValue(MemoryModuleType<?> type, CallbackInfoReturnable<Boolean> cir) {
-        if (AsyncConfig.disabled || !async$inTick) return;
+        if (AsyncConfig.disabled) return;
 
         Map<MemoryModuleType<?>, Optional<? extends ExpirableValue<?>>> snapshot = async$snapshot;
-        if (snapshot == null) return;
-
-        Optional<? extends ExpirableValue<?>> value = snapshot.get(type);
-        cir.setReturnValue(value != null && value.isPresent());
+        if (async$inTick && snapshot != null) {
+            Optional<? extends ExpirableValue<?>> value = snapshot.get(type);
+            cir.setReturnValue(value != null && value.isPresent());
+        }
     }
 
     @Inject(method = "checkMemory", at = @At("HEAD"), cancellable = true)
     private void async$checkMemory(MemoryModuleType<?> type, MemoryStatus status, CallbackInfoReturnable<Boolean> cir) {
-        if (AsyncConfig.disabled || !async$inTick) return;
+        if (AsyncConfig.disabled) return;
 
         Map<MemoryModuleType<?>, Optional<? extends ExpirableValue<?>>> snapshot = async$snapshot;
-        if (snapshot == null) return;
+        if (async$inTick && snapshot != null) {
+            Optional<? extends ExpirableValue<?>> value = snapshot.get(type);
 
-        Optional<? extends ExpirableValue<?>> value = snapshot.get(type);
+            boolean result = switch (status) {
+                case REGISTERED -> true;
+                case VALUE_PRESENT -> value != null && value.isPresent();
+                case VALUE_ABSENT -> value == null || value.isEmpty();
+            };
 
-        boolean result = switch (status) {
-            case REGISTERED, VALUE_PRESENT -> value != null && value.isPresent();
-            case VALUE_ABSENT -> value == null || value.isEmpty();
-        };
-
-        cir.setReturnValue(result);
+            cir.setReturnValue(result);
+        }
     }
 
     @WrapMethod(method = "setMemoryInternal")
@@ -104,8 +119,24 @@ public class BrainMixin<E extends LivingEntity> {
             return;
         }
 
-        synchronized (this) {
+        synchronized (async$writeLock) {
             original.call(memoryType, memory);
+            if (async$snapshot != null && async$snapshot.containsKey(memoryType)) {
+                async$snapshot.put(memoryType, memory);
+            }
+        }
+    }
+
+    @WrapMethod(method = "clearMemories")
+    private void async$clearMemories(Operation<Void> original) {
+        if (AsyncConfig.disabled) {
+            original.call();
+            return;
+        }
+
+        synchronized (async$writeLock) {
+            original.call();
+            async$needsRebuild = true;
         }
     }
 }
