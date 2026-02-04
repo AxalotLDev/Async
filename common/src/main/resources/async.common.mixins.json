@@ -22,6 +22,7 @@
     "entity.FoxMixin",
     "entity.GoalSelectorMixin",
     "entity.GossipContainerMixin",
+    "entity.InteractWithDoorMixin",
     "entity.LivingEntityMixin",
     "entity.MobMixin",
     "entity.NearestVisibleLivingEntitiesMixin",
