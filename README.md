@@ -43,6 +43,7 @@ Concurrent Chunk Management Engine, Fabric API, FerriteCore, Lithium, ScalableLu
 
 ## ⚠️ Incompatible Mods
 - ❌ Moonrise - Known incompatibility
+- ❌ Open Parties and Claims - Known incompatibility
 - ⚠️ ...and there may be conflicts with other mods.
 
 *If you encounter issues with other mods, please report them on our [GitHub](https://github.com/AxalotLDev/Async/issues) or [Discord](https://discord.com/invite/scvCQ2qKS3).*
