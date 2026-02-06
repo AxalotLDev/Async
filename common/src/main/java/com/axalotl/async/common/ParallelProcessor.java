@@ -40,12 +40,10 @@ public class ParallelProcessor {
     private static final Object ENTITY_ADD_LOCK = new Object();
     private static final AtomicInteger threadPoolID = new AtomicInteger();
     private static final Set<UUID> blacklistedEntity = ConcurrentHashMap.newKeySet();
-    private static final Map<UUID, Integer> portalTickSyncMap = new ConcurrentHashMap<>();
     private static final Map<String, Set<WeakReference<Thread>>> mcThreadTracker = new ConcurrentHashMap<>();
     private static final ConcurrentLinkedQueue<CompletableFuture<?>> taskQueue = new ConcurrentLinkedQueue<>();
     private static final ConcurrentLinkedQueue<CompletableFuture<Void>> spawnQueue = new ConcurrentLinkedQueue<>();
     private static volatile boolean isShuttingDown = false;
-
 
     public static final Set<Class<?>> BLOCKED_ENTITIES = Set.of(
             FallingBlockEntity.class,
@@ -70,7 +68,6 @@ public class ParallelProcessor {
                 LOGGER.error("Uncaught exception in thread {}: {}", t.getName(), e), true);
         LOGGER.info("Initialized Pool with {} threads", parallelism);
     }
-
 
     public static void registerThread(String poolName, Thread thread) {
         mcThreadTracker
@@ -130,42 +127,17 @@ public class ParallelProcessor {
             return true;
         }
 
-        if (portalTickSyncMap.containsKey(entityId)) {
-            int ticksLeft = portalTickSyncMap.get(entityId);
-            if (ticksLeft > 0) {
-                portalTickSyncMap.put(entityId, ticksLeft - 1);
-                return true;
-            } else {
-                portalTickSyncMap.remove(entityId);
-            }
-        }
-
-        if (isPortalTickRequired(entity)) {
-            portalTickSyncMap.put(entityId, 39);
-            return true;
-        }
-        return false;
-    }
-
-    private static boolean isPortalTickRequired(Entity entity) {
-        return entity.portalProcess != null && entity.portalProcess.isInsidePortalThisTick();
+        return entity.portalProcess != null;
     }
 
     private static void tickSynchronously(ServerLevel world, Entity entity) {
-        try {
-            world.tickNonPassenger(entity);
-        } catch (Exception e) {
-            logEntityError("Error during synchronous tick", entity, e);
-        }
+        world.tickNonPassenger(entity);
     }
 
     private static void performAsyncEntityTick(ServerLevel world, Entity entity) {
         currentEntities.incrementAndGet();
-        try {
-            world.tickNonPassenger(entity);
-        } finally {
-            currentEntities.decrementAndGet();
-        }
+        world.tickNonPassenger(entity);
+        currentEntities.decrementAndGet();
     }
 
     public static Object getEntityAddLock() {
@@ -264,8 +236,6 @@ public class ParallelProcessor {
         for (ServerLevel world : server.getAllLevels()) {
             world.getChunkSource().pollTask();
         }
-
-
     }
 
     public static void stop() {
@@ -296,7 +266,6 @@ public class ParallelProcessor {
 
         AsyncConfig.clearCaches();
         blacklistedEntity.clear();
-        portalTickSyncMap.clear();
     }
 
     private static void logEntityError(String message, Entity entity, Throwable e) {
