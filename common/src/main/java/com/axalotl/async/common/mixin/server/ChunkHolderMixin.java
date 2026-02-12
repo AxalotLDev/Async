@@ -4,6 +4,7 @@ import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ChunkHolder;
+import net.minecraft.world.level.LightLayer;
 import net.minecraft.world.level.chunk.LevelChunk;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
@@ -25,6 +26,13 @@ public class ChunkHolderMixin {
     private boolean wrapBlockChanged(BlockPos pos, Operation<Boolean> original) {
         synchronized (async$lock) {
             return original.call(pos);
+        }
+    }
+
+    @WrapMethod(method = "sectionLightChanged")
+    private boolean wrapSectionLightChanged(LightLayer layer, int y, Operation<Boolean> original) {
+        synchronized (async$lock) {
+            return original.call(layer, y);
         }
     }
 }
