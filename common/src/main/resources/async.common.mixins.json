@@ -51,6 +51,7 @@
     "entity.spawn.LocalMobCapCalculatorMixin",
     "entity.spawn.NaturalSpawnerMixin",
     "entity.spawn.PotentialCalculatorMixin",
+    "lithium.GameEventDispatcherStorageMixin",
     "lithium.LithiumRandomTickMixin",
     "lithium.LithiumServerLevel",
     "server.ChunkHolderMixin",
