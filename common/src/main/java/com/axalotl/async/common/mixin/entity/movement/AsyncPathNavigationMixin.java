@@ -29,115 +29,87 @@ public abstract class AsyncPathNavigationMixin implements AsyncSafeNavigation {
     protected Mob mob;
 
     @Unique
-    private volatile PathSnapshot async$snapshot = null;
-
+    private volatile long async$snapshotCenterXBits = 0;
     @Unique
-    private final Object async$lock = new Object();
+    private volatile long async$snapshotCenterYBits = 0;
+    @Unique
+    private volatile long async$snapshotCenterZBits = 0;
+    @Unique
+    private volatile int async$snapshotRemaining = 0;
 
     @Inject(method = "moveTo(Lnet/minecraft/world/level/pathfinder/Path;D)Z", at = @At("RETURN"))
     private void async$onMoveTo(Path path, double speed, CallbackInfoReturnable<Boolean> cir) {
-        async$updateSnapshot();
+        async$rebuildSnapshot();
     }
 
     @Inject(method = "recomputePath", at = @At("RETURN"))
     private void async$onRecompute(CallbackInfo ci) {
-        async$updateSnapshot();
+        async$rebuildSnapshot();
     }
 
     @Inject(method = "stop", at = @At("RETURN"))
     private void async$onStop(CallbackInfo ci) {
-        this.async$snapshot = null;
+        this.async$snapshotRemaining = 0;
     }
 
     @Inject(method = "tick", at = @At("RETURN"))
     private void async$onTick(CallbackInfo ci) {
-        synchronized (async$lock) {
-            Path currentPath = this.path;
-            if (currentPath == null || currentPath.isDone()) {
-                return;
-            }
-
-            PathSnapshot currentSnapshot = this.async$snapshot;
-            if (currentSnapshot == null) {
-                return;
-            }
-
-            int nodeCount = currentPath.getNodeCount();
-            int nextIndex = currentPath.getNextNodeIndex();
-            int remainingNodes = nodeCount - nextIndex;
-
-            if (remainingNodes <= 0) {
-                return;
-            }
-
-            Node endNode = currentPath.getEndNode();
-            if (endNode == null) {
-                return;
-            }
-
-            double mobX = this.mob.getX();
-            double mobY = this.mob.getY();
-            double mobZ = this.mob.getZ();
-
-            double newCenterX = (endNode.x + mobX) / 2.0;
-            double newCenterY = (endNode.y + mobY) / 2.0;
-            double newCenterZ = (endNode.z + mobZ) / 2.0;
-
-            double dx = newCenterX - currentSnapshot.centerX();
-            double dy = newCenterY - currentSnapshot.centerY();
-            double dz = newCenterZ - currentSnapshot.centerZ();
-
-            double newMaxDistSq = (double) remainingNodes * remainingNodes;
-
-            if (dx * dx + dy * dy + dz * dz > 1.0 ||
-                    Math.abs(newMaxDistSq - currentSnapshot.maxDistanceSq()) > remainingNodes) {
-                this.async$snapshot = new PathSnapshot(newCenterX, newCenterY, newCenterZ, newMaxDistSq);
-            }
-        }
+        async$rebuildSnapshot();
     }
 
     @Unique
-    private void async$updateSnapshot() {
-        synchronized (async$lock) {
-            Path currentPath = this.path;
+    private void async$rebuildSnapshot() {
+        Path currentPath = this.path;
 
-            if (currentPath == null || currentPath.isDone() || currentPath.getNodeCount() == 0) {
-                this.async$snapshot = null;
-                return;
-            }
-
-            Node endNode = currentPath.getEndNode();
-            if (endNode == null) {
-                this.async$snapshot = null;
-                return;
-            }
-
-            int remainingNodes = currentPath.getNodeCount() - currentPath.getNextNodeIndex();
-            if (remainingNodes <= 0) {
-                this.async$snapshot = null;
-                return;
-            }
-
-            double centerX = (endNode.x + this.mob.getX()) / 2.0;
-            double centerY = (endNode.y + this.mob.getY()) / 2.0;
-            double centerZ = (endNode.z + this.mob.getZ()) / 2.0;
-            double maxDistanceSq = (double) remainingNodes * remainingNodes;
-
-            this.async$snapshot = new PathSnapshot(centerX, centerY, centerZ, maxDistanceSq);
+        if (currentPath == null || currentPath.isDone()) {
+            this.async$snapshotRemaining = 0;
+            return;
         }
+
+        int nodeCount = currentPath.getNodeCount();
+        if (nodeCount == 0) {
+            this.async$snapshotRemaining = 0;
+            return;
+        }
+
+        Node endNode = currentPath.getEndNode();
+        if (endNode == null) {
+            this.async$snapshotRemaining = 0;
+            return;
+        }
+
+        int remaining = nodeCount - currentPath.getNextNodeIndex();
+        if (remaining <= 0) {
+            this.async$snapshotRemaining = 0;
+            return;
+        }
+
+        this.async$snapshotCenterXBits = Double.doubleToRawLongBits((endNode.x + this.mob.getX()) * 0.5);
+        this.async$snapshotCenterYBits = Double.doubleToRawLongBits((endNode.y + this.mob.getY()) * 0.5);
+        this.async$snapshotCenterZBits = Double.doubleToRawLongBits((endNode.z + this.mob.getZ()) * 0.5);
+        this.async$snapshotRemaining = remaining;
     }
 
     @Override
     public boolean async$shouldRecomputePathSafe(BlockPos pos) {
-        if (this.hasDelayedRecomputation) {
+        int remaining = this.async$snapshotRemaining;
+        if (remaining <= 0 || this.hasDelayedRecomputation) {
             return false;
         }
 
-        PathSnapshot snapshot = this.async$snapshot;
-        if (snapshot == null) {
-            return false;
-        }
+        double cx = Double.longBitsToDouble(this.async$snapshotCenterXBits);
+        double cy = Double.longBitsToDouble(this.async$snapshotCenterYBits);
+        double cz = Double.longBitsToDouble(this.async$snapshotCenterZBits);
 
-        return snapshot.shouldRecompute(pos);
+        double dx = pos.getX() + 0.5 - cx;
+        if (dx > remaining || dx < -remaining) return false;
+
+        double dy = pos.getY() + 0.5 - cy;
+        if (dy > remaining || dy < -remaining) return false;
+
+        double dz = pos.getZ() + 0.5 - cz;
+        if (dz > remaining || dz < -remaining) return false;
+
+        return dx * dx + dy * dy + dz * dz < (double) remaining * remaining;
     }
 }
