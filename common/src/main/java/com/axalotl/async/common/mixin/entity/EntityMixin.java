@@ -20,7 +20,7 @@ public abstract class EntityMixin {
     @Shadow public abstract BlockPos blockPosition();
 
     @Unique
-    private final Object async$lock = new Object();
+    private static final Object async$lock = new Object();
 
     @WrapMethod(method = "setRemoved")
     private void setRemoved(Entity.RemovalReason reason, Operation<Void> original) {
