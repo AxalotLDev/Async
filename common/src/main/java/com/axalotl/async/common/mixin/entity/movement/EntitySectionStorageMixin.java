@@ -36,16 +36,13 @@ public abstract class EntitySectionStorageMixin<T extends EntityAccess> {
 
 
     @Unique
-    private final Object async$createLock = new Object();
+    private final Object async$Lock = new Object();
 
     @WrapMethod(method = "getOrCreateSection")
     private EntitySection<T> getOrCreateSection(long pos, Operation<EntitySection<T>> original) {
         EntitySection<T> existing = this.sections.get(pos);
         if (existing != null) return existing;
-
-        synchronized (async$createLock) {
-            existing = this.sections.get(pos);
-            if (existing != null) return existing;
+        synchronized (async$Lock) {
             return original.call(pos);
         }
     }
