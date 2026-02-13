@@ -19,7 +19,6 @@ public class AsyncModMixinCanceller implements MixinCanceller {
         switch (mixinClassName) {
             case "com.ishland.c2me.fixes.general.threading_issues.mixin.asynccatchers.MixinThreadedAnvilChunkStorage":
             case "com.ishland.c2me.fixes.worldgen.threading_issues.mixin.threading_detections.random_instances.MixinWorld":
-            case "com.ishland.c2me.base.mixin.instrumentation.MixinServerChunkManager":
             case "me.wesley1808.servercore.mixin.optimizations.ticking.chunk.cache.ServerChunkCacheMixin":
                 return true;
         }
