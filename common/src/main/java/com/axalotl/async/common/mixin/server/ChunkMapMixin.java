@@ -1,6 +1,7 @@
 package com.axalotl.async.common.mixin.server;
 
 import com.axalotl.async.common.ParallelProcessor;
+import com.axalotl.async.common.RandomTickBatch;
 import com.axalotl.async.common.config.AsyncConfig;
 import com.axalotl.async.common.parallelised.fastutil.ConcurrentLongLinkedOpenHashSet;
 import com.axalotl.async.common.parallelised.fastutil.Int2ObjectConcurrentHashMap;
@@ -16,7 +17,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.RecursiveAction;
 import java.util.function.Consumer;
 import net.minecraft.core.SectionPos;
 import net.minecraft.server.level.ChunkGenerationTask;
@@ -170,8 +170,6 @@ public abstract class ChunkMapMixin
         }
     }
 
-    private static final int RANDOM_TICK_GRAIN = 16;
-
     @WrapMethod(method = "forEachBlockTickingChunk")
     private void forEachBlockTickingChunk(
         Consumer<LevelChunk> action,
@@ -211,49 +209,6 @@ public abstract class ChunkMapMixin
             }
         } else {
             original.call(action);
-        }
-    }
-
-    static final class RandomTickBatch extends RecursiveAction {
-
-        private final LevelChunk[] chunks;
-        private final int from;
-        private final int to;
-        private final Consumer<LevelChunk> action;
-
-        RandomTickBatch(
-            LevelChunk[] chunks,
-            int from,
-            int to,
-            Consumer<LevelChunk> action
-        ) {
-            this.chunks = chunks;
-            this.from = from;
-            this.to = to;
-            this.action = action;
-        }
-
-        @Override
-        protected void compute() {
-            int size = to - from;
-            if (size <= RANDOM_TICK_GRAIN) {
-                for (int i = from; i < to; i++) {
-                    try {
-                        action.accept(chunks[i]);
-                    } catch (Throwable e) {
-                        ParallelProcessor.LOGGER.error(
-                            "Error in async random tick",
-                            e
-                        );
-                    }
-                }
-            } else {
-                int mid = (from + to) >>> 1;
-                invokeAll(
-                    new RandomTickBatch(chunks, from, mid, action),
-                    new RandomTickBatch(chunks, mid, to, action)
-                );
-            }
         }
     }
 }
