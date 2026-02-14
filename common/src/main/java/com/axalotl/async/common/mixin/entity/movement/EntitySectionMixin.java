@@ -26,8 +26,7 @@ public class EntitySectionMixin<T extends EntityAccess> {
     private Visibility chunkStatus;
 
     @Unique
-    private final AtomicReference<Visibility> async$atomicStatus =
-        new AtomicReference<>(Visibility.HIDDEN);
+    private final AtomicReference<Visibility> async$atomicStatus = new AtomicReference<>(Visibility.HIDDEN);
 
     @Unique
     private final Object async$storageLock = new Object();
