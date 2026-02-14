@@ -11,6 +11,13 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectLinkedOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongIterator;
 import it.unimi.dsi.fastutil.longs.LongSet;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.RecursiveAction;
+import java.util.function.Consumer;
 import net.minecraft.core.SectionPos;
 import net.minecraft.server.level.ChunkGenerationTask;
 import net.minecraft.server.level.ChunkHolder;
@@ -32,15 +39,11 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.function.Consumer;
-
 @Mixin(value = ChunkMap.class, priority = 1500)
-public abstract class ChunkMapMixin extends SimpleRegionStorage implements ChunkHolder.PlayerProvider {
+public abstract class ChunkMapMixin
+    extends SimpleRegionStorage
+    implements ChunkHolder.PlayerProvider
+{
 
     @Shadow
     @Final
@@ -68,7 +71,13 @@ public abstract class ChunkMapMixin extends SimpleRegionStorage implements Chunk
     @Final
     ServerLevel level;
 
-    public ChunkMapMixin(RegionStorageInfo p_326109_, Path p_321582_, DataFixer p_321815_, boolean p_321788_, DataFixTypes p_321522_) {
+    public ChunkMapMixin(
+        RegionStorageInfo p_326109_,
+        Path p_321582_,
+        DataFixer p_321815_,
+        boolean p_321788_,
+        DataFixTypes p_321522_
+    ) {
         super(p_326109_, p_321582_, p_321815_, p_321788_, p_321522_);
     }
 
@@ -80,27 +89,46 @@ public abstract class ChunkMapMixin extends SimpleRegionStorage implements Chunk
     }
 
     @WrapMethod(method = "addEntity")
-    private synchronized void addEntity(Entity entity, Operation<Void> original) {
+    private synchronized void addEntity(
+        Entity entity,
+        Operation<Void> original
+    ) {
         original.call(entity);
     }
 
     @WrapMethod(method = "removeEntity")
-    private synchronized void removeEntity(Entity entity, Operation<Void> original) {
+    private synchronized void removeEntity(
+        Entity entity,
+        Operation<Void> original
+    ) {
         original.call(entity);
     }
 
     @WrapMethod(method = "releaseGeneration")
-    private synchronized void releaseGeneration(GenerationChunkHolder chunk, Operation<Void> original) {
+    private synchronized void releaseGeneration(
+        GenerationChunkHolder chunk,
+        Operation<Void> original
+    ) {
         original.call(chunk);
     }
 
-    @Inject(method = "addEntity", at = @At(value = "INVOKE", target = "Lnet/minecraft/util/Util;pauseInIde(Ljava/lang/Throwable;)Ljava/lang/Throwable;"), cancellable = true)
+    @Inject(
+        method = "addEntity",
+        at = @At(
+            value = "INVOKE",
+            target = "Lnet/minecraft/util/Util;pauseInIde(Ljava/lang/Throwable;)Ljava/lang/Throwable;"
+        ),
+        cancellable = true
+    )
     private void skipThrowLoadEntity(Entity entity, CallbackInfo ci) {
         ci.cancel();
     }
 
     @WrapMethod(method = "collectSpawningChunks")
-    private void async$optimizedCollectSpawningChunks(List<LevelChunk> result, Operation<Void> original) {
+    private void async$optimizedCollectSpawningChunks(
+        List<LevelChunk> result,
+        Operation<Void> original
+    ) {
         List<ServerPlayer> players = this.level.players();
         double[] playerX = new double[players.size()];
         double[] playerZ = new double[players.size()];
@@ -142,35 +170,90 @@ public abstract class ChunkMapMixin extends SimpleRegionStorage implements Chunk
         }
     }
 
-    @WrapMethod(method = "forEachBlockTickingChunk")
-    private void forEachBlockTickingChunk(Consumer<LevelChunk> action, Operation<Void> original) {
-        if (!AsyncConfig.disabled && AsyncConfig.enableAsyncRandomTicks) {
-            // Snapshot chunk positions for thread-safe iteration
-            List<Long> keys = new ArrayList<>();
-            distanceManager.forEachEntityTickingChunk(keys::add);
+    private static final int RANDOM_TICK_GRAIN = 16;
 
-            for (long chunkPos : keys) {
-                ChunkHolder holder = visibleChunkMap.get(chunkPos);
+    @WrapMethod(method = "forEachBlockTickingChunk")
+    private void forEachBlockTickingChunk(
+        Consumer<LevelChunk> action,
+        Operation<Void> original
+    ) {
+        if (!AsyncConfig.disabled && AsyncConfig.enableAsyncRandomTicks) {
+            // Collect eligible chunks into an array for RecursiveAction subdivision.
+            // Avoids per-chunk CompletableFuture allocation and MpscQueue CAS overhead.
+            ArrayList<LevelChunk> chunks = new ArrayList<>();
+            distanceManager.forEachEntityTickingChunk(pos -> {
+                ChunkHolder holder = visibleChunkMap.get(pos);
                 if (holder != null) {
                     LevelChunk chunk = holder.getTickingChunk();
                     if (chunk != null) {
-                        CompletableFuture<Void> future = CompletableFuture.runAsync(
-                                () -> {
-                                    if (chunk.getLevel() != null) {
-                                        action.accept(chunk);
-                                    }
-                                },
-                                ParallelProcessor.tickPool
-                        ).exceptionally(e -> {
-                            ParallelProcessor.LOGGER.error("Error in async random tick", e);
-                            return null;
-                        });
-                        ParallelProcessor.addTask(future);
+                        chunks.add(chunk);
                     }
                 }
+            });
+
+            if (!chunks.isEmpty()) {
+                LevelChunk[] arr = chunks.toArray(new LevelChunk[0]);
+                CompletableFuture<Void> future = new CompletableFuture<>();
+                ParallelProcessor.tickPool.execute(() -> {
+                    try {
+                        new RandomTickBatch(
+                            arr,
+                            0,
+                            arr.length,
+                            action
+                        ).invoke();
+                        future.complete(null);
+                    } catch (Throwable e) {
+                        future.completeExceptionally(e);
+                    }
+                });
+                ParallelProcessor.addTask(future);
             }
         } else {
             original.call(action);
+        }
+    }
+
+    static final class RandomTickBatch extends RecursiveAction {
+
+        private final LevelChunk[] chunks;
+        private final int from;
+        private final int to;
+        private final Consumer<LevelChunk> action;
+
+        RandomTickBatch(
+            LevelChunk[] chunks,
+            int from,
+            int to,
+            Consumer<LevelChunk> action
+        ) {
+            this.chunks = chunks;
+            this.from = from;
+            this.to = to;
+            this.action = action;
+        }
+
+        @Override
+        protected void compute() {
+            int size = to - from;
+            if (size <= RANDOM_TICK_GRAIN) {
+                for (int i = from; i < to; i++) {
+                    try {
+                        action.accept(chunks[i]);
+                    } catch (Throwable e) {
+                        ParallelProcessor.LOGGER.error(
+                            "Error in async random tick",
+                            e
+                        );
+                    }
+                }
+            } else {
+                int mid = (from + to) >>> 1;
+                invokeAll(
+                    new RandomTickBatch(chunks, from, mid, action),
+                    new RandomTickBatch(chunks, mid, to, action)
+                );
+            }
         }
     }
 }
