@@ -66,6 +66,8 @@ public class EntitySectionMixin<T extends EntityAccess> {
 
     @WrapMethod(method = "getEntities()Ljava/util/stream/Stream;")
     private Stream<T> getEntities(Operation<Stream<T>> original) {
-        return storage.stream().filter(Objects::nonNull).toList().stream();
+        // storage is backed by CopyOnWriteArrayList (via ClassInstanceMultiMapMixin),
+        // so .stream() already iterates a snapshot. No need to copy into a second list.
+        return storage.stream().filter(Objects::nonNull);
     }
 }

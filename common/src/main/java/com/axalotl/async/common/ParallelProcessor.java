@@ -396,8 +396,14 @@ public class ParallelProcessor {
         }
 
         // --- Wait for completion while doing useful work ---
-        // Instead of pure spin-wait, we interleave chunk source polling (which processes
-        // light updates, chunk loads, etc.) with brief parks when there's no work.
+        // Backoff idle strategy: spin → yield → progressive park.
+        // Spin phase catches sub-microsecond completions with zero kernel involvement.
+        // Yield phase handles the 1-10us range without sleeping.
+        // Progressive park only kicks in for genuinely long waits, capping at 100us.
+        // When useful work is found (pollTask), backoff resets immediately.
+        int idleCount = 0;
+        long parkNanos = 1_000L;
+
         while (true) {
             boolean allDone =
                 (entityTask == null || entityTask.isDone()) &&
@@ -411,8 +417,18 @@ public class ParallelProcessor {
                 didWork |= world.getChunkSource().pollTask();
             }
 
-            if (!didWork) {
-                LockSupport.parkNanos(1_000L);
+            if (didWork) {
+                idleCount = 0;
+                parkNanos = 1_000L;
+            } else if (idleCount < 4) {
+                Thread.onSpinWait();
+                idleCount++;
+            } else if (idleCount < 8) {
+                Thread.yield();
+                idleCount++;
+            } else {
+                LockSupport.parkNanos(parkNanos);
+                parkNanos = Math.min(parkNanos << 1, 100_000L);
             }
         }
 
