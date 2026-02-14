@@ -2,6 +2,9 @@ package com.axalotl.async.common.mixin.entity.movement;
 
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import java.util.Objects;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Stream;
 import net.minecraft.util.ClassInstanceMultiMap;
 import net.minecraft.world.level.entity.EntityAccess;
 import net.minecraft.world.level.entity.EntitySection;
@@ -10,10 +13,6 @@ import org.spongepowered.asm.mixin.*;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-
-import java.util.Objects;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.stream.Stream;
 
 @Mixin(EntitySection.class)
 public class EntitySectionMixin<T extends EntityAccess> {
@@ -33,7 +32,11 @@ public class EntitySectionMixin<T extends EntityAccess> {
     private final Object async$storageLock = new Object();
 
     @Inject(method = "<init>", at = @At("TAIL"))
-    private void async$init(Class<?> clazz, Visibility status, CallbackInfo ci) {
+    private void async$init(
+        Class<?> clazz,
+        Visibility status,
+        CallbackInfo ci
+    ) {
         async$atomicStatus.set(status != null ? status : Visibility.HIDDEN);
     }
 
@@ -82,9 +85,6 @@ public class EntitySectionMixin<T extends EntityAccess> {
 
     @WrapMethod(method = "getEntities()Ljava/util/stream/Stream;")
     private Stream<T> getEntities(Operation<Stream<T>> original) {
-        return storage.stream()
-                .filter(Objects::nonNull)
-                .toList()
-                .stream();
+        return storage.stream().filter(Objects::nonNull);
     }
 }

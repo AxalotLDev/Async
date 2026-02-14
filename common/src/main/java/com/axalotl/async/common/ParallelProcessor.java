@@ -2,6 +2,11 @@ package com.axalotl.async.common;
 
 import com.axalotl.async.common.config.AsyncConfig;
 import com.axalotl.async.common.parallelised.utils.VanishCompat;
+import io.netty.util.internal.shaded.org.jctools.queues.MpscUnboundedArrayQueue;
+import java.util.*;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.LockSupport;
 import lombok.Getter;
 import lombok.Setter;
 import net.minecraft.server.MinecraftServer;
@@ -20,14 +25,11 @@ import net.minecraft.world.level.chunk.LevelChunk;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import java.lang.ref.WeakReference;
-import java.util.*;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.locks.LockSupport;
-
 public class ParallelProcessor {
-    public static final Logger LOGGER = LogManager.getLogger(ParallelProcessor.class);
+
+    public static final Logger LOGGER = LogManager.getLogger(
+        ParallelProcessor.class
+    );
 
     @Getter
     @Setter
@@ -37,71 +39,101 @@ public class ParallelProcessor {
     public static final AtomicInteger currentEntities = new AtomicInteger();
     private static final Object ENTITY_ADD_LOCK = new Object();
     private static final AtomicInteger threadPoolID = new AtomicInteger();
-    private static final Set<UUID> blacklistedEntity = ConcurrentHashMap.newKeySet();
-    private static final Map<String, Set<WeakReference<Thread>>> mcThreadTracker = new ConcurrentHashMap<>();
+    private static final Set<UUID> blacklistedEntity =
+        ConcurrentHashMap.newKeySet();
     private static volatile boolean isShuttingDown = false;
 
-    private static int despawnCount = 0;
+    private static final ThreadLocal<Boolean> IS_ASYNC_TICK_THREAD =
+        ThreadLocal.withInitial(() -> Boolean.FALSE);
+
     private static int pendingCount = 0;
+    private static int despawnCount = 0;
     private static final int ENTITY_GRAIN = 64;
     private static final int DESPAWN_GRAIN = 128;
     private static final int INITIAL_CAPACITY = 16384;
+    private static final long POST_TICK_TIMEOUT_SECS = 10;
     private static volatile ForkJoinTask<?> currentSpawnTask;
     private static Entity[] pendingDespawns = new Entity[4096];
     private static Entity[] pendingEntities = new Entity[INITIAL_CAPACITY];
-    private static final ArrayList<Runnable> pendingSpawnWork = new ArrayList<>();
-    private static ServerLevel[] pendingWorlds = new ServerLevel[INITIAL_CAPACITY];
-    private static final ConcurrentLinkedQueue<CompletableFuture<?>> externalTaskQueue = new ConcurrentLinkedQueue<>();
+    private static ServerLevel[] pendingWorlds =
+        new ServerLevel[INITIAL_CAPACITY];
+    private static ArrayList<SpawnEntry> spawnCollect = new ArrayList<>();
+    private static ArrayList<SpawnEntry> spawnSubmit = new ArrayList<>();
+    private static final Queue<CompletableFuture<?>> externalTaskQueue =
+        new MpscUnboundedArrayQueue<>(256);
+
+    record SpawnEntry(
+        ServerLevel level,
+        LevelChunk chunk,
+        NaturalSpawner.SpawnState spawnState,
+        List<MobCategory> categories
+    ) {}
 
     public static final Set<Class<?>> BLOCKED_ENTITIES = Set.of(
-            FallingBlockEntity.class,
-            Shulker.class,
-            AbstractBoat.class
+        FallingBlockEntity.class,
+        Shulker.class,
+        AbstractBoat.class
     );
+
+    private static final class AsyncTickWorkerThread
+        extends ForkJoinWorkerThread
+    {
+
+        AsyncTickWorkerThread(ForkJoinPool pool) {
+            super(pool);
+        }
+
+        @Override
+        protected void onStart() {
+            super.onStart();
+            IS_ASYNC_TICK_THREAD.set(Boolean.TRUE);
+        }
+    }
 
     public static void setupThreadPool(int parallelism, Class<?> asyncClass) {
         isShuttingDown = false;
 
-        ForkJoinPool.ForkJoinWorkerThreadFactory threadFactory = pool -> {
-            ForkJoinWorkerThread worker = ForkJoinPool.defaultForkJoinWorkerThreadFactory.newThread(pool);
-            worker.setName("Async-Tick-Pool-Thread-" + threadPoolID.getAndIncrement());
-            registerThread("Async-Tick", worker);
-            worker.setDaemon(true);
-            worker.setPriority(Thread.NORM_PRIORITY);
-            worker.setContextClassLoader(asyncClass.getClassLoader());
-            return worker;
-        };
+        tickPool = new ForkJoinPool(
+            parallelism,
+            pool -> {
+                AsyncTickWorkerThread worker = new AsyncTickWorkerThread(pool);
+                worker.setName(
+                    "Async-Tick-Pool-Thread-" + threadPoolID.getAndIncrement()
+                );
+                worker.setDaemon(true);
+                worker.setPriority(Thread.NORM_PRIORITY);
+                worker.setContextClassLoader(asyncClass.getClassLoader());
+                return worker;
+            },
+            (t, e) ->
+                LOGGER.error(
+                    "Uncaught exception in thread {}: {}",
+                    t.getName(),
+                    e
+                ),
+            true
+        );
 
-        tickPool = new ForkJoinPool(parallelism, threadFactory, (t, e) ->
-                LOGGER.error("Uncaught exception in thread {}: {}", t.getName(), e), true);
         LOGGER.info("Initialized Pool with {} threads", parallelism);
         VanishCompat.apply();
     }
 
     public static void registerThread(String poolName, Thread thread) {
-        mcThreadTracker
-                .computeIfAbsent(poolName, key -> ConcurrentHashMap.newKeySet())
-                .add(new WeakReference<>(thread));
-    }
-
-    private static boolean isThreadInPool(Thread thread) {
-        return mcThreadTracker.getOrDefault("Async-Tick", Set.of()).stream()
-                .map(WeakReference::get)
-                .anyMatch(thread::equals);
+        // No-op: threads from our own pool are marked in AsyncTickWorkerThread.onStart().
     }
 
     public static boolean isServerExecutionThread() {
-        return isThreadInPool(Thread.currentThread());
+        return IS_ASYNC_TICK_THREAD.get();
     }
 
     public static void callEntityTick(ServerLevel world, Entity entity) {
-        if (isShuttingDown) {
-            world.tickNonPassenger(entity);
+        if (isShuttingDown || tickPool == null || tickPool.isShutdown()) {
+            safeTickSync(world, entity);
             return;
         }
 
         if (shouldTickSynchronously(entity)) {
-            world.tickNonPassenger(entity);
+            safeTickSync(world, entity);
             return;
         }
 
@@ -116,25 +148,31 @@ public class ParallelProcessor {
         pendingCount = idx + 1;
     }
 
+    private static void safeTickSync(ServerLevel world, Entity entity) {
+        try {
+            world.tickNonPassenger(entity);
+        } catch (Throwable t) {
+            LOGGER.error(
+                "Error during synchronous entity tick. Type: {}, UUID: {}",
+                entity.getType(),
+                entity.getUUID(),
+                t
+            );
+        }
+    }
+
     public static boolean shouldTickSynchronously(Entity entity) {
-        if (entity.level().isClientSide()) {
-            return true;
-        }
-
-        UUID entityId = entity.getUUID();
-        boolean requiresSyncTick = AsyncConfig.disabled ||
-                entity instanceof Projectile ||
-                entity instanceof AbstractMinecart ||
-                entity instanceof ServerPlayer ||
-                BLOCKED_ENTITIES.contains(entity.getClass()) ||
-                blacklistedEntity.contains(entityId) ||
-                AsyncConfig.isEntitySynchronized(EntityType.getKey(entity.getType()));
-
-        if (requiresSyncTick) {
-            return true;
-        }
-
-        return entity.portalProcess != null;
+        if (AsyncConfig.disabled) return true;
+        if (entity instanceof ServerPlayer) return true;
+        if (entity instanceof Projectile) return true;
+        if (entity instanceof AbstractMinecart) return true;
+        if (entity.level().isClientSide()) return true;
+        if (BLOCKED_ENTITIES.contains(entity.getClass())) return true;
+        if (entity.portalProcess != null) return true;
+        if (blacklistedEntity.contains(entity.getUUID())) return true;
+        return AsyncConfig.isEntitySynchronized(
+            EntityType.getKey(entity.getType())
+        );
     }
 
     public static Object getEntityAddLock() {
@@ -142,14 +180,23 @@ public class ParallelProcessor {
     }
 
     static final class EntityTickBatch extends RecursiveAction {
+
         private final ServerLevel[] worlds;
         private final Entity[] entities;
+        private final boolean[] completed;
         private final int from;
         private final int to;
 
-        EntityTickBatch(ServerLevel[] worlds, Entity[] entities, int from, int to) {
+        EntityTickBatch(
+            ServerLevel[] worlds,
+            Entity[] entities,
+            boolean[] completed,
+            int from,
+            int to
+        ) {
             this.worlds = worlds;
             this.entities = entities;
+            this.completed = completed;
             this.from = from;
             this.to = to;
         }
@@ -159,19 +206,31 @@ public class ParallelProcessor {
             int size = to - from;
             if (size <= ENTITY_GRAIN) {
                 for (int i = from; i < to; i++) {
-                    worlds[i].tickNonPassenger(entities[i]);
+                    try {
+                        worlds[i].tickNonPassenger(entities[i]);
+                        completed[i] = true;
+                    } catch (Throwable t) {
+                        LOGGER.error(
+                            "Async entity tick error, blacklisting entity. Type: {}, UUID: {}",
+                            entities[i].getType(),
+                            entities[i].getUUID(),
+                            t
+                        );
+                        blacklistedEntity.add(entities[i].getUUID());
+                    }
                 }
             } else {
                 int mid = (from + to) >>> 1;
                 invokeAll(
-                        new EntityTickBatch(worlds, entities, from, mid),
-                        new EntityTickBatch(worlds, entities, mid, to)
+                    new EntityTickBatch(worlds, entities, completed, from, mid),
+                    new EntityTickBatch(worlds, entities, completed, mid, to)
                 );
             }
         }
     }
 
     static final class DespawnBatch extends RecursiveAction {
+
         private final Entity[] entities;
         private final int from;
         private final int to;
@@ -187,71 +246,106 @@ public class ParallelProcessor {
             int size = to - from;
             if (size <= DESPAWN_GRAIN) {
                 for (int i = from; i < to; i++) {
-                    entities[i].checkDespawn();
+                    try {
+                        entities[i].checkDespawn();
+                    } catch (Throwable t) {
+                        LOGGER.error(
+                            "Async despawn error for entity. Type: {}, UUID: {}",
+                            entities[i].getType(),
+                            entities[i].getUUID(),
+                            t
+                        );
+                    }
                 }
             } else {
                 int mid = (from + to) >>> 1;
                 invokeAll(
-                        new DespawnBatch(entities, from, mid),
-                        new DespawnBatch(entities, mid, to)
+                    new DespawnBatch(entities, from, mid),
+                    new DespawnBatch(entities, mid, to)
                 );
             }
         }
     }
 
     public static void asyncSpawnForChunk(
-            ServerLevel level,
-            LevelChunk chunk,
-            NaturalSpawner.SpawnState spawnState,
-            List<MobCategory> categories
+        ServerLevel level,
+        LevelChunk chunk,
+        NaturalSpawner.SpawnState spawnState,
+        List<MobCategory> categories
     ) {
-        if (!chunk.loaded) {
-            return;
-        }
+        if (!chunk.loaded) return;
 
-        if (isShuttingDown || AsyncConfig.disabled || !AsyncConfig.enableAsyncSpawn) {
+        if (
+            isShuttingDown ||
+            tickPool == null ||
+            tickPool.isShutdown() ||
+            AsyncConfig.disabled ||
+            !AsyncConfig.enableAsyncSpawn
+        ) {
             NaturalSpawner.spawnForChunk(level, chunk, spawnState, categories);
             return;
         }
 
-        if (categories.isEmpty()) {
-            return;
-        }
+        if (categories.isEmpty()) return;
 
-        List<MobCategory> categoriesCopy = List.copyOf(categories);
-        pendingSpawnWork.add(() -> NaturalSpawner.spawnForChunk(level, chunk, spawnState, categoriesCopy));
+        spawnCollect.add(
+            new SpawnEntry(level, chunk, spawnState, List.copyOf(categories))
+        );
     }
 
     private static void submitSpawnCycle() {
-        if (pendingSpawnWork.isEmpty()) {
-            return;
-        }
+        if (spawnCollect.isEmpty()) return;
 
         ForkJoinTask<?> prev = currentSpawnTask;
         if (prev != null && !prev.isDone()) {
-            pendingSpawnWork.clear();
-            return;
+            prev.quietlyJoin();
         }
 
-        Runnable[] work = pendingSpawnWork.toArray(new Runnable[0]);
-        pendingSpawnWork.clear();
+        ArrayList<SpawnEntry> ready = spawnCollect;
+        spawnCollect = spawnSubmit;
+        spawnCollect.clear();
+        spawnSubmit = ready;
 
         currentSpawnTask = tickPool.submit(() -> {
-            for (Runnable task : work) {
-                task.run();
+            for (int i = 0, n = ready.size(); i < n; i++) {
+                SpawnEntry s = ready.get(i);
+                try {
+                    NaturalSpawner.spawnForChunk(
+                        s.level(),
+                        s.chunk(),
+                        s.spawnState(),
+                        s.categories()
+                    );
+                } catch (Throwable t) {
+                    LOGGER.error(
+                        "Error during async spawn for chunk at [{}, {}]",
+                        s.chunk().getPos().x,
+                        s.chunk().getPos().z,
+                        t
+                    );
+                }
             }
         });
     }
 
     public static void asyncDespawn(Entity entity) {
-        if (isShuttingDown || AsyncConfig.disabled || !AsyncConfig.enableAsyncSpawn) {
+        if (
+            isShuttingDown ||
+            tickPool == null ||
+            tickPool.isShutdown() ||
+            AsyncConfig.disabled ||
+            !AsyncConfig.enableAsyncSpawn
+        ) {
             entity.checkDespawn();
             return;
         }
 
         int idx = despawnCount;
         if (idx >= pendingDespawns.length) {
-            pendingDespawns = Arrays.copyOf(pendingDespawns, pendingDespawns.length << 1);
+            pendingDespawns = Arrays.copyOf(
+                pendingDespawns,
+                pendingDespawns.length << 1
+            );
         }
         pendingDespawns[idx] = entity;
         despawnCount = idx + 1;
@@ -267,17 +361,24 @@ public class ParallelProcessor {
         submitSpawnCycle();
 
         ForkJoinTask<?> entityTask = null;
-        ForkJoinTask<?> despawnTask = null;
-
         int entityCount = pendingCount;
+        boolean[] entityCompleted = null;
         pendingCount = 0;
 
         if (entityCount > 0) {
+            entityCompleted = new boolean[entityCount];
             currentEntities.set(entityCount);
-            entityTask = new EntityTickBatch(pendingWorlds, pendingEntities, 0, entityCount);
+            entityTask = new EntityTickBatch(
+                pendingWorlds,
+                pendingEntities,
+                entityCompleted,
+                0,
+                entityCount
+            );
             tickPool.execute(entityTask);
         }
 
+        ForkJoinTask<?> despawnTask = null;
         int dCount = despawnCount;
         despawnCount = 0;
 
@@ -287,28 +388,73 @@ public class ParallelProcessor {
         }
 
         CompletableFuture<Void> externalFuture = null;
-        List<CompletableFuture<?>> externalTasks = null;
-        CompletableFuture<?> f;
-        while ((f = externalTaskQueue.poll()) != null) {
-            if (externalTasks == null) {
-                externalTasks = new ArrayList<>();
+        {
+            CompletableFuture<?> f;
+            ArrayList<CompletableFuture<?>> externalTasks = null;
+            while ((f = externalTaskQueue.poll()) != null) {
+                if (externalTasks == null) externalTasks = new ArrayList<>();
+                externalTasks.add(f);
             }
-            externalTasks.add(f);
+            if (externalTasks != null) {
+                externalFuture = CompletableFuture.allOf(
+                    externalTasks.toArray(CompletableFuture[]::new)
+                );
+            }
         }
-        if (externalTasks != null) {
-            externalFuture = CompletableFuture.allOf(externalTasks.toArray(new CompletableFuture[0]));
-        }
+
+        // Spawn task is intentionally NOT waited on here - it pipelines across ticks.
+        // submitSpawnCycle() joins the previous spawn task if still running.
+        long deadlineNanos =
+            System.nanoTime() +
+            TimeUnit.SECONDS.toNanos(POST_TICK_TIMEOUT_SECS);
 
         while (true) {
-            boolean allDone = entityTask == null || entityTask.isDone();
-            if (despawnTask != null && !despawnTask.isDone()) {
-                allDone = false;
-            }
-            if (externalFuture != null && !externalFuture.isDone()) {
-                allDone = false;
-            }
+            boolean allDone =
+                (entityTask == null || entityTask.isDone()) &&
+                (despawnTask == null || despawnTask.isDone()) &&
+                (externalFuture == null || externalFuture.isDone());
 
             if (allDone) break;
+
+            if (System.nanoTime() > deadlineNanos) {
+                LOGGER.error(
+                    "postEntityTick timed out after {}s waiting for async tasks. " +
+                        "Entity done: {}, Despawn done: {}, External done: {}. " +
+                        "Falling back to synchronous processing for incomplete work.",
+                    POST_TICK_TIMEOUT_SECS,
+                    entityTask == null || entityTask.isDone(),
+                    despawnTask == null || despawnTask.isDone(),
+                    externalFuture == null || externalFuture.isDone()
+                );
+
+                if (
+                    entityTask != null && !entityTask.isDone()
+                ) entityTask.cancel(true);
+                if (
+                    despawnTask != null && !despawnTask.isDone()
+                ) despawnTask.cancel(true);
+                if (
+                    externalFuture != null && !externalFuture.isDone()
+                ) externalFuture.cancel(true);
+
+                if (entityCompleted != null) {
+                    int rescued = 0;
+                    for (int i = 0; i < entityCount; i++) {
+                        if (!entityCompleted[i]) {
+                            safeTickSync(pendingWorlds[i], pendingEntities[i]);
+                            rescued++;
+                        }
+                    }
+                    if (rescued > 0) {
+                        LOGGER.warn(
+                            "Synchronously rescued {} entities from timed-out async batch",
+                            rescued
+                        );
+                    }
+                }
+
+                break;
+            }
 
             boolean didWork = false;
             for (ServerLevel world : server.getAllLevels()) {
@@ -323,7 +469,10 @@ public class ParallelProcessor {
         if (entityTask != null) {
             entityTask.quietlyJoin();
             if (entityTask.isCompletedAbnormally()) {
-                LOGGER.error("Entity tick batch error", entityTask.getException());
+                LOGGER.error(
+                    "Entity tick batch error",
+                    entityTask.getException()
+                );
             }
             Arrays.fill(pendingWorlds, 0, entityCount, null);
             Arrays.fill(pendingEntities, 0, entityCount, null);
@@ -337,6 +486,7 @@ public class ParallelProcessor {
             }
             Arrays.fill(pendingDespawns, 0, dCount, null);
         }
+
         for (ServerLevel world : server.getAllLevels()) {
             world.getChunkSource().pollTask();
         }
@@ -350,13 +500,15 @@ public class ParallelProcessor {
             spawn.quietlyJoin();
         }
 
-        List<CompletableFuture<?>> remaining = new ArrayList<>();
+        ArrayList<CompletableFuture<?>> remaining = new ArrayList<>();
         CompletableFuture<?> f;
         while ((f = externalTaskQueue.poll()) != null) {
             remaining.add(f);
         }
         if (!remaining.isEmpty()) {
-            CompletableFuture.allOf(remaining.toArray(new CompletableFuture[0])).join();
+            CompletableFuture.allOf(
+                remaining.toArray(CompletableFuture[]::new)
+            ).join();
         }
 
         if (tickPool != null) {
@@ -370,7 +522,8 @@ public class ParallelProcessor {
 
         AsyncConfig.clearCaches();
         blacklistedEntity.clear();
-        pendingSpawnWork.clear();
+        spawnCollect.clear();
+        spawnSubmit.clear();
         pendingCount = 0;
         despawnCount = 0;
     }
