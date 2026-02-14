@@ -51,6 +51,7 @@ public class ParallelProcessor {
 
     private static final int ENTITY_GRAIN = 64;
     private static final int DESPAWN_GRAIN = 128;
+    private static final long POST_TICK_TIMEOUT_SECS = 10;
     private static volatile ForkJoinTask<?> currentSpawnTask;
 
     // jctools queues from Netty's shaded bundle - specialized for our access patterns.
@@ -153,17 +154,30 @@ public class ParallelProcessor {
     }
 
     public static void callEntityTick(ServerLevel world, Entity entity) {
-        if (isShuttingDown) {
-            world.tickNonPassenger(entity);
+        if (isShuttingDown || tickPool == null || tickPool.isShutdown()) {
+            safeTickSync(world, entity);
             return;
         }
 
         if (shouldTickSynchronously(entity)) {
-            world.tickNonPassenger(entity);
+            safeTickSync(world, entity);
             return;
         }
 
         pendingEntityQueue.add(new EntityTickEntry(world, entity));
+    }
+
+    private static void safeTickSync(ServerLevel world, Entity entity) {
+        try {
+            world.tickNonPassenger(entity);
+        } catch (Throwable t) {
+            LOGGER.error(
+                "Error during synchronous entity tick. Type: {}, UUID: {}",
+                entity.getType(),
+                entity.getUUID(),
+                t
+            );
+        }
     }
 
     public static boolean shouldTickSynchronously(Entity entity) {
@@ -202,11 +216,18 @@ public class ParallelProcessor {
     static final class EntityTickBatch extends RecursiveAction {
 
         private final EntityTickEntry[] entries;
+        private final boolean[] completed;
         private final int from;
         private final int to;
 
-        EntityTickBatch(EntityTickEntry[] entries, int from, int to) {
+        EntityTickBatch(
+            EntityTickEntry[] entries,
+            boolean[] completed,
+            int from,
+            int to
+        ) {
             this.entries = entries;
+            this.completed = completed;
             this.from = from;
             this.to = to;
         }
@@ -217,13 +238,24 @@ public class ParallelProcessor {
             if (size <= ENTITY_GRAIN) {
                 for (int i = from; i < to; i++) {
                     EntityTickEntry e = entries[i];
-                    e.world().tickNonPassenger(e.entity());
+                    try {
+                        e.world().tickNonPassenger(e.entity());
+                    } catch (Throwable t) {
+                        LOGGER.error(
+                            "Async entity tick error, blacklisting entity. Type: {}, UUID: {}",
+                            e.entity().getType(),
+                            e.entity().getUUID(),
+                            t
+                        );
+                        blacklistedEntity.add(e.entity().getUUID());
+                    }
+                    completed[i] = true;
                 }
             } else {
                 int mid = (from + to) >>> 1;
                 invokeAll(
-                    new EntityTickBatch(entries, from, mid),
-                    new EntityTickBatch(entries, mid, to)
+                    new EntityTickBatch(entries, completed, from, mid),
+                    new EntityTickBatch(entries, completed, mid, to)
                 );
             }
         }
@@ -246,7 +278,16 @@ public class ParallelProcessor {
             int size = to - from;
             if (size <= DESPAWN_GRAIN) {
                 for (int i = from; i < to; i++) {
-                    entities[i].checkDespawn();
+                    try {
+                        entities[i].checkDespawn();
+                    } catch (Throwable t) {
+                        LOGGER.error(
+                            "Async despawn error for entity. Type: {}, UUID: {}",
+                            entities[i].getType(),
+                            entities[i].getUUID(),
+                            t
+                        );
+                    }
                 }
             } else {
                 int mid = (from + to) >>> 1;
@@ -268,6 +309,8 @@ public class ParallelProcessor {
 
         if (
             isShuttingDown ||
+            tickPool == null ||
+            tickPool.isShutdown() ||
             AsyncConfig.disabled ||
             !AsyncConfig.enableAsyncSpawn
         ) {
@@ -307,12 +350,21 @@ public class ParallelProcessor {
         currentSpawnTask = tickPool.submit(() -> {
             for (int i = 0, n = ready.size(); i < n; i++) {
                 SpawnEntry s = ready.get(i);
-                NaturalSpawner.spawnForChunk(
-                    s.level(),
-                    s.chunk(),
-                    s.spawnState(),
-                    s.categories()
-                );
+                try {
+                    NaturalSpawner.spawnForChunk(
+                        s.level(),
+                        s.chunk(),
+                        s.spawnState(),
+                        s.categories()
+                    );
+                } catch (Throwable t) {
+                    LOGGER.error(
+                        "Error during async spawn for chunk at [{}, {}]",
+                        s.chunk().getPos().x,
+                        s.chunk().getPos().z,
+                        t
+                    );
+                }
             }
         });
     }
@@ -320,6 +372,8 @@ public class ParallelProcessor {
     public static void asyncDespawn(Entity entity) {
         if (
             isShuttingDown ||
+            tickPool == null ||
+            tickPool.isShutdown() ||
             AsyncConfig.disabled ||
             !AsyncConfig.enableAsyncSpawn
         ) {
@@ -345,6 +399,7 @@ public class ParallelProcessor {
         ForkJoinTask<?> entityTask = null;
         int entityCount = 0;
         EntityTickEntry[] entityBatch = null;
+        boolean[] entityCompleted = null;
 
         {
             EntityTickEntry entry;
@@ -356,8 +411,14 @@ public class ParallelProcessor {
             if (buf != null) {
                 entityCount = buf.size();
                 entityBatch = buf.toArray(new EntityTickEntry[entityCount]);
+                entityCompleted = new boolean[entityCount];
                 currentEntities.set(entityCount);
-                entityTask = new EntityTickBatch(entityBatch, 0, entityCount);
+                entityTask = new EntityTickBatch(
+                    entityBatch,
+                    entityCompleted,
+                    0,
+                    entityCount
+                );
                 tickPool.execute(entityTask);
             }
         }
@@ -395,22 +456,77 @@ public class ParallelProcessor {
             }
         }
 
+        // --- Capture spawn task for this cycle's wait ---
+        ForkJoinTask<?> spawnTask = currentSpawnTask;
+
         // --- Wait for completion while doing useful work ---
-        // Backoff idle strategy: spin → yield → progressive park.
+        // Backoff idle strategy: spin -> yield -> progressive park.
         // Spin phase catches sub-microsecond completions with zero kernel involvement.
         // Yield phase handles the 1-10us range without sleeping.
         // Progressive park only kicks in for genuinely long waits, capping at 100us.
         // When useful work is found (pollTask), backoff resets immediately.
+        // Deadline prevents infinite deadlock if a task hangs.
         int idleCount = 0;
         long parkNanos = 1_000L;
+        long deadlineNanos =
+            System.nanoTime() +
+            TimeUnit.SECONDS.toNanos(POST_TICK_TIMEOUT_SECS);
 
         while (true) {
             boolean allDone =
                 (entityTask == null || entityTask.isDone()) &&
                 (despawnTask == null || despawnTask.isDone()) &&
+                (spawnTask == null || spawnTask.isDone()) &&
                 (externalFuture == null || externalFuture.isDone());
 
             if (allDone) break;
+
+            if (System.nanoTime() > deadlineNanos) {
+                LOGGER.error(
+                    "postEntityTick timed out after {}s waiting for async tasks. " +
+                        "Entity done: {}, Despawn done: {}, Spawn done: {}, External done: {}. " +
+                        "Falling back to synchronous processing for incomplete work.",
+                    POST_TICK_TIMEOUT_SECS,
+                    entityTask == null || entityTask.isDone(),
+                    despawnTask == null || despawnTask.isDone(),
+                    spawnTask == null || spawnTask.isDone(),
+                    externalFuture == null || externalFuture.isDone()
+                );
+
+                // Cancel hung tasks
+                if (
+                    entityTask != null && !entityTask.isDone()
+                ) entityTask.cancel(true);
+                if (
+                    despawnTask != null && !despawnTask.isDone()
+                ) despawnTask.cancel(true);
+                if (spawnTask != null && !spawnTask.isDone()) spawnTask.cancel(
+                    true
+                );
+                if (
+                    externalFuture != null && !externalFuture.isDone()
+                ) externalFuture.cancel(true);
+
+                // Synchronously tick any entities that the batch didn't reach
+                if (entityBatch != null && entityCompleted != null) {
+                    int rescued = 0;
+                    for (int i = 0; i < entityBatch.length; i++) {
+                        if (!entityCompleted[i]) {
+                            EntityTickEntry e = entityBatch[i];
+                            safeTickSync(e.world(), e.entity());
+                            rescued++;
+                        }
+                    }
+                    if (rescued > 0) {
+                        LOGGER.warn(
+                            "Synchronously rescued {} entities from timed-out async batch",
+                            rescued
+                        );
+                    }
+                }
+
+                break;
+            }
 
             boolean didWork = false;
             for (ServerLevel world : server.getAllLevels()) {
@@ -451,6 +567,13 @@ public class ParallelProcessor {
                 LOGGER.error("Despawn batch error", despawnTask.getException());
             }
             // despawnBatch is local, GC-eligible immediately
+        }
+
+        if (spawnTask != null) {
+            spawnTask.quietlyJoin();
+            if (spawnTask.isCompletedAbnormally()) {
+                LOGGER.error("Spawn cycle error", spawnTask.getException());
+            }
         }
 
         // Final poll to process any tasks generated during the async tick
