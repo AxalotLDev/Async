@@ -68,14 +68,24 @@ public class ParallelProcessor {
         new SpscLinkedQueue<>();
     private static final Queue<Entity> pendingDespawnQueue =
         new SpscLinkedQueue<>();
-    private static final Queue<Runnable> pendingSpawnQueue =
-        new SpscLinkedQueue<>();
+    // Double-buffer for spawn work. Both produce and drain happen on the main thread,
+    // so no concurrent data structure is needed. The main thread fills spawnCollect during
+    // chunk iteration, then submitSpawnCycle swaps it with spawnSubmit and hands the full
+    // list to a pool thread. Zero drain, zero copy - just a reference swap.
+    private static ArrayList<SpawnEntry> spawnCollect = new ArrayList<>();
+    private static ArrayList<SpawnEntry> spawnSubmit = new ArrayList<>();
     private static final Queue<CompletableFuture<?>> externalTaskQueue =
         new MpscUnboundedArrayQueue<>(256);
 
-    // Lightweight record holding a world+entity pair by reference. No copying.
-    // 16-byte object header + 2 references = fits in a single cache line.
+    // Lightweight records holding references. No data copying - just pointers.
     record EntityTickEntry(ServerLevel world, Entity entity) {}
+
+    record SpawnEntry(
+        ServerLevel level,
+        LevelChunk chunk,
+        NaturalSpawner.SpawnState spawnState,
+        List<MobCategory> categories
+    ) {}
 
     public static final Set<Class<?>> BLOCKED_ENTITIES = Set.of(
         FallingBlockEntity.class,
@@ -267,41 +277,42 @@ public class ParallelProcessor {
 
         if (categories.isEmpty()) return;
 
-        // categories is typically a short immutable view from Minecraft internals.
-        // We must capture a snapshot since the caller may mutate the list after return.
-        // List.copyOf is zero-copy if the source is already an unmodifiable list (common case).
-        List<MobCategory> cats = List.copyOf(categories);
-        pendingSpawnQueue.add(() ->
-            NaturalSpawner.spawnForChunk(level, chunk, spawnState, cats)
+        // Capture a snapshot of categories since the caller may mutate the list.
+        // List.copyOf is zero-copy if the source is already unmodifiable (common case).
+        spawnCollect.add(
+            new SpawnEntry(level, chunk, spawnState, List.copyOf(categories))
         );
     }
 
     private static void submitSpawnCycle() {
-        // Drain all pending spawn work into a local collection.
-        // ConcurrentLinkedQueue.poll() is lock-free.
-        Runnable first = pendingSpawnQueue.poll();
-        if (first == null) return;
+        if (spawnCollect.isEmpty()) return;
 
+        // If the previous cycle is still running, join it instead of discarding work.
+        // In practice it should always be done - postEntityTick waits for completion -
+        // but joining guarantees we never silently drop spawn work.
         ForkJoinTask<?> prev = currentSpawnTask;
         if (prev != null && !prev.isDone()) {
-            // Previous cycle still running - discard pending work to avoid piling up
-            pendingSpawnQueue.clear();
-            return;
+            prev.quietlyJoin();
         }
 
-        // Drain remaining items
-        ArrayList<Runnable> work = new ArrayList<>();
-        work.add(first);
-        Runnable r;
-        while ((r = pendingSpawnQueue.poll()) != null) {
-            work.add(r);
-        }
+        // Swap buffers: hand the full list to the pool thread, start collecting into
+        // the (now empty) previous submit buffer. No drain, no copy, no allocation.
+        ArrayList<SpawnEntry> ready = spawnCollect;
+        spawnCollect = spawnSubmit;
+        spawnCollect.clear();
+        spawnSubmit = ready;
 
-        // Submit as a single task. Spawn work is inherently sequential per-chunk
-        // due to SpawnState mutation, so we run them serially within one pool thread.
+        // Spawn work must run serially (shared SpawnState mutation) but is offloaded
+        // to a pool thread so the main thread can proceed with entity tick submission.
         currentSpawnTask = tickPool.submit(() -> {
-            for (int i = 0, n = work.size(); i < n; i++) {
-                work.get(i).run();
+            for (int i = 0, n = ready.size(); i < n; i++) {
+                SpawnEntry s = ready.get(i);
+                NaturalSpawner.spawnForChunk(
+                    s.level(),
+                    s.chunk(),
+                    s.spawnState(),
+                    s.categories()
+                );
             }
         });
     }
@@ -465,6 +476,7 @@ public class ParallelProcessor {
         blacklistedEntity.clear();
         pendingEntityQueue.clear();
         pendingDespawnQueue.clear();
-        pendingSpawnQueue.clear();
+        spawnCollect.clear();
+        spawnSubmit.clear();
     }
 }
