@@ -26,6 +26,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 @Mixin(value = LivingEntity.class, priority = 1001)
 public abstract class LivingEntityMixin extends Entity {
@@ -40,77 +41,44 @@ public abstract class LivingEntityMixin extends Entity {
     protected abstract void onEffectsRemoved(java.util.Collection<MobEffectInstance> effects);
 
     @Unique
-    private static final Object async$lock = new Object();
+    private final AtomicBoolean async$dying = new AtomicBoolean(false);
 
     public LivingEntityMixin(EntityType<?> type, Level world) {
         super(type, world);
     }
 
     @WrapMethod(method = "die")
-    private synchronized void die(DamageSource damageSource, Operation<Void> original) {
-        original.call(damageSource);
-    }
-
-    @WrapMethod(method = "dropFromLootTable(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/world/damagesource/DamageSource;Z)V")
-    private synchronized void dropFromLootTable(ServerLevel level, DamageSource damageSource, boolean playerKill, Operation<Void> original) {
-        original.call(level, damageSource, playerKill);
+    private void die(DamageSource damageSource, Operation<Void> original) {
+        if (async$dying.compareAndSet(false, true)) {
+            original.call(damageSource);
+        }
     }
 
     @WrapMethod(method = "knockback")
-    private void knockback(double strength, double x, double z, Operation<Void> original) {
-        synchronized (async$lock) {
-            original.call(strength, x, z);
-        }
+    private synchronized void knockback(double strength, double x, double z, Operation<Void> original) {
+        original.call(strength, x, z);
     }
 
     @WrapMethod(method = "tickEffects")
     private void tickStatusEffects(Operation<Void> original) {
-        synchronized (async$lock) {
-            if (this.level() instanceof ServerLevel serverlevel) {
-                List<Holder<MobEffect>> effectsToTick = new ArrayList<>(this.activeEffects.keySet());
+        if (this.level() instanceof ServerLevel serverlevel) {
+            List<Holder<MobEffect>> effectsToTick = new ArrayList<>(this.activeEffects.keySet());
 
-                for (Holder<MobEffect> holder : effectsToTick) {
-                    MobEffectInstance mobeffectinstance = this.activeEffects.get(holder);
+            for (Holder<MobEffect> holder : effectsToTick) {
+                MobEffectInstance mobeffectinstance = this.activeEffects.get(holder);
 
-                    if (mobeffectinstance != null) {
-                        if (!mobeffectinstance.tickServer(serverlevel, (LivingEntity)(Object)this,
-                                () -> this.onEffectUpdated(mobeffectinstance, true, null))) {
-                            this.activeEffects.remove(holder);
-                            this.onEffectsRemoved(List.of(mobeffectinstance));
-                        } else if (mobeffectinstance.getDuration() % 600 == 0) {
-                            this.onEffectUpdated(mobeffectinstance, false, null);
-                        }
+                if (mobeffectinstance != null) {
+                    if (!mobeffectinstance.tickServer(serverlevel, (LivingEntity) (Object) this,
+                            () -> this.onEffectUpdated(mobeffectinstance, true, null))) {
+                        this.activeEffects.remove(holder);
+                        this.onEffectsRemoved(List.of(mobeffectinstance));
+                    } else if (mobeffectinstance.getDuration() % 600 == 0) {
+                        this.onEffectUpdated(mobeffectinstance, false, null);
                     }
                 }
-            } else {
-                original.call();
             }
-        }
-    }
-
-    @WrapMethod(method = "addEffect(Lnet/minecraft/world/effect/MobEffectInstance;Lnet/minecraft/world/entity/Entity;)Z")
-    private boolean addEffect(MobEffectInstance effect, Entity source, Operation<Boolean> original) {
-        synchronized (async$lock) {
-            return effect != null ? original.call(effect, source) : false;
-        }
-    }
-
-    @WrapMethod(method = "removeEffect")
-    private boolean removeEffect(Holder<MobEffect> effect, Operation<Boolean> original) {
-        synchronized (async$lock) {
-            return effect != null ? original.call(effect) : false;
-        }
-    }
-
-    @WrapMethod(method = "hasEffect")
-    public boolean hasEffect(Holder<MobEffect> effect, Operation<Boolean> original) {
-        return effect != null ? original.call(effect) : false;
-    }
-
-    @WrapMethod(method = "removeAllEffects")
-    private boolean removeAllEffects(Operation<Boolean> original) {
-        synchronized (async$lock) {
-            return original.call();
+        } else {
+            original.call();
         }
     }
 
