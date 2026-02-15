@@ -50,10 +50,10 @@ public class ParallelProcessor {
     private static final long POST_TICK_TIMEOUT_SECS = 10;
     private static volatile ForkJoinTask<?> currentSpawnTask;
     private static Entity[] pendingDespawns = new Entity[4096];
+    private static ArrayList<SpawnEntry> spawnSubmit = new ArrayList<>();
+    private static ArrayList<SpawnEntry> spawnCollect = new ArrayList<>();
     private static Entity[] pendingEntities = new Entity[INITIAL_CAPACITY];
     private static ServerLevel[] pendingWorlds = new ServerLevel[INITIAL_CAPACITY];
-    private static ArrayList<SpawnEntry> spawnCollect = new ArrayList<>();
-    private static ArrayList<SpawnEntry> spawnSubmit = new ArrayList<>();
     private static final Queue<CompletableFuture<?>> externalTaskQueue = new MpscUnboundedArrayQueue<>(256);
 
     record SpawnEntry(ServerLevel level, LevelChunk chunk, NaturalSpawner.SpawnState spawnState, List<MobCategory> categories) {}
@@ -231,7 +231,15 @@ public class ParallelProcessor {
 
         ForkJoinTask<?> prev = currentSpawnTask;
         if (prev != null && !prev.isDone()) {
-            prev.quietlyJoin();
+            while (!prev.isDone()) {
+                boolean didWork = false;
+                for (ServerLevel world : server.getAllLevels()) {
+                    didWork |= world.getChunkSource().pollTask();
+                }
+                if (!didWork) {
+                    LockSupport.parkNanos(1_000L);
+                }
+            }
         }
 
         ArrayList<SpawnEntry> ready = spawnCollect;
@@ -242,11 +250,7 @@ public class ParallelProcessor {
         currentSpawnTask = tickPool.submit(() -> {
             for (int i = 0, n = ready.size(); i < n; i++) {
                 SpawnEntry s = ready.get(i);
-                try {
-                    NaturalSpawner.spawnForChunk(s.level(), s.chunk(), s.spawnState(), s.categories());
-                } catch (Throwable t) {
-                    LOGGER.error("Error during async spawn for chunk at [{}, {}]", s.chunk().getPos().x, s.chunk().getPos().z, t);
-                }
+                NaturalSpawner.spawnForChunk(s.level(), s.chunk(), s.spawnState(), s.categories());
             }
         });
     }
