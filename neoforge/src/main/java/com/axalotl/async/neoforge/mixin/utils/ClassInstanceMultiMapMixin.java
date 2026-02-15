@@ -28,16 +28,8 @@ public abstract class ClassInstanceMultiMapMixin<
     @Shadow
     private final List<T> allInstances = new CopyOnWriteArrayList<>();
 
-    @ModifyArg(
-        method = { "lambda$find$0", "m_13537_" },
-        at = @At(
-            value = "INVOKE",
-            target = "Ljava/util/stream/Stream;collect(Ljava/util/stream/Collector;)Ljava/lang/Object;"
-        )
-    )
-    private Collector<T, ?, List<T>> overwriteCollectToList(
-        Collector<T, ?, List<T>> collector
-    ) {
+    @ModifyArg(method = { "lambda$find$0", "m_13537_" }, at = @At(value = "INVOKE", target = "Ljava/util/stream/Stream;collect(Ljava/util/stream/Collector;)Ljava/lang/Object;"))
+    private Collector<T, ?, List<T>> overwriteCollectToList(Collector<T, ?, List<T>> collector) {
         return ConcurrentCollections.toList();
     }
 

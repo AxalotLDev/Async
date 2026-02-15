@@ -13,12 +13,7 @@ public final class RandomTickBatch extends RecursiveAction {
     private final int to;
     private final Consumer<LevelChunk> action;
 
-    public RandomTickBatch(
-        LevelChunk[] chunks,
-        int from,
-        int to,
-        Consumer<LevelChunk> action
-    ) {
+    public RandomTickBatch(LevelChunk[] chunks, int from, int to, Consumer<LevelChunk> action) {
         this.chunks = chunks;
         this.from = from;
         this.to = to;
@@ -33,18 +28,12 @@ public final class RandomTickBatch extends RecursiveAction {
                 try {
                     action.accept(chunks[i]);
                 } catch (Throwable e) {
-                    ParallelProcessor.LOGGER.error(
-                        "Error in async random tick",
-                        e
-                    );
+                    ParallelProcessor.LOGGER.error("Error in async random tick", e);
                 }
             }
         } else {
             int mid = (from + to) >>> 1;
-            invokeAll(
-                new RandomTickBatch(chunks, from, mid, action),
-                new RandomTickBatch(chunks, mid, to, action)
-            );
+            invokeAll(new RandomTickBatch(chunks, from, mid, action), new RandomTickBatch(chunks, mid, to, action));
         }
     }
 }

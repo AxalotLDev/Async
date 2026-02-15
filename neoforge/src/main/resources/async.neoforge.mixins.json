@@ -5,8 +5,7 @@
   "compatibilityLevel": "JAVA_21",
   "mixins": [
     "server.ServerWatchdogMixin",
-    "utils.ClassInstanceMultiMapMixin",
-    "utils.UtilMixin"
+    "utils.ClassInstanceMultiMapMixin"
   ],
   "client": [],
   "server": [],

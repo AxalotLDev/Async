@@ -1,4 +1,4 @@
-package com.axalotl.async.common.parallelised.spawn;
+package com.axalotl.async.common.parallelised.utils;
 
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import java.util.ArrayList;
@@ -11,13 +11,6 @@ import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.NaturalSpawner;
 import net.minecraft.world.level.biome.MobSpawnSettings;
 
-/**
- * ForkJoinPool-native helpers for parallel createState() mob cap counting.
- *
- * Uses a tree-merge pattern: each leaf task accumulates results locally
- * (no shared mutable state, no CAS), then parent tasks merge child results
- * up the fork-join tree. The final merged result is returned to the caller.
- */
 public final class ParallelSpawnHelper {
 
     private ParallelSpawnHelper() {}
@@ -26,8 +19,7 @@ public final class ParallelSpawnHelper {
 
     public static final class SpawnResult {
 
-        public final Object2IntOpenHashMap<MobCategory> mobCounts =
-            new Object2IntOpenHashMap<>();
+        public final Object2IntOpenHashMap<MobCategory> mobCounts = new Object2IntOpenHashMap<>();
         public final ArrayList<ChargeEntry> charges = new ArrayList<>();
         public final ArrayList<MobCapEntry> mobCapEntries = new ArrayList<>();
 
@@ -53,12 +45,7 @@ public final class ParallelSpawnHelper {
         private final int from;
         private final int to;
 
-        public SpawnDataCollector(
-            Entity[] entities,
-            NaturalSpawner.ChunkGetter chunkGetter,
-            int from,
-            int to
-        ) {
+        public SpawnDataCollector(Entity[] entities, NaturalSpawner.ChunkGetter chunkGetter, int from, int to) {
             this.entities = entities;
             this.chunkGetter = chunkGetter;
             this.from = from;
@@ -73,18 +60,8 @@ public final class ParallelSpawnHelper {
             }
 
             int mid = (from + to) >>> 1;
-            SpawnDataCollector left = new SpawnDataCollector(
-                entities,
-                chunkGetter,
-                from,
-                mid
-            );
-            SpawnDataCollector right = new SpawnDataCollector(
-                entities,
-                chunkGetter,
-                mid,
-                to
-            );
+            SpawnDataCollector left = new SpawnDataCollector(entities, chunkGetter, from, mid);
+            SpawnDataCollector right = new SpawnDataCollector(entities, chunkGetter, mid, to);
             left.fork();
             SpawnResult rightResult = right.compute();
             SpawnResult leftResult = left.join();
@@ -101,10 +78,7 @@ public final class ParallelSpawnHelper {
         }
 
         private void processEntity(Entity entity, SpawnResult result) {
-            if (
-                entity instanceof Mob mob &&
-                (mob.isPersistenceRequired() || mob.requiresCustomPersistence())
-            ) {
+            if (entity instanceof Mob mob && (mob.isPersistenceRequired() || mob.requiresCustomPersistence())) {
                 return;
             }
 
@@ -115,23 +89,14 @@ public final class ParallelSpawnHelper {
 
             BlockPos blockPos = entity.blockPosition();
             chunkGetter.query(ChunkPos.asLong(blockPos), chunk -> {
-                MobSpawnSettings.MobSpawnCost cost =
-                    NaturalSpawner.getRoughBiome(blockPos, chunk)
-                        .getMobSettings()
-                        .getMobSpawnCost(entity.getType());
-
+                MobSpawnSettings.MobSpawnCost cost = NaturalSpawner.getRoughBiome(blockPos, chunk).getMobSettings().getMobSpawnCost(entity.getType());
                 if (cost != null) {
-                    result.charges.add(
-                        new ChargeEntry(blockPos, cost.charge())
-                    );
+                    result.charges.add(new ChargeEntry(blockPos, cost.charge()));
                 }
 
                 result.mobCounts.addTo(category, 1);
-
                 if (entity instanceof Mob) {
-                    result.mobCapEntries.add(
-                        new MobCapEntry(chunk.getPos(), category)
-                    );
+                    result.mobCapEntries.add(new MobCapEntry(chunk.getPos(), category));
                 }
             });
         }

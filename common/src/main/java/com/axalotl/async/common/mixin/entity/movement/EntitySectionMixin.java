@@ -32,11 +32,7 @@ public class EntitySectionMixin<T extends EntityAccess> {
     private final Object async$storageLock = new Object();
 
     @Inject(method = "<init>", at = @At("TAIL"))
-    private void async$init(
-        Class<?> clazz,
-        Visibility status,
-        CallbackInfo ci
-    ) {
+    private void async$init(Class<?> clazz, Visibility status, CallbackInfo ci) {
         async$atomicStatus.set(status != null ? status : Visibility.HIDDEN);
     }
 

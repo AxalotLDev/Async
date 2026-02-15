@@ -30,7 +30,6 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.chunk.ChunkAccess;
 import net.minecraft.world.level.chunk.LevelChunk;
-import net.minecraft.world.level.chunk.status.ChunkStatus;
 import net.minecraft.world.level.chunk.storage.RegionStorageInfo;
 import net.minecraft.world.level.chunk.storage.SimpleRegionStorage;
 import net.minecraft.world.phys.Vec3;
@@ -40,10 +39,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(value = ChunkMap.class, priority = 1500)
-public abstract class ChunkMapMixin
-    extends SimpleRegionStorage
-    implements ChunkHolder.PlayerProvider
-{
+public abstract class ChunkMapMixin extends SimpleRegionStorage implements ChunkHolder.PlayerProvider {
 
     @Shadow
     @Final
@@ -71,13 +67,7 @@ public abstract class ChunkMapMixin
     @Final
     ServerLevel level;
 
-    public ChunkMapMixin(
-        RegionStorageInfo p_326109_,
-        Path p_321582_,
-        DataFixer p_321815_,
-        boolean p_321788_,
-        DataFixTypes p_321522_
-    ) {
+    public ChunkMapMixin(RegionStorageInfo p_326109_, Path p_321582_, DataFixer p_321815_, boolean p_321788_, DataFixTypes p_321522_) {
         super(p_326109_, p_321582_, p_321815_, p_321788_, p_321522_);
     }
 
@@ -89,46 +79,27 @@ public abstract class ChunkMapMixin
     }
 
     @WrapMethod(method = "addEntity")
-    private synchronized void addEntity(
-        Entity entity,
-        Operation<Void> original
-    ) {
+    private synchronized void addEntity(Entity entity, Operation<Void> original) {
         original.call(entity);
     }
 
     @WrapMethod(method = "removeEntity")
-    private synchronized void removeEntity(
-        Entity entity,
-        Operation<Void> original
-    ) {
+    private synchronized void removeEntity(Entity entity, Operation<Void> original) {
         original.call(entity);
     }
 
     @WrapMethod(method = "releaseGeneration")
-    private synchronized void releaseGeneration(
-        GenerationChunkHolder chunk,
-        Operation<Void> original
-    ) {
+    private synchronized void releaseGeneration(GenerationChunkHolder chunk, Operation<Void> original) {
         original.call(chunk);
     }
 
-    @Inject(
-        method = "addEntity",
-        at = @At(
-            value = "INVOKE",
-            target = "Lnet/minecraft/util/Util;pauseInIde(Ljava/lang/Throwable;)Ljava/lang/Throwable;"
-        ),
-        cancellable = true
-    )
+    @Inject(method = "addEntity", at = @At(value = "INVOKE", target = "Lnet/minecraft/util/Util;pauseInIde(Ljava/lang/Throwable;)Ljava/lang/Throwable;"), cancellable = true)
     private void skipThrowLoadEntity(Entity entity, CallbackInfo ci) {
         ci.cancel();
     }
 
     @WrapMethod(method = "collectSpawningChunks")
-    private void async$optimizedCollectSpawningChunks(
-        List<LevelChunk> result,
-        Operation<Void> original
-    ) {
+    private void async$optimizedCollectSpawningChunks(List<LevelChunk> result, Operation<Void> original) {
         List<ServerPlayer> players = this.level.players();
         double[] playerX = new double[players.size()];
         double[] playerZ = new double[players.size()];
@@ -171,10 +142,7 @@ public abstract class ChunkMapMixin
     }
 
     @WrapMethod(method = "forEachBlockTickingChunk")
-    private void forEachBlockTickingChunk(
-        Consumer<LevelChunk> action,
-        Operation<Void> original
-    ) {
+    private void forEachBlockTickingChunk(Consumer<LevelChunk> action, Operation<Void> original) {
         if (!AsyncConfig.disabled && AsyncConfig.enableAsyncRandomTicks) {
             ArrayList<LevelChunk> chunks = new ArrayList<>();
             distanceManager.forEachEntityTickingChunk(pos -> {
@@ -192,13 +160,7 @@ public abstract class ChunkMapMixin
                 CompletableFuture<Void> future = new CompletableFuture<>();
                 ParallelProcessor.tickPool.execute(() -> {
                     try {
-                        new RandomTickBatch(
-                            arr,
-                            0,
-                            arr.length,
-                            action
-                        ).invoke();
-                        future.complete(null);
+                        new RandomTickBatch(arr, 0, arr.length, action).invoke();future.complete(null);
                     } catch (Throwable e) {
                         future.completeExceptionally(e);
                     }
