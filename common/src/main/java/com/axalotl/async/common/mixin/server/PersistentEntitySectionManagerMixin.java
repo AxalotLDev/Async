@@ -2,6 +2,7 @@ package com.axalotl.async.common.mixin.server;
 
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.entity.EntityAccess;
 import net.minecraft.world.level.entity.PersistentEntitySectionManager;
 import net.minecraft.world.level.entity.Visibility;
@@ -17,5 +18,12 @@ public abstract class PersistentEntitySectionManagerMixin implements AutoCloseab
             return entity.isAlwaysTicking() ? Visibility.TICKING : Visibility.TRACKED;
         }
         return result;
+    }
+
+    @WrapMethod(method = "canPositionTick(Lnet/minecraft/world/level/ChunkPos;)Z")
+    private boolean async$canPositionTick(ChunkPos pos, Operation<Boolean> original) {
+        synchronized (this) {
+            return original.call(pos);
+        }
     }
 }
