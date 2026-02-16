@@ -108,11 +108,11 @@ public abstract class EntityMixin {
     }
 
     @Unique
-    private final AtomicReference<Entity.RemovalReason> async$removalRef = new AtomicReference<>(null);
+    private static final Object async$lock = new Object();
 
     @WrapMethod(method = "setRemoved")
     private void setRemoved(Entity.RemovalReason reason, Operation<Void> original) {
-        if (async$removalRef.compareAndSet(null, reason)) {
+        synchronized (async$lock) {
             original.call(reason);
         }
     }
