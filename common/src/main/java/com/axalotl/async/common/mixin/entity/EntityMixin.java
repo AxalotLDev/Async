@@ -92,6 +92,13 @@ public abstract class EntityMixin {
         }
     }
 
+    @WrapMethod(method = "applyEffectsFromBlocks()V")
+    private void applyEffectsFromBlocks(Operation<Void> original) {
+        synchronized (this) {
+            original.call();
+        }
+    }
+
     @WrapMethod(method = "ejectPassengers")
     private void ejectPassengers(Operation<Void> original) {
         ImmutableList<Entity> snapshot = async$passengersRef.getAndSet(ImmutableList.of());
