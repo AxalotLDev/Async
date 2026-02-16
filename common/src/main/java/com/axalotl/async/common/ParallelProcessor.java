@@ -48,7 +48,6 @@ public class ParallelProcessor {
     private static final int DESPAWN_GRAIN = 128;
     private static final int INITIAL_CAPACITY = 16384;
     private static final long POST_TICK_TIMEOUT_SECS = 10;
-    private static volatile ForkJoinTask<?> currentSpawnTask;
     private static Entity[] pendingDespawns = new Entity[4096];
     private static ArrayList<SpawnEntry> spawnSubmit = new ArrayList<>();
     private static ArrayList<SpawnEntry> spawnCollect = new ArrayList<>();
@@ -56,17 +55,18 @@ public class ParallelProcessor {
     private static ServerLevel[] pendingWorlds = new ServerLevel[INITIAL_CAPACITY];
     private static final Queue<CompletableFuture<?>> externalTaskQueue = new MpscUnboundedArrayQueue<>(256);
 
-    record SpawnEntry(ServerLevel level, LevelChunk chunk, NaturalSpawner.SpawnState spawnState, List<MobCategory> categories) {}
+    record SpawnEntry(ServerLevel level, LevelChunk chunk, NaturalSpawner.SpawnState spawnState,
+                      List<MobCategory> categories) {
+    }
 
     public static final Set<Class<?>> BLOCKED_ENTITIES = Set.of(
-        FallingBlockEntity.class,
-        Shulker.class,
-        AbstractBoat.class
+            FallingBlockEntity.class,
+            Shulker.class,
+            AbstractBoat.class
     );
 
     private static final class AsyncTickWorkerThread
-        extends ForkJoinWorkerThread
-    {
+            extends ForkJoinWorkerThread {
 
         AsyncTickWorkerThread(ForkJoinPool pool) {
             super(pool);
@@ -83,15 +83,15 @@ public class ParallelProcessor {
         isShuttingDown = false;
 
         tickPool = new ForkJoinPool(
-            parallelism, pool -> {
-                AsyncTickWorkerThread worker = new AsyncTickWorkerThread(pool);
-                worker.setName("Async-Tick-Pool-Thread-" + threadPoolID.getAndIncrement());
-                worker.setDaemon(true);
-                worker.setPriority(Thread.NORM_PRIORITY);
-                worker.setContextClassLoader(asyncClass.getClassLoader());
-                return worker;
-            },
-            (t, e) -> LOGGER.error("Uncaught exception in thread {}: {}", t.getName(), e), true);
+                parallelism, pool -> {
+            AsyncTickWorkerThread worker = new AsyncTickWorkerThread(pool);
+            worker.setName("Async-Tick-Pool-Thread-" + threadPoolID.getAndIncrement());
+            worker.setDaemon(true);
+            worker.setPriority(Thread.NORM_PRIORITY);
+            worker.setContextClassLoader(asyncClass.getClassLoader());
+            return worker;
+        },
+                (t, e) -> LOGGER.error("Uncaught exception in thread {}: {}", t.getName(), e), true);
 
         LOGGER.info("Initialized Pool with {} threads", parallelism);
         VanishCompat.apply();
@@ -226,20 +226,16 @@ public class ParallelProcessor {
         spawnCollect.add(new SpawnEntry(level, chunk, spawnState, List.copyOf(categories)));
     }
 
+    private static final IdentityHashMap<ServerLevel, ForkJoinTask<?>> worldSpawnTasks = new IdentityHashMap<>();
+
     private static void submitSpawnCycle() {
         if (spawnCollect.isEmpty()) return;
 
-        ForkJoinTask<?> prev = currentSpawnTask;
+        ServerLevel world = spawnCollect.getFirst().level();
+
+        ForkJoinTask<?> prev = worldSpawnTasks.get(world);
         if (prev != null && !prev.isDone()) {
-            while (!prev.isDone()) {
-                boolean didWork = false;
-                for (ServerLevel world : server.getAllLevels()) {
-                    didWork |= world.getChunkSource().pollTask();
-                }
-                if (!didWork) {
-                    LockSupport.parkNanos(1_000L);
-                }
-            }
+            prev.quietlyJoin();
         }
 
         ArrayList<SpawnEntry> ready = spawnCollect;
@@ -247,12 +243,12 @@ public class ParallelProcessor {
         spawnCollect.clear();
         spawnSubmit = ready;
 
-        currentSpawnTask = tickPool.submit(() -> {
+        worldSpawnTasks.put(world, tickPool.submit(() -> {
             for (int i = 0, n = ready.size(); i < n; i++) {
                 SpawnEntry s = ready.get(i);
                 NaturalSpawner.spawnForChunk(s.level(), s.chunk(), s.spawnState(), s.categories());
             }
-        });
+        }));
     }
 
     public static void asyncDespawn(Entity entity) {
@@ -315,19 +311,23 @@ public class ParallelProcessor {
         long deadlineNanos = System.nanoTime() + TimeUnit.SECONDS.toNanos(POST_TICK_TIMEOUT_SECS);
 
         while (true) {
-            boolean allDone = (entityTask == null || entityTask.isDone()) && (despawnTask == null || despawnTask.isDone()) && (externalFuture == null || externalFuture.isDone());
+            boolean allDone = (entityTask == null || entityTask.isDone())
+                    && (despawnTask == null || despawnTask.isDone())
+                    && (externalFuture == null || externalFuture.isDone());
 
             if (allDone) break;
 
             if (System.nanoTime() > deadlineNanos) {
-                LOGGER.error("postEntityTick timed out after {}s waiting for async tasks. " + "Entity done: {}, Despawn done: {}, External done: {}. " + "Falling back to synchronous processing for incomplete work.", POST_TICK_TIMEOUT_SECS,
-                    entityTask == null || entityTask.isDone(),
-                    despawnTask == null || despawnTask.isDone(),
-                    externalFuture == null || externalFuture.isDone());
+                LOGGER.error("postEntityTick timed out after {}s. Entity: {}, Despawn: {}, External: {}",
+                        POST_TICK_TIMEOUT_SECS,
+                        entityTask == null || entityTask.isDone(),
+                        despawnTask == null || despawnTask.isDone(),
+                        externalFuture == null || externalFuture.isDone());
 
                 if (entityTask != null && !entityTask.isDone()) entityTask.cancel(true);
                 if (despawnTask != null && !despawnTask.isDone()) despawnTask.cancel(true);
                 if (externalFuture != null && !externalFuture.isDone()) externalFuture.cancel(true);
+
                 if (entityCompleted != null) {
                     int rescued = 0;
                     for (int i = 0; i < entityCount; i++) {
@@ -380,10 +380,10 @@ public class ParallelProcessor {
     public static void stop() {
         isShuttingDown = true;
 
-        ForkJoinTask<?> spawn = currentSpawnTask;
-        if (spawn != null && !spawn.isDone()) {
-            spawn.quietlyJoin();
+        for (ForkJoinTask<?> task : worldSpawnTasks.values()) {
+            if (task != null && !task.isDone()) task.quietlyJoin();
         }
+        worldSpawnTasks.clear();
 
         ArrayList<CompletableFuture<?>> remaining = new ArrayList<>();
         CompletableFuture<?> f;

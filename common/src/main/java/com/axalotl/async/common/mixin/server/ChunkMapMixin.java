@@ -5,6 +5,7 @@ import com.axalotl.async.common.RandomTickBatch;
 import com.axalotl.async.common.config.AsyncConfig;
 import com.axalotl.async.common.parallelised.fastutil.ConcurrentLongLinkedOpenHashSet;
 import com.axalotl.async.common.parallelised.fastutil.Int2ObjectConcurrentHashMap;
+import com.axalotl.async.common.parallelised.utils.AsyncChunkAccess;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.mojang.datafixers.DataFixer;
@@ -28,7 +29,6 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.datafix.DataFixTypes;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.ChunkPos;
-import net.minecraft.world.level.chunk.ChunkAccess;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.chunk.storage.RegionStorageInfo;
 import net.minecraft.world.level.chunk.storage.SimpleRegionStorage;
@@ -80,6 +80,11 @@ public abstract class ChunkMapMixin extends SimpleRegionStorage implements Chunk
 
     @WrapMethod(method = "addEntity")
     private synchronized void addEntity(Entity entity, Operation<Void> original) {
+        // Чистим stale tracking перед добавлением — предотвращает "already tracked" при реконнекте/портале
+        ChunkMap.TrackedEntity stale = this.entityMap.remove(entity.getId());
+        if (stale != null) {
+            stale.broadcastRemoved();
+        }
         original.call(entity);
     }
 
@@ -91,11 +96,6 @@ public abstract class ChunkMapMixin extends SimpleRegionStorage implements Chunk
     @WrapMethod(method = "releaseGeneration")
     private synchronized void releaseGeneration(GenerationChunkHolder chunk, Operation<Void> original) {
         original.call(chunk);
-    }
-
-    @Inject(method = "addEntity", at = @At(value = "INVOKE", target = "Lnet/minecraft/util/Util;pauseInIde(Ljava/lang/Throwable;)Ljava/lang/Throwable;"), cancellable = true)
-    private void skipThrowLoadEntity(Entity entity, CallbackInfo ci) {
-        ci.cancel();
     }
 
     @WrapMethod(method = "collectSpawningChunks")
@@ -121,10 +121,8 @@ public abstract class ChunkMapMixin extends SimpleRegionStorage implements Chunk
 
         while (it.hasNext()) {
             ChunkHolder holder = this.visibleChunkMap.get(it.nextLong());
-            if (holder == null) continue;
-
-            ChunkAccess chunk = holder.getTickingChunk();
-            if (!(chunk instanceof LevelChunk lc)) continue;
+            LevelChunk lc = AsyncChunkAccess.getLoadedChunk(holder);
+            if (lc == null) continue;
 
             ChunkPos pos = holder.getPos();
             double cx = SectionPos.sectionToBlockCoord(pos.x, 8);
