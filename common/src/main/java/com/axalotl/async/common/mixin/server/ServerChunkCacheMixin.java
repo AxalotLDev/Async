@@ -1,6 +1,7 @@
 package com.axalotl.async.common.mixin.server;
 
 import com.axalotl.async.common.ParallelProcessor;
+import io.netty.util.concurrent.FastThreadLocal;
 import net.minecraft.server.level.*;
 import net.minecraft.world.entity.MobCategory;
 import net.minecraft.world.level.ChunkPos;
@@ -31,7 +32,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public abstract class ServerChunkCacheMixin extends ChunkSource {
 
     @Shadow @Final Thread mainThread;
-    @Shadow @Final public ServerChunkCache.MainThreadExecutor mainThreadProcessor;
+    @Shadow @Final private ServerLevel level;
     @Shadow public abstract @Nullable ChunkHolder getVisibleChunkIfPresent(long pos);
     @Shadow @Final @Mutable private Set<ChunkHolder> chunkHoldersToBroadcast;
 
@@ -41,14 +42,24 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
     }
 
     @Unique
-    private static final ThreadLocal<long[]> asyncMultiloader$asyncCacheKeys = ThreadLocal.withInitial(() -> {
-        long[] keys = new long[4];
-        java.util.Arrays.fill(keys, Long.MAX_VALUE);
-        return keys;
-    });
+    private static final FastThreadLocal<long[]> asyncMultiloader$asyncCacheKeys =
+            new FastThreadLocal<>() {
+                @Override
+                protected long[] initialValue() {
+                    long[] keys = new long[4];
+                    java.util.Arrays.fill(keys, Long.MAX_VALUE);
+                    return keys;
+                }
+            };
 
     @Unique
-    private static final ThreadLocal<ChunkAccess[]> asyncMultiloader$asyncCacheChunks = ThreadLocal.withInitial(() -> new ChunkAccess[4]);
+    private static final FastThreadLocal<ChunkAccess[]> asyncMultiloader$asyncCacheChunks =
+            new FastThreadLocal<>() {
+                @Override
+                protected ChunkAccess[] initialValue() {
+                    return new ChunkAccess[4];
+                }
+            };
 
     @Unique
     private static long async$createCacheKey(int x, int z, ChunkStatus status) {
@@ -135,6 +146,21 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
         return null;
     }
 
+    @Unique
+    private @Nullable ChunkAccess async$tryGetAnyChunk(int x, int z) {
+        long pos = ChunkPos.asLong(x, z);
+        ChunkHolder holder = this.getVisibleChunkIfPresent(pos);
+        if (holder == null) return null;
+
+        LevelChunk lc = async$tryGetFromLevelChunkFutures(holder);
+        if (lc != null) return lc;
+
+        ChunkAccess chunk = async$unwrap(holder.getChunkIfPresent(ChunkStatus.FULL));
+        if (chunk instanceof LevelChunk) return chunk;
+
+        return null;
+    }
+
     @Inject(method = "getChunk(IILnet/minecraft/world/level/chunk/status/ChunkStatus;Z)Lnet/minecraft/world/level/chunk/ChunkAccess;",
             at = @At("HEAD"), cancellable = true)
     private void async$getChunk(int x, int z, ChunkStatus leastStatus, boolean create,
@@ -162,15 +188,14 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
             return;
         }
 
-        CompletableFuture<ChunkAccess> future = CompletableFuture.supplyAsync(
-                () -> ((ServerChunkCache) (Object) this).getChunk(x, z, leastStatus, true),
-                this.mainThreadProcessor
-        );
-        ChunkAccess chunk = future.join();
-        if (chunk != null) {
-            async$addToCache(cacheKey, chunk);
+        // create=true но fast path не нашёл — пробуем любой доступный статус
+        ChunkAccess fallback = async$tryGetAnyChunk(x, z);
+        if (fallback != null) {
+            async$addToCache(cacheKey, fallback);
+            cir.setReturnValue(fallback);
+            return;
         }
-        cir.setReturnValue(chunk);
+        cir.setReturnValue(new LevelChunk(this.level, new ChunkPos(x, z)));
     }
 
     @Inject(method = "getChunkNow", at = @At("HEAD"), cancellable = true)

@@ -1,8 +1,7 @@
 package com.axalotl.async.common.parallelised.utils;
 
+import com.axalotl.async.common.ParallelProcessor;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
-import java.util.ArrayList;
-import java.util.concurrent.RecursiveTask;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.Mob;
@@ -10,6 +9,10 @@ import net.minecraft.world.entity.MobCategory;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.NaturalSpawner;
 import net.minecraft.world.level.biome.MobSpawnSettings;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 public final class ParallelSpawnHelper {
 
@@ -36,69 +39,62 @@ public final class ParallelSpawnHelper {
 
     public record MobCapEntry(ChunkPos chunkPos, MobCategory category) {}
 
-    public static final class SpawnDataCollector
-        extends RecursiveTask<SpawnResult>
-    {
+    public static SpawnResult collectSpawnData(Entity[] entities, NaturalSpawner.ChunkGetter chunkGetter) {
+        int length = entities.length;
 
-        private final Entity[] entities;
-        private final NaturalSpawner.ChunkGetter chunkGetter;
-        private final int from;
-        private final int to;
-
-        public SpawnDataCollector(Entity[] entities, NaturalSpawner.ChunkGetter chunkGetter, int from, int to) {
-            this.entities = entities;
-            this.chunkGetter = chunkGetter;
-            this.from = from;
-            this.to = to;
+        if (length <= SPAWN_GRAIN || ParallelProcessor.tickPool == null) {
+            return computeRange(entities, chunkGetter, 0, length);
         }
 
-        @Override
-        protected SpawnResult compute() {
-            int size = to - from;
-            if (size <= SPAWN_GRAIN) {
-                return computeLeaf();
-            }
+        int poolSize = ParallelProcessor.getPoolSize();
+        int chunkSize = Math.max(SPAWN_GRAIN, length / poolSize);
 
-            int mid = (from + to) >>> 1;
-            SpawnDataCollector left = new SpawnDataCollector(entities, chunkGetter, from, mid);
-            SpawnDataCollector right = new SpawnDataCollector(entities, chunkGetter, mid, to);
-            left.fork();
-            SpawnResult rightResult = right.compute();
-            SpawnResult leftResult = left.join();
-            leftResult.merge(rightResult);
-            return leftResult;
+        List<CompletableFuture<SpawnResult>> futures = new ArrayList<>();
+        for (int i = 0; i < length; i += chunkSize) {
+            int from = i;
+            int to = Math.min(i + chunkSize, length);
+            futures.add(CompletableFuture.supplyAsync(
+                    () -> computeRange(entities, chunkGetter, from, to),
+                    ParallelProcessor.tickPool
+            ));
         }
 
-        private SpawnResult computeLeaf() {
-            SpawnResult result = new SpawnResult();
-            for (int i = from; i < to; i++) {
-                processEntity(entities[i], result);
-            }
-            return result;
+        SpawnResult merged = new SpawnResult();
+        for (CompletableFuture<SpawnResult> future : futures) {
+            merged.merge(future.join());
+        }
+        return merged;
+    }
+
+    private static SpawnResult computeRange(Entity[] entities, NaturalSpawner.ChunkGetter chunkGetter, int from, int to) {
+        SpawnResult result = new SpawnResult();
+        for (int i = from; i < to; i++) {
+            processEntity(entities[i], chunkGetter, result);
+        }
+        return result;
+    }
+
+    private static void processEntity(Entity entity, NaturalSpawner.ChunkGetter chunkGetter, SpawnResult result) {
+        if (entity instanceof Mob mob && (mob.isPersistenceRequired() || mob.requiresCustomPersistence())) {
+            return;
         }
 
-        private void processEntity(Entity entity, SpawnResult result) {
-            if (entity instanceof Mob mob && (mob.isPersistenceRequired() || mob.requiresCustomPersistence())) {
-                return;
-            }
-
-            MobCategory category = entity.getType().getCategory();
-            if (category == MobCategory.MISC) {
-                return;
-            }
-
-            BlockPos blockPos = entity.blockPosition();
-            chunkGetter.query(ChunkPos.asLong(blockPos), chunk -> {
-                MobSpawnSettings.MobSpawnCost cost = NaturalSpawner.getRoughBiome(blockPos, chunk).getMobSettings().getMobSpawnCost(entity.getType());
-                if (cost != null) {
-                    result.charges.add(new ChargeEntry(blockPos, cost.charge()));
-                }
-
-                result.mobCounts.addTo(category, 1);
-                if (entity instanceof Mob) {
-                    result.mobCapEntries.add(new MobCapEntry(chunk.getPos(), category));
-                }
-            });
+        MobCategory category = entity.getType().getCategory();
+        if (category == MobCategory.MISC) {
+            return;
         }
+
+        BlockPos blockPos = entity.blockPosition();
+        chunkGetter.query(ChunkPos.asLong(blockPos), chunk -> {
+            MobSpawnSettings.MobSpawnCost cost = NaturalSpawner.getRoughBiome(blockPos, chunk).getMobSettings().getMobSpawnCost(entity.getType());
+            if (cost != null) {
+                result.charges.add(new ChargeEntry(blockPos, cost.charge()));
+            }
+
+            result.mobCounts.addTo(category, 1);
+            if (entity instanceof Mob) {
+                result.mobCapEntries.add(new MobCapEntry(chunk.getPos(), category));
+            }
+        });
     }
 }

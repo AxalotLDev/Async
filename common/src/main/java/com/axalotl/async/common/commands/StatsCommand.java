@@ -17,14 +17,15 @@ import net.minecraft.world.entity.EntityType;
 import java.text.DecimalFormat;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static com.axalotl.async.common.ParallelProcessor.getPoolSize;
 import static com.axalotl.async.common.commands.AsyncCommand.prefix;
 import static net.minecraft.commands.Commands.argument;
 import static net.minecraft.commands.Commands.literal;
 
 public class StatsCommand {
+
     private static final DecimalFormat DECIMAL_FORMAT = new DecimalFormat("#,##0.##");
 
     public static LiteralArgumentBuilder<CommandSourceStack> registerStatus(LiteralArgumentBuilder<CommandSourceStack> root) {
@@ -66,10 +67,7 @@ public class StatsCommand {
 
         double asyncRatio = totalEntities > 0 ? (asyncEntities * 100.0 / totalEntities) : 0;
 
-        int threads = 0;
-        if (ParallelProcessor.tickPool instanceof ForkJoinPool pool && !pool.isShutdown()) {
-            threads = pool.getParallelism();
-        }
+        int threads = getPoolSize();
 
         boolean enabled = !AsyncConfig.disabled;
         boolean asyncSpawn = AsyncConfig.enableAsyncSpawn;

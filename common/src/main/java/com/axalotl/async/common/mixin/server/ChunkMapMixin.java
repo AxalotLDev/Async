@@ -1,6 +1,5 @@
 package com.axalotl.async.common.mixin.server;
 
-import com.axalotl.async.common.ParallelProcessor;
 import com.axalotl.async.common.RandomTickBatch;
 import com.axalotl.async.common.config.AsyncConfig;
 import com.axalotl.async.common.parallelised.fastutil.ConcurrentLongLinkedOpenHashSet;
@@ -13,12 +12,6 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectLinkedOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongIterator;
 import it.unimi.dsi.fastutil.longs.LongSet;
-import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.function.Consumer;
 import net.minecraft.core.SectionPos;
 import net.minecraft.server.level.ChunkGenerationTask;
 import net.minecraft.server.level.ChunkHolder;
@@ -37,6 +30,13 @@ import org.spongepowered.asm.mixin.*;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.function.Consumer;
 
 @Mixin(value = ChunkMap.class, priority = 1500)
 public abstract class ChunkMapMixin extends SimpleRegionStorage implements ChunkHolder.PlayerProvider {
@@ -80,7 +80,6 @@ public abstract class ChunkMapMixin extends SimpleRegionStorage implements Chunk
 
     @WrapMethod(method = "addEntity")
     private synchronized void addEntity(Entity entity, Operation<Void> original) {
-        // Чистим stale tracking перед добавлением — предотвращает "already tracked" при реконнекте/портале
         ChunkMap.TrackedEntity stale = this.entityMap.remove(entity.getId());
         if (stale != null) {
             stale.broadcastRemoved();
@@ -139,9 +138,17 @@ public abstract class ChunkMapMixin extends SimpleRegionStorage implements Chunk
         }
     }
 
+    @Unique
+    private volatile CompletableFuture<Void> async$pendingRandomTicks = null;
+
     @WrapMethod(method = "forEachBlockTickingChunk")
     private void forEachBlockTickingChunk(Consumer<LevelChunk> action, Operation<Void> original) {
         if (!AsyncConfig.disabled && AsyncConfig.enableAsyncRandomTicks) {
+            CompletableFuture<Void> prev = async$pendingRandomTicks;
+            if (prev != null && !prev.isDone()) {
+                prev.join();
+            }
+
             ArrayList<LevelChunk> chunks = new ArrayList<>();
             distanceManager.forEachEntityTickingChunk(pos -> {
                 ChunkHolder holder = visibleChunkMap.get(pos);
@@ -155,15 +162,7 @@ public abstract class ChunkMapMixin extends SimpleRegionStorage implements Chunk
 
             if (!chunks.isEmpty()) {
                 LevelChunk[] arr = chunks.toArray(new LevelChunk[0]);
-                CompletableFuture<Void> future = new CompletableFuture<>();
-                ParallelProcessor.tickPool.execute(() -> {
-                    try {
-                        new RandomTickBatch(arr, 0, arr.length, action).invoke();future.complete(null);
-                    } catch (Throwable e) {
-                        future.completeExceptionally(e);
-                    }
-                });
-                ParallelProcessor.addTask(future);
+                async$pendingRandomTicks = RandomTickBatch.submit(arr, action);
             }
         } else {
             original.call(action);

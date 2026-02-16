@@ -2,13 +2,11 @@ package com.axalotl.async.common.mixin.entity.spawn;
 
 import com.axalotl.async.common.ParallelProcessor;
 import com.axalotl.async.common.config.AsyncConfig;
+import com.axalotl.async.common.parallelised.utils.ParallelSpawnHelper;
 import com.axalotl.async.common.parallelised.utils.ParallelSpawnHelper.ChargeEntry;
 import com.axalotl.async.common.parallelised.utils.ParallelSpawnHelper.MobCapEntry;
-import com.axalotl.async.common.parallelised.utils.ParallelSpawnHelper.SpawnDataCollector;
 import com.axalotl.async.common.parallelised.utils.ParallelSpawnHelper.SpawnResult;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
-import java.util.ArrayList;
-import java.util.List;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.LocalMobCapCalculator;
 import net.minecraft.world.level.NaturalSpawner;
@@ -19,11 +17,17 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @Mixin(value = NaturalSpawner.class, priority = 900)
 public abstract class NaturalSpawnerMixin {
 
     @Inject(method = "createState", at = @At("HEAD"), cancellable = true)
-    private static void async$createState(int spawnableChunkCount, Iterable<Entity> entities, NaturalSpawner.ChunkGetter chunkGetter, LocalMobCapCalculator localMobCapCalculator, CallbackInfoReturnable<NaturalSpawner.SpawnState> cir) {
+    private static void async$createState(int spawnableChunkCount, Iterable<Entity> entities,
+                                          NaturalSpawner.ChunkGetter chunkGetter,
+                                          LocalMobCapCalculator localMobCapCalculator,
+                                          CallbackInfoReturnable<NaturalSpawner.SpawnState> cir) {
         if (AsyncConfig.disabled || !AsyncConfig.enableAsyncSpawn) {
             return;
         }
@@ -34,7 +38,10 @@ public abstract class NaturalSpawnerMixin {
     }
 
     @Unique
-    private static NaturalSpawner.SpawnState async$createStateParallel(int spawnableChunkCount, Iterable<Entity> entities, NaturalSpawner.ChunkGetter chunkGetter, LocalMobCapCalculator localMobCapCalculator) {
+    private static NaturalSpawner.SpawnState async$createStateParallel(int spawnableChunkCount,
+                                                                       Iterable<Entity> entities,
+                                                                       NaturalSpawner.ChunkGetter chunkGetter,
+                                                                       LocalMobCapCalculator localMobCapCalculator) {
         List<Entity> entityList;
         if (entities instanceof List<Entity> list) {
             entityList = list;
@@ -44,12 +51,13 @@ public abstract class NaturalSpawnerMixin {
         }
 
         if (entityList.isEmpty()) {
-            return new NaturalSpawner.SpawnState(spawnableChunkCount, new Object2IntOpenHashMap<>(), new PotentialCalculator(), localMobCapCalculator);
+            return new NaturalSpawner.SpawnState(spawnableChunkCount, new Object2IntOpenHashMap<>(),
+                    new PotentialCalculator(), localMobCapCalculator);
         }
 
         Entity[] entityArray = entityList.toArray(new Entity[0]);
 
-        SpawnResult result = ParallelProcessor.tickPool.invoke(new SpawnDataCollector(entityArray, chunkGetter, 0, entityArray.length));
+        SpawnResult result = ParallelSpawnHelper.collectSpawnData(entityArray, chunkGetter);
 
         PotentialCalculator potentialCalculator = new PotentialCalculator();
         for (int i = 0, n = result.charges.size(); i < n; i++) {
@@ -62,6 +70,7 @@ public abstract class NaturalSpawnerMixin {
             localMobCapCalculator.addMob(m.chunkPos(), m.category());
         }
 
-        return new NaturalSpawner.SpawnState(spawnableChunkCount, result.mobCounts, potentialCalculator, localMobCapCalculator);
+        return new NaturalSpawner.SpawnState(spawnableChunkCount, result.mobCounts,
+                potentialCalculator, localMobCapCalculator);
     }
 }
