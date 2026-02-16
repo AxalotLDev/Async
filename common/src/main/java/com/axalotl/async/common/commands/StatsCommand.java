@@ -16,9 +16,9 @@ import net.minecraft.world.entity.EntityType;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static com.axalotl.async.common.ParallelProcessor.getPoolSize;
 import static com.axalotl.async.common.commands.AsyncCommand.prefix;
 import static net.minecraft.commands.Commands.argument;
 import static net.minecraft.commands.Commands.literal;
@@ -56,10 +56,7 @@ public class StatsCommand {
             }
         }
 
-        int threads = 0;
-        if (ParallelProcessor.tickPool instanceof ForkJoinPool pool && !pool.isShutdown()) {
-            threads = pool.getParallelism();
-        }
+        int threads = getPoolSize();
 
         boolean enabled = !AsyncConfig.disabled;
         boolean asyncSpawn = AsyncConfig.enableAsyncSpawn;
