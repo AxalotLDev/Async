@@ -1,7 +1,9 @@
 package com.axalotl.async.common.mixin.world;
 
 import com.axalotl.async.common.ParallelProcessor;
+import com.axalotl.async.common.config.AsyncConfig;
 import com.axalotl.async.common.parallelised.ConcurrentCollections;
+import com.axalotl.async.common.parallelised.utils.PortalCreationCache;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import it.unimi.dsi.fastutil.objects.ObjectLinkedOpenHashSet;
@@ -20,10 +22,7 @@ import net.minecraft.util.random.WeightedList;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.Mob;
-import net.minecraft.world.level.BlockEventData;
-import net.minecraft.world.level.ExplosionDamageCalculator;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.WorldGenLevel;
+import net.minecraft.world.level.*;
 import net.minecraft.world.level.dimension.DimensionType;
 import net.minecraft.world.level.entity.EntityTickList;
 import net.minecraft.world.level.storage.WritableLevelData;
@@ -40,11 +39,15 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 
@@ -90,32 +93,55 @@ public abstract class ServerLevelMixin extends Level implements WorldGenLevel {
         players = new CopyOnWriteArrayList<>();
     }
 
+
     @Redirect(method = "tick", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/entity/EntityTickList;forEach(Ljava/util/function/Consumer;)V"))
     private void overwriteEntityTicking(EntityTickList entityTickList, Consumer<Entity> consumer) {
         ProfilerFiller profilerfiller = Profiler.get();
+
+        List<Entity> toTick = new ArrayList<>();
+        List<Entity> toDespawnCheck = new ArrayList<>();
+
         this.entityTickList.forEach(entity -> {
-            if (entity != null && !entity.isRemoved()) {
-                if (!this.tickRateManager().isEntityFrozen(entity)) {
-                    profilerfiller.push("checkDespawn");
-                    ParallelProcessor.asyncDespawn(entity);
-                    profilerfiller.pop();
-                    if (this.chunkSource.chunkMap.getDistanceManager().inEntityTickingRange(entity.chunkPosition().toLong())) {
-                        Entity entity2 = entity.getVehicle();
-                        if (entity2 != null) {
-                            if (!entity2.isRemoved() && entity2.hasPassenger(entity)) {
-                                return;
-                            }
-                            entity.stopRiding();
-                        }
-                        profilerfiller.push("tick");
-                        ParallelProcessor.callEntityTick(this.getLevel(), entity);
-                        profilerfiller.pop();
-                    }
-                }
+            if (entity == null || entity.isRemoved()) return;
+            if (this.tickRateManager().isEntityFrozen(entity)) return;
+
+            if (!AsyncConfig.disabled && AsyncConfig.enableAsyncSpawn) {
+                toDespawnCheck.add(entity);
+            } else {
+                profilerfiller.push("checkDespawn");
+                entity.checkDespawn();
+                profilerfiller.pop();
             }
+
+            if (!this.chunkSource.chunkMap.getDistanceManager()
+                    .inEntityTickingRange(entity.chunkPosition().toLong())) return;
+
+            Entity vehicle = entity.getVehicle();
+            if (vehicle != null) {
+                if (!vehicle.isRemoved() && vehicle.hasPassenger(entity)) return;
+                entity.stopRiding();
+            }
+
+            toTick.add(entity);
         });
+
+        if (!toDespawnCheck.isEmpty()) {
+            int chunkSize = Math.max(1, toDespawnCheck.size() / ParallelProcessor.getPoolSize());
+            List<Callable<Void>> despawnTasks = new ArrayList<>();
+            for (int i = 0; i < toDespawnCheck.size(); i += chunkSize) {
+                List<Entity> chunk = toDespawnCheck.subList(i, Math.min(i + chunkSize, toDespawnCheck.size()));
+                despawnTasks.add(() -> {
+                    for (Entity e : chunk) e.checkDespawn();
+                    return null;
+                });
+            }
+            try {
+                ((ThreadPoolExecutor) ParallelProcessor.tickPool).invokeAll(despawnTasks);
+            } catch (InterruptedException ignored) {}
+        }
+
         profilerfiller.push("tick");
-        ParallelProcessor.postEntityTick();
+        ParallelProcessor.callEntityTickBatch(this.getLevel(), toTick);
         profilerfiller.pop();
     }
 
@@ -174,5 +200,10 @@ public abstract class ServerLevelMixin extends Level implements WorldGenLevel {
                     explosionSound
             );
         }
+    }
+
+    @Inject(method = "tick", at = @At("HEAD"))
+    private void async_clearPortalCache(BooleanSupplier hasTimeLeft, CallbackInfo ci) {
+        PortalCreationCache.clear();
     }
 }

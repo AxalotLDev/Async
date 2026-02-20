@@ -14,7 +14,6 @@ import org.spongepowered.asm.mixin.Mutable;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.util.Map;
@@ -33,15 +32,51 @@ public abstract class EntityLookupMixin<T extends EntityAccess> {
     @Mutable
     private Int2ObjectMap<T> byId;
 
+    @Shadow
+    @Final
+    private static Logger LOGGER;
+
     @Inject(method = "<init>", at = @At("TAIL"))
     private void replaceConVars(CallbackInfo ci) {
         byId = new Int2ObjectConcurrentHashMap<>();
         byUuid = ConcurrentCollections.newHashMap();
     }
 
-    //TODO fix duplicate entity UUID
-    @Redirect(method = "add", at = @At(value = "INVOKE", target = "Lorg/slf4j/Logger;warn(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V", remap = false))
-    private void duplicateEntityUUIDDisable(Logger instance, String s, Object uuid, Object entity) {
+    @Inject(method = "add", at = @At("HEAD"), cancellable = true)
+    private void threadSafeAdd(T entity, CallbackInfo ci) {
+        ci.cancel();
+
+        UUID uuid = entity.getUUID();
+        int id = entity.getId();
+
+        byUuid.compute(uuid, (k, existing) -> {
+            if (existing == null) {
+                byId.put(id, entity);
+                return entity;
+            } else if (existing.getId() == id) {
+                byId.put(id, entity);
+                return entity;
+            } else {
+                LOGGER.warn("Duplicate entity UUID {}: existing={}, new={}", uuid, existing, entity);
+                return existing;
+            }
+        });
+    }
+
+    @Inject(method = "remove", at = @At("HEAD"), cancellable = true)
+    private void threadSafeRemove(T entity, CallbackInfo ci) {
+        ci.cancel();
+
+        UUID uuid = entity.getUUID();
+        int id = entity.getId();
+
+        byUuid.computeIfPresent(uuid, (k, existing) -> {
+            if (existing.getId() == id) {
+                byId.remove(id);
+                return null;
+            }
+            return existing;
+        });
     }
 
     @WrapMethod(method = "getEntity(Ljava/util/UUID;)Lnet/minecraft/world/level/entity/EntityAccess;")

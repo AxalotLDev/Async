@@ -4,7 +4,6 @@
   "package": "com.axalotl.async.neoforge.mixin",
   "compatibilityLevel": "JAVA_21",
   "mixins": [
-    "lithium.LithiumChunkLoadTricksMixin",
     "server.ServerWatchdogMixin",
     "utils.ClassInstanceMultiMapMixin",
     "utils.UtilMixin"

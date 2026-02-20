@@ -52,7 +52,7 @@ public abstract class LivingEntityMixin extends Entity {
     }
 
     @WrapMethod(method = "knockback")
-    private synchronized void knockback(double strength, double x, double z, Operation<Void> original) {
+    private void knockback(double strength, double x, double z, Operation<Void> original) {
         synchronized (async$lock) {
             original.call(strength, x, z);
         }
