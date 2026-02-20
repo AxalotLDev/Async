@@ -19,7 +19,21 @@ config = "${mod_id}.neoforge.mixins.json"
 [[dependencies.${ mod_id }]]
 modId = "minecraft"
 type = "required"
-versionRange = "${minecraft_version_range}"
+versionRange = ""
+ordering = "NONE"
+side = "BOTH"
+
+[[dependencies.${ mod_id }]]
+modId = "moonrise"
+type = "incompatible"
+versionRange = ""
+ordering = "NONE"
+side = "BOTH"
+
+[[dependencies.${ mod_id }]]
+modId = "openpartiesandclaims"
+type = "incompatible"
+versionRange = ""
 ordering = "NONE"
 side = "BOTH"
 
