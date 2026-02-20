@@ -103,7 +103,6 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
                 this.mainThreadProcessor
         ).thenCompose(f -> f);
 
-
         while (!future.isDone()) {
             ChunkAccess cached = async$tryGetChunk(x, z, leastStatus);
             if (cached != null) {

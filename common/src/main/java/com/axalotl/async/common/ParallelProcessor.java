@@ -1,6 +1,7 @@
 package com.axalotl.async.common;
 
 import com.axalotl.async.common.config.AsyncConfig;
+import com.axalotl.async.common.parallelised.utils.PortalCreationCache;
 import lombok.Getter;
 import lombok.Setter;
 import net.minecraft.server.MinecraftServer;
@@ -17,11 +18,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.lang.ref.WeakReference;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -36,7 +33,6 @@ public class ParallelProcessor {
     private static final AtomicInteger threadPoolID = new AtomicInteger();
     public static ExecutorService tickPool;
     private static final Set<UUID> blacklistedEntity = ConcurrentHashMap.newKeySet();
-    private static final Map<UUID, Integer> portalTickSyncMap = new ConcurrentHashMap<>();
     private static final Map<String, Set<WeakReference<Thread>>> mcThreadTracker = new ConcurrentHashMap<>();
     public static final Set<Class<?>> BLOCKED_ENTITIES = Set.of(
             FallingBlockEntity.class,
@@ -150,37 +146,14 @@ public class ParallelProcessor {
         }
 
         UUID entityId = entity.getUUID();
-        boolean requiresSyncTick = AsyncConfig.disabled ||
+
+        return AsyncConfig.disabled ||
                 entity instanceof Projectile ||
                 entity instanceof AbstractMinecart ||
                 entity instanceof ServerPlayer ||
                 BLOCKED_ENTITIES.contains(entity.getClass()) ||
                 blacklistedEntity.contains(entityId) ||
                 AsyncConfig.isEntitySynchronized(EntityType.getKey(entity.getType()));
-
-        if (requiresSyncTick) {
-            return true;
-        }
-
-        if (portalTickSyncMap.containsKey(entityId)) {
-            int ticksLeft = portalTickSyncMap.get(entityId);
-            if (ticksLeft > 0) {
-                portalTickSyncMap.put(entityId, ticksLeft - 1);
-                return true;
-            } else {
-                portalTickSyncMap.remove(entityId);
-            }
-        }
-
-        if (isPortalTickRequired(entity)) {
-            portalTickSyncMap.put(entityId, 39);
-            return true;
-        }
-        return false;
-    }
-
-    private static boolean isPortalTickRequired(Entity entity) {
-        return entity.portalProcess != null && entity.portalProcess.isInsidePortalThisTick();
     }
 
     private static void tickSynchronously(ServerLevel world, Entity entity) {
@@ -213,7 +186,7 @@ public class ParallelProcessor {
         }
         AsyncConfig.clearCaches();
         blacklistedEntity.clear();
-        portalTickSyncMap.clear();
+        PortalCreationCache.clear();
     }
 
     private static void logEntityError(Entity entity, Throwable e) {

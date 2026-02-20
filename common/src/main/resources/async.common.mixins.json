@@ -61,6 +61,7 @@
     "server.ServerPlayerMixin",
     "utils.FastUtilsMixin",
     "utils.LockHelperMixin",
+    "utils.NetherPortalBlockMixin",
     "utils.ShufflingListMixin",
     "utils.SyncAllMixin",
     "utils.ThreadingDetectorMixin",
