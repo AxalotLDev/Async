@@ -23,7 +23,6 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -87,24 +86,6 @@ public abstract class ChunkMapMixin extends SimpleRegionStorage implements Chunk
                 original.call(action);
                 return null;
             });
-        } else {
-            original.call(action);
-        }
-    }
-
-    @WrapMethod(method = "forEachBlockTickingChunk")
-    private void forEachBlockTicking(Consumer<LevelChunk> action, Operation<Void> original) {
-        if (!AsyncConfig.disabled && AsyncConfig.enableAsyncRandomTicks) {
-            List<Long> keys = new ArrayList<>();
-            distanceManager.forEachEntityTickingChunk(keys::add);
-
-            for (long chunkPos : keys) {
-                ChunkHolder holder = visibleChunkMap.get(chunkPos);
-                if (holder != null) {
-                    LevelChunk chunk = holder.getTickingChunk();
-                    if (chunk != null) action.accept(chunk);
-                }
-            }
         } else {
             original.call(action);
         }
