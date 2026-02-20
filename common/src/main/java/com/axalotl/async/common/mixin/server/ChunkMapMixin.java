@@ -23,6 +23,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -81,7 +82,18 @@ public abstract class ChunkMapMixin extends SimpleRegionStorage implements Chunk
     @WrapMethod(method = "forEachBlockTickingChunk")
     private void forEachBlockTickingChunk(Consumer<LevelChunk> action, Operation<Void> original) {
         if (!AsyncConfig.disabled && AsyncConfig.enableAsyncRandomTicks) {
-            CompletableFuture.runAsync(() -> original.call(action), ParallelProcessor.tickPool).exceptionally(e -> {
+            CompletableFuture.runAsync(() -> {
+                List<Long> keys = new ArrayList<>();
+                distanceManager.forEachEntityTickingChunk(keys::add);
+
+                for (long chunkPos : keys) {
+                    ChunkHolder holder = visibleChunkMap.get(chunkPos);
+                    if (holder != null) {
+                        LevelChunk chunk = holder.getTickingChunk();
+                        if (chunk != null) action.accept(chunk);
+                    }
+                }
+            }, ParallelProcessor.tickPool).exceptionally(e -> {
                 ParallelProcessor.LOGGER.error("Error in async random tick, switching to synchronous", e);
                 original.call(action);
                 return null;
