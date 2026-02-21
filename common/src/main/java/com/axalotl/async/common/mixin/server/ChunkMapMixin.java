@@ -8,6 +8,9 @@ import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.mojang.datafixers.DataFixer;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectLinkedOpenHashMap;
+import it.unimi.dsi.fastutil.longs.LongLinkedOpenHashSet;
+import it.unimi.dsi.fastutil.longs.LongSet;
+import it.unimi.dsi.fastutil.longs.LongSets;
 import net.minecraft.server.level.ChunkGenerationTask;
 import net.minecraft.server.level.ChunkHolder;
 import net.minecraft.server.level.ChunkMap;
@@ -49,14 +52,20 @@ public abstract class ChunkMapMixin extends SimpleRegionStorage implements Chunk
     @Shadow
     private volatile Long2ObjectLinkedOpenHashMap<ChunkHolder> visibleChunkMap;
 
-    public ChunkMapMixin(RegionStorageInfo p_326109_, Path p_321582_, DataFixer p_321815_, boolean p_321788_, DataFixTypes p_321522_) {
-        super(p_326109_, p_321582_, p_321815_, p_321788_, p_321522_);
+    @Mutable
+    @Shadow
+    @Final
+    private LongSet chunksToEagerlySave;
+
+    public ChunkMapMixin(RegionStorageInfo info, Path folder, DataFixer fixerUpper, boolean sync, DataFixTypes dataFixType) {
+        super(info, folder, fixerUpper, sync, dataFixType);
     }
 
     @Inject(method = "<init>", at = @At("TAIL"))
     private void replaceConVars(CallbackInfo ci) {
         entityMap = new Int2ObjectConcurrentHashMap<>();
         pendingGenerationTasks = new CopyOnWriteArrayList<>();
+        chunksToEagerlySave = LongSets.synchronize(new LongLinkedOpenHashSet());
     }
 
     @WrapMethod(method = "addEntity")
