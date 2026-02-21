@@ -1,32 +1,47 @@
 package com.axalotl.async.common.mixin.entity.sensor;
 
+import com.axalotl.async.common.parallelised.utils.FastBitRadixSort;
+import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.ai.Brain;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.ai.memory.MemoryModuleType;
+import net.minecraft.world.entity.ai.memory.NearestVisibleLivingEntities;
 import net.minecraft.world.entity.ai.sensing.NearestLivingEntitySensor;
-import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.AABB;
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Redirect;
+import org.spongepowered.asm.mixin.Unique;
 
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.function.ToDoubleFunction;
+import java.util.ArrayList;
+import java.util.List;
 
 @Mixin(value = NearestLivingEntitySensor.class, priority = 1500)
-public class NearestLivingEntitiesSensorMixin {
+public class NearestLivingEntitiesSensorMixin<T extends LivingEntity> {
+    @Unique
+    private static final FastBitRadixSort async$entitySorter = new FastBitRadixSort();
 
-    @Redirect(method = "doTick",
-            at = @At(value = "INVOKE", target = "Ljava/util/Comparator;comparingDouble(Ljava/util/function/ToDoubleFunction;)Ljava/util/Comparator;"))
-    private Comparator<LivingEntity> doTick(ToDoubleFunction<? super LivingEntity> keyExtractor, ServerLevel world, LivingEntity entity) {
-        Map<LivingEntity, Vec3> positionCache = new HashMap<>();
-        return (entity1, entity2) -> {
-            Vec3 pos1 = positionCache.computeIfAbsent(entity1, Entity::position);
-            Vec3 pos2 = positionCache.computeIfAbsent(entity2, Entity::position);
-            double dist1 = entity.distanceToSqr(pos1);
-            double dist2 = entity.distanceToSqr(pos2);
-            return Double.compare(dist1, dist2);
-        };
+    @WrapMethod(method = "doTick(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/world/entity/LivingEntity;)V")
+    private void doTick(ServerLevel level, T entity, Operation<Void> original) {
+        double d0 = entity.getAttributeValue(Attributes.FOLLOW_RANGE);
+        AABB aabb = entity.getBoundingBox().inflate(d0, d0, d0);
+
+        List<LivingEntity> list = level.getEntitiesOfClass(
+                LivingEntity.class,
+                aabb,
+                e -> e != entity && e.isAlive()
+        );
+
+        Object[] arr = list.toArray();
+        async$entitySorter.sort(arr, arr.length, entity.position());
+
+        List<LivingEntity> sorted = new ArrayList<>(arr.length);
+        for (Object o : arr) sorted.add((LivingEntity) o);
+
+        Brain<?> brain = entity.getBrain();
+        brain.setMemory(MemoryModuleType.NEAREST_LIVING_ENTITIES, sorted);
+        brain.setMemory(MemoryModuleType.NEAREST_VISIBLE_LIVING_ENTITIES,
+                new NearestVisibleLivingEntities(level, entity, sorted));
     }
 }

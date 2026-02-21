@@ -51,6 +51,7 @@
     "entity.spawn.PotentialCalculatorMixin",
     "lithium.LithiumGameEventDispatcherStorage",
     "lithium.LithiumServerLevel",
+    "optimization.EntityMixin",
     "server.ChunkMapMixin",
     "server.ChunkMapTrackedEntityMixin",
     "server.MinecraftServerMixin",

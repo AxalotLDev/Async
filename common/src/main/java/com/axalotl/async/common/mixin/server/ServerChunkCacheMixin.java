@@ -31,6 +31,7 @@ import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.locks.LockSupport;
 import java.util.function.Consumer;
 
 @Mixin(value = ServerChunkCache.class, priority = 1500)
@@ -71,8 +72,7 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
     protected abstract void getFullChunk(long chunkPos, Consumer<LevelChunk> fullChunkGetter);
 
     @Shadow
-    @Final
-    private List<LevelChunk> spawningChunks;
+    private final List<LevelChunk> spawningChunks = Collections.synchronizedList(new ArrayList<>());
 
     @Shadow
     private boolean spawnEnemies;
@@ -108,7 +108,7 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
                 cir.setReturnValue(cached);
                 return;
             }
-            Thread.onSpinWait();
+            LockSupport.parkNanos(10_000);
         }
 
         ChunkAccess chunk = future.join().orElse(null);
@@ -187,7 +187,19 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
         List<LevelChunk> list1 = this.spawningChunks;
         try {
             profiler.popPush("filteringSpawningChunks");
-            this.chunkMap.collectSpawningChunks(list1);
+            if (!AsyncConfig.disabled && AsyncConfig.enableAsyncSpawn) {
+                CompletableFuture<?> spawnFuture = CompletableFuture.runAsync(
+                        () -> this.chunkMap.collectSpawningChunks(list1),
+                        ParallelProcessor.tickPool
+                ).exceptionally(e -> {
+                    ParallelProcessor.LOGGER.error("Error in async collectSpawningChunks", e);
+                    this.chunkMap.collectSpawningChunks(list1);
+                    return null;
+                });
+                spawnFuture.join();
+            } else {
+                this.chunkMap.collectSpawningChunks(list1);
+            }
             profiler.popPush("shuffleSpawningChunks");
             Util.shuffle(list1, this.level.random);
             profiler.popPush("tickSpawningChunks");
