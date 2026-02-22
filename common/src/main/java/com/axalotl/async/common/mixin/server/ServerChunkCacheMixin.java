@@ -196,7 +196,6 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
                     this.chunkMap.collectSpawningChunks(list1);
                     return null;
                 });
-                spawnFuture.join();
             } else {
                 this.chunkMap.collectSpawningChunks(list1);
             }

@@ -21,7 +21,7 @@ import static net.minecraft.world.entity.ai.sensing.Sensor.isEntityAttackable;
 import static net.minecraft.world.entity.ai.sensing.Sensor.isEntityTargetable;
 
 @Mixin(value = PlayerSensor.class, priority = 1500)
-public abstract class PlayersSensorMixin {
+public abstract class PlayerSensorMixin {
 
     @Shadow
     protected abstract double getFollowDistance(LivingEntity entity);
