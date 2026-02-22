@@ -78,10 +78,10 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
     private boolean spawnEnemies;
 
     @Unique
-    public boolean async$firstRunSpawnCounts = true;
+    private boolean async$firstRunSpawnCounts = true;
 
     @Unique
-    public final AtomicBoolean async$spawnCountsReady = new AtomicBoolean(false);
+    private final AtomicBoolean async$spawnCountsReady = new AtomicBoolean(false);
 
     @Shadow
     public abstract void tickSpawningChunk(LevelChunk chunk, long timeInhabited, List<MobCategory> spawnCategories, NaturalSpawner.SpawnState spawnState);
@@ -169,12 +169,11 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
     private void tickChunksSpawn(ProfilerFiller profiler, long timeInhabited, Operation<Void> original) {
         profiler.push("naturalSpawnCount");
         int i = this.distanceManager.getNaturalSpawnChunkCount();
-        if (AsyncConfig.disabled || !AsyncConfig.enableAsyncSpawn) {
+
+        if (AsyncConfig.disabled || !AsyncConfig.enableAsyncSpawn || async$firstRunSpawnCounts) {
             lastSpawnState = NaturalSpawner.createState(i, this.level.getAllEntities(), this::getFullChunk, new LocalMobCapCalculator(this.chunkMap));
         }
-        if (async$firstRunSpawnCounts) {
-            lastSpawnState = NaturalSpawner.createState(i, this.level.getAllEntities(), this::getFullChunk, new LocalMobCapCalculator(this.chunkMap));
-        }
+
         boolean flag = this.level.getGameRules().get(GameRules.SPAWN_MOBS);
         int j = this.level.getGameRules().get(GameRules.RANDOM_TICK_SPEED);
         List<MobCategory> list;
@@ -184,50 +183,57 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
         } else {
             list = List.of();
         }
-        List<LevelChunk> list1 = this.spawningChunks;
-        try {
-            profiler.popPush("filteringSpawningChunks");
-            if (!AsyncConfig.disabled && AsyncConfig.enableAsyncSpawn) {
-                CompletableFuture<?> spawnFuture = CompletableFuture.runAsync(
-                        () -> this.chunkMap.collectSpawningChunks(list1),
-                        ParallelProcessor.tickPool
-                ).exceptionally(e -> {
-                    ParallelProcessor.LOGGER.error("Error in async collectSpawningChunks", e);
-                    this.chunkMap.collectSpawningChunks(list1);
-                    return null;
-                });
-            } else {
-                this.chunkMap.collectSpawningChunks(list1);
-            }
-            profiler.popPush("shuffleSpawningChunks");
-            Util.shuffle(list1, this.level.random);
-            profiler.popPush("tickSpawningChunks");
+
+        profiler.popPush("tickSpawningChunks");
+
+        if (!AsyncConfig.disabled && AsyncConfig.enableAsyncSpawn) {
             NaturalSpawner.SpawnState currentState = lastSpawnState;
-            if (!AsyncConfig.disabled && AsyncConfig.enableAsyncSpawn) {
-                final List<LevelChunk> chunksSnapshot = List.copyOf(list1);
-                if (currentState != null) {
-                    CompletableFuture.runAsync(() -> {
-                        for (LevelChunk levelchunk : chunksSnapshot) {
-                            if (levelchunk != null) {
-                                this.tickSpawningChunk(levelchunk, timeInhabited, list, currentState);
-                            }
-                        }
-                    }, ParallelProcessor.tickPool).exceptionally(e -> {
-                        ParallelProcessor.LOGGER.error("Error in async tickSpawningChunks, switching to synchronous", e);
-                        for (LevelChunk levelchunk : chunksSnapshot) {
+            if (currentState != null) {
+                CompletableFuture.runAsync(() -> {
+                    List<LevelChunk> chunks = new ArrayList<>();
+                    this.chunkMap.collectSpawningChunks(chunks);
+                    Util.shuffle(chunks, this.level.random);
+                    for (LevelChunk levelchunk : chunks) {
+                        if (levelchunk != null) {
                             this.tickSpawningChunk(levelchunk, timeInhabited, list, currentState);
                         }
-                        return null;
-                    });
-                }
-            } else {
-                for (LevelChunk levelchunk : list1) {
-                    this.tickSpawningChunk(levelchunk, timeInhabited, list, currentState);
-                }
+                    }
+                }, ParallelProcessor.tickPool).exceptionally(e -> {
+                    ParallelProcessor.LOGGER.error("Error in async entity spawning, switching to synchronous", e);
+                    List<LevelChunk> list1 = this.spawningChunks;
+                    try {
+                        profiler.popPush("filteringSpawningChunks");
+                        this.chunkMap.collectSpawningChunks(list1);
+                        profiler.popPush("shuffleSpawningChunks");
+                        Util.shuffle(list1, this.level.random);
+                        profiler.popPush("tickSpawningChunks");
+
+                        for(LevelChunk levelchunk : list1) {
+                            this.tickSpawningChunk(levelchunk, timeInhabited, list, lastSpawnState);
+                        }
+                    } finally {
+                        list1.clear();
+                    }
+                    return null;
+                });
             }
-        } finally {
-            list1.clear();
+        } else {
+            List<LevelChunk> list1 = this.spawningChunks;
+            try {
+                profiler.popPush("filteringSpawningChunks");
+                this.chunkMap.collectSpawningChunks(list1);
+                profiler.popPush("shuffleSpawningChunks");
+                Util.shuffle(list1, this.level.random);
+                profiler.popPush("tickSpawningChunks");
+
+                for(LevelChunk levelchunk : list1) {
+                    this.tickSpawningChunk(levelchunk, timeInhabited, list, lastSpawnState);
+                }
+            } finally {
+                list1.clear();
+            }
         }
+
         profiler.popPush("tickTickingChunks");
         this.chunkMap.forEachBlockTickingChunk((p_401730_) -> this.level.tickChunk(p_401730_, j));
         if (flag) {
