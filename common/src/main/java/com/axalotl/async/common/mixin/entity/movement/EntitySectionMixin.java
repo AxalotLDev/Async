@@ -50,14 +50,4 @@ public class EntitySectionMixin<T extends EntityAccess> {
                     .stream();
         }
     }
-
-    @WrapMethod(method = "getStatus")
-    private Visibility async$getStatus(Operation<Visibility> original) {
-        return original.call();
-    }
-
-    @WrapMethod(method = "updateChunkStatus")
-    private Visibility async$updateChunkStatus(Visibility status, Operation<Visibility> original) {
-        return original.call(status);
-    }
 }

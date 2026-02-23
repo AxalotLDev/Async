@@ -46,7 +46,7 @@
     "entity.movement.PoiManagerMixin",
     "entity.sensor.NearestItemSensorMixin",
     "entity.sensor.NearestLivingEntitiesSensorMixin",
-    "entity.sensor.PlayersSensorMixin",
+    "entity.sensor.PlayerSensorMixin",
     "entity.spawn.LocalMobCapCalculatorMixin",
     "entity.spawn.PotentialCalculatorMixin",
     "lithium.LithiumGameEventDispatcherStorage",
