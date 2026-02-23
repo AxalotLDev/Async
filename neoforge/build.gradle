@@ -25,7 +25,7 @@ modrinth {
         optional.project "lithium"
         optional.project "c2me-neoforge"
         incompatible.project "moonrise-opt"
-        incompatible.project "openpartiesandclaims"
+        incompatible.project "open-parties-and-claims"
     }
     changelog = """
 """
