@@ -59,6 +59,7 @@ public class ParallelProcessor {
                 new LinkedBlockingQueue<>(),
                 threadFactory
         );
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.DiscardPolicy());
         executor.allowCoreThreadTimeOut(false);
         executor.prestartAllCoreThreads();
         tickPool = executor;
