@@ -80,6 +80,16 @@ loom {
             setConfigName('Fabric Server')
             ideConfigGenerated(true)
             runDir('runs/server')
+            vmArgs(
+                    "-Xms12G",
+                    "-Xmx12G",
+                    "-XX:+UnlockExperimentalVMOptions",
+                    "-XX:+UseZGC",
+                    "-XX:+ZGenerational",
+                    "-XX:+AlwaysPreTouch",
+                    "-XX:+DisableExplicitGC",
+                    "-XX:+UseDynamicNumberOfGCThreads"
+            )
         }
     }
 }

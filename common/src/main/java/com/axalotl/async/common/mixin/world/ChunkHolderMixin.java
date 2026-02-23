@@ -1,33 +1,38 @@
 package com.axalotl.async.common.mixin.world;
 
-import com.axalotl.async.common.parallelised.fastutil.ConcurrentShortHashSet;
-import it.unimi.dsi.fastutil.shorts.ShortSet;
+import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ChunkHolder;
-import net.minecraft.world.level.ChunkPos;
-import net.minecraft.world.level.LevelHeightAccessor;
-import net.minecraft.world.level.lighting.LevelLightEngine;
-import org.objectweb.asm.Opcodes;
-import org.spongepowered.asm.mixin.*;
-import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.Redirect;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import net.minecraft.world.level.LightLayer;
+import net.minecraft.world.level.chunk.LevelChunk;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Unique;
 
 @Mixin(value = ChunkHolder.class, priority = 1500)
-public abstract class ChunkHolderMixin {
+public class ChunkHolderMixin {
 
-    @Mutable
-    @Shadow
-    @Final
-    private ShortSet[] changedBlocksPerSection;
+    @Unique
+    private final Object async$lock = new Object();
 
-    @Inject(method = "<init>", at = @At(value = "TAIL", target = "Lnet/minecraft/server/level/ChunkHolder;changedBlocksPerSection:[Lit/unimi/dsi/fastutil/shorts/ShortSet;", opcode = Opcodes.PUTFIELD))
-    private void overwriteShortSet(ChunkPos pos, int level, LevelHeightAccessor world, LevelLightEngine lightingProvider, ChunkHolder.LevelChangeListener levelUpdateListener, ChunkHolder.PlayerProvider playersWatchingChunkProvider, CallbackInfo ci) {
-        this.changedBlocksPerSection = new ConcurrentShortHashSet[world.getSectionsCount()];
+    @WrapMethod(method = "broadcastChanges")
+    private void wrapBroadcastChanges(LevelChunk chunk, Operation<Void> original) {
+        synchronized (async$lock) {
+            original.call(chunk);
+        }
     }
 
-    @Redirect(method = "blockChanged", at = @At(value = "FIELD", target = "Lnet/minecraft/server/level/ChunkHolder;changedBlocksPerSection:[Lit/unimi/dsi/fastutil/shorts/ShortSet;", args = "array=set"))
-    private void setBlockChanged(ShortSet[] array, int index, ShortSet value) {
-        array[index] = new ConcurrentShortHashSet();
+    @WrapMethod(method = "blockChanged")
+    private void wrapBlockChanged(BlockPos pos, Operation<Boolean> original) {
+        synchronized (async$lock) {
+            original.call(pos);
+        }
+    }
+
+    @WrapMethod(method = "sectionLightChanged")
+    private void wrapSectionLightChanged(LightLayer lightLayer, int y, Operation<Boolean> original) {
+        synchronized (async$lock) {
+            original.call(lightLayer, y);
+        }
     }
 }

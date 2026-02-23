@@ -3,7 +3,6 @@ package com.axalotl.async.neoforge;
 import com.axalotl.async.common.AsyncCommon;
 import com.axalotl.async.common.ParallelProcessor;
 import com.axalotl.async.common.commands.AsyncCommand;
-import com.axalotl.async.common.commands.StatsCommand;
 import com.axalotl.async.neoforge.platform.NeoForgePermissions;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.logging.LogUtils;
@@ -41,7 +40,6 @@ public class AsyncNeoForge extends AsyncCommon {
         LOGGER.info("Async Setting up thread-pool...");
         this.initialize();
         loadConfig();
-        StatsCommand.runStatsThread();
         ParallelProcessor.setServer(event.getServer());
         ParallelProcessor.setupThreadPool(getParallelism(), this.getClass());
     }
@@ -54,7 +52,6 @@ public class AsyncNeoForge extends AsyncCommon {
 
     @SubscribeEvent
     public void onServerStopping(ServerStoppingEvent event) {
-        StatsCommand.shutdown();
         ParallelProcessor.stop();
     }
 

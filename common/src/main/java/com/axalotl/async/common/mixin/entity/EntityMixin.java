@@ -53,4 +53,18 @@ public abstract class EntityMixin {
             original.call();
         }
     }
+
+    @WrapMethod(method = "startRiding(Lnet/minecraft/world/entity/Entity;Z)Z")
+    private boolean startRiding(Entity vehicle, boolean force, Operation<Boolean> original) {
+        synchronized (this) {
+            return original.call(vehicle, force);
+        }
+    }
+
+    @WrapMethod(method = "removeVehicle")
+    private void removeVehicle(Operation<Void> original) {
+        synchronized (this) {
+            original.call();
+        }
+    }
 }

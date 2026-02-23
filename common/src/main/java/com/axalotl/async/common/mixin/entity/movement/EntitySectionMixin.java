@@ -20,46 +20,34 @@ public class EntitySectionMixin<T extends EntityAccess> {
     @Shadow
     @Final
     private ClassInstanceMultiMap<T> storage;
+
     @Shadow
-    private Visibility chunkStatus;
+    private volatile Visibility chunkStatus;
+
     @Unique
-    private static final Object async$lock = new Object();
+    private final Object async$storageLock = new Object();
 
     @WrapMethod(method = "add")
-    private void add(EntityAccess entity, Operation<Void> original) {
-        synchronized (async$lock) {
+    private void async$add(EntityAccess entity, Operation<Void> original) {
+        synchronized (async$storageLock) {
             original.call(entity);
         }
     }
 
     @WrapMethod(method = "remove")
-    private boolean remove(EntityAccess entity, Operation<Boolean> original) {
-        synchronized (async$lock) {
+    private boolean async$remove(EntityAccess entity, Operation<Boolean> original) {
+        synchronized (async$storageLock) {
             return original.call(entity);
         }
     }
 
-    @WrapMethod(method = "getStatus")
-    private Visibility getStatus(Operation<Visibility> original) {
-        return this.chunkStatus != null ? this.chunkStatus : Visibility.HIDDEN;
-    }
-
-    @WrapMethod(method = "updateChunkStatus")
-    private Visibility updateChunkStatus(Visibility status, Operation<Visibility> original) {
-        synchronized (async$lock) {
-            if (this.chunkStatus == null) {
-                this.chunkStatus = Visibility.HIDDEN;
-            }
-            Visibility safeStatus = (status != null ? status : Visibility.HIDDEN);
-            return original.call(safeStatus);
-        }
-    }
-
     @WrapMethod(method = "getEntities()Ljava/util/stream/Stream;")
-    private Stream<T> getEntities(Operation<Stream<T>> original) {
-        return storage.stream()
-                .filter(Objects::nonNull)
-                .toList()
-                .stream();
+    private Stream<T> async$getEntities(Operation<Stream<T>> original) {
+        synchronized (async$storageLock) {
+            return storage.stream()
+                    .filter(Objects::nonNull)
+                    .toList()
+                    .stream();
+        }
     }
 }

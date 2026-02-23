@@ -11,6 +11,7 @@ import net.minecraft.world.level.entity.EntitySection;
 import net.minecraft.world.level.entity.EntitySectionStorage;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
 
 import java.util.Objects;
 import java.util.stream.LongStream;
@@ -28,6 +29,9 @@ public abstract class EntitySectionStorageMixin<T extends EntityAccess> {
     @Shadow
     public abstract LongStream getExistingSectionPositionsInChunk(long pos);
 
+    @Unique
+    private static final Object async$lock = new Object();
+
     @WrapMethod(method = "getExistingSectionsInChunk")
     private Stream<EntitySection<T>> getExistingSections(long pos, Operation<Stream<EntitySection<T>>> original) {
         return this.getExistingSectionPositionsInChunk(pos)
@@ -35,5 +39,14 @@ public abstract class EntitySectionStorageMixin<T extends EntityAccess> {
                 .filter(Objects::nonNull)
                 .toList()
                 .stream();
+    }
+
+    @WrapMethod(method = "getOrCreateSection")
+    private EntitySection<T> getOrCreateSection(long pos, Operation<EntitySection<T>> original) {
+        EntitySection<T> existing = this.sections.get(pos);
+        if (existing != null) return existing;
+        synchronized (async$lock) {
+            return original.call(pos);
+        }
     }
 }

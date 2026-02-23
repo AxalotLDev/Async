@@ -50,7 +50,7 @@ public abstract class LivingEntityMixin extends Entity {
     }
 
     @WrapMethod(method = "blockedByShield")
-    private synchronized void knockback(LivingEntity defender, Operation<Void> original) {
+    private void knockback(LivingEntity defender, Operation<Void> original) {
         synchronized (async$lock) {
             original.call(defender);
         }

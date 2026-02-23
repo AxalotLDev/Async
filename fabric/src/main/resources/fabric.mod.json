@@ -34,11 +34,13 @@
         "java": ">=21"
     },
     "breaks": {
-        "moonrise": "*"
+        "moonrise": "*",
+        "openpartiesandclaims": "*"
     },
     "custom": {
-      "lithium:options": {
-        "mixin.alloc.chunk_random": false
-      }
+        "lithium:options": {
+            "mixin.alloc.chunk_random": false,
+            "mixin.ai.task.memory_change_counting": false
+        }
     }
 }

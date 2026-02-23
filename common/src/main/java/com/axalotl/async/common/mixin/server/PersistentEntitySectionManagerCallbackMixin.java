@@ -4,11 +4,8 @@ import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.entity.PersistentEntitySectionManager;
-import org.slf4j.Logger;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
-import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Redirect;
 
 @Mixin(PersistentEntitySectionManager.Callback.class)
 public abstract class PersistentEntitySectionManagerCallbackMixin implements AutoCloseable {
@@ -21,11 +18,6 @@ public abstract class PersistentEntitySectionManagerCallbackMixin implements Aut
         synchronized (async$lock) {
             original.call();
         }
-    }
-
-    //TODO Entity wasn't found in section
-    @Redirect(method = "onMove", at = @At(value = "INVOKE", target = "Lorg/slf4j/Logger;warn(Ljava/lang/String;[Ljava/lang/Object;)V"), remap = false)
-    private void notFoundSectionDisable(Logger instance, String s, Object[] objects) {
     }
 
     @WrapMethod(method = "onRemove")

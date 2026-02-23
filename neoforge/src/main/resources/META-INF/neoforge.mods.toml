@@ -23,5 +23,20 @@ versionRange = "${minecraft_version_range}"
 ordering = "NONE"
 side = "BOTH"
 
+[[dependencies.${ mod_id }]]
+modId = "moonrise"
+type = "incompatible"
+versionRange = ""
+ordering = "NONE"
+side = "BOTH"
+
+[[dependencies.${ mod_id }]]
+modId = "openpartiesandclaims"
+type = "incompatible"
+versionRange = ""
+ordering = "NONE"
+side = "BOTH"
+
 ["lithium:options"]
 "mixin.alloc.chunk_random" = false
+"mixin.ai.task.memory_change_counting" = false
