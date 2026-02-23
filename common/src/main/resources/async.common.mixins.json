@@ -60,6 +60,7 @@
     "server.ServerLevelEntityCallbacksMixin",
     "server.ServerPlayerMixin",
     "utils.FastUtilsMixin",
+    "utils.LegacyRandomSourceMixin",
     "utils.LockHelperMixin",
     "utils.NetherPortalBlockMixin",
     "utils.ShufflingListMixin",
