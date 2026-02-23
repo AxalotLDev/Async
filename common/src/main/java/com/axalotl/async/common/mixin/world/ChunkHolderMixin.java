@@ -13,7 +13,7 @@ import org.spongepowered.asm.mixin.Unique;
 public class ChunkHolderMixin {
 
     @Unique
-    private final Object async$lock = new Object();
+    private static final Object async$lock = new Object();
 
     @WrapMethod(method = "broadcastChanges")
     private void wrapBroadcastChanges(LevelChunk chunk, Operation<Void> original) {

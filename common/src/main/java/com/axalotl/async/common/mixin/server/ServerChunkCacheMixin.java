@@ -238,7 +238,7 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
                             }
                         }
                     }, ParallelProcessor.tickPool).exceptionally(e -> {
-                        ParallelProcessor.LOGGER.error("Async spawn failed → fallback sync", e);
+                        ParallelProcessor.LOGGER.error("Error in async entity spawning, switching to synchronous", e);
                         for (ServerChunkCache.ChunkAndHolder entry : chunks) {
                             LevelChunk chunk = entry.chunk();
                             ChunkPos pos = chunk.getPos();
