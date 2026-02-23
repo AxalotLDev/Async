@@ -9,23 +9,24 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.atomic.AtomicLong;
 
 @Mixin(LegacyRandomSource.class)
 public abstract class LegacyRandomSourceMixin {
 
     @Unique
-    private static final ThreadLocal<long[]> async$localSeed = ThreadLocal.withInitial(
-            () -> new long[]{ ThreadLocalRandom.current().nextLong() }
-    );
+    private final AtomicLong async$instanceSeed = new AtomicLong(ThreadLocalRandom.current().nextLong());
 
     @Inject(method = "next", at = @At("HEAD"), cancellable = true)
     private void async$threadLocalNext(int bits, CallbackInfoReturnable<Integer> cir) {
         if (ParallelProcessor.isServerExecutionThread()) {
-            long[] s = async$localSeed.get();
-            long oldSeed = s[0];
-            long newSeed = oldSeed * 0x5DEECE66DL + 0xBL & 0xFFFFFFFFFFFFL;
-            s[0] = newSeed;
-            cir.setReturnValue((int)(newSeed >>> (48 - bits)));
+            long oldSeed, newSeed;
+            do {
+                oldSeed = async$instanceSeed.get();
+                newSeed = oldSeed * 0x5DEECE66DL + 0xBL & 0xFFFFFFFFFFFFL;
+            } while (!async$instanceSeed.compareAndSet(oldSeed, newSeed));
+
+            cir.setReturnValue((int) (newSeed >>> (48 - bits)));
         }
     }
 }
