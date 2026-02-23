@@ -1,7 +1,0 @@
-- Fixed deadlocks with lithium on neoforge
-- Fixed the config not being saved
-- Fixed bugs with entity effects
-- Update config
-- Added command permissions
-- Added synchronization of incompatible mods (Create, Fowlplay)
-- Fixed entityTickList null (Thanks Tener)

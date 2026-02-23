@@ -28,7 +28,28 @@ modrinth {
         incompatible.project "moonrise-opt"
         incompatible.project "open-parties-and-claims"
     }
-    changelog = """
+    changelog = """## 🦎 New Mod Update 🦎
+
+### ⚡ Performance
+- Portals optimization
+- Spawn and despawn optimization
+- Switched to batch entity ticking system
+
+### ✨ New
+- Update config
+- Update statistics
+- Added command permissions
+- Added OpenPartiesAndClaims as incompatible mod
+- Added synchronization of incompatible mods (Create, Fowlplay)
+
+### 🐛 Bug Fixes
+- Fixed deadlocks *~~again~~*
+- Fixed bugs with riding entity
+- Fixed bugs with entity effects
+- Fixed door interaction logic for villagers
+- `BrainMixin` rewritten with snapshot-based memory reads
+- Disabled Lithium `mixin.ai.task.memory_change_counting`
+- `ChunkHolderMixin`, `LevelTicksMixin`, `EntitySectionMixin` synchronization improved
 """
 }
 
