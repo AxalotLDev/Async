@@ -19,13 +19,14 @@ modrinth {
     versionType = "alpha"
     def libsDir = layout.buildDirectory.dir("libs").get().asFile
     uploadFile = libsDir.listFiles().find { it.name.endsWith(".jar") }
-    gameVersions = ["1.21.9", "1.21.10"]
+    gameVersions = ["1.21.11"]
     loaders = ["fabric", "quilt"]
     dependencies {
         required.project "fabric-api"
         optional.project "lithium"
         optional.project "c2me-fabric"
         incompatible.project "moonrise-opt"
+        incompatible.project "openpartiesandclaims"
     }
     changelog = """
 """
