@@ -1,5 +1,0 @@
-- Fixed deadlocks with lithium on neoforge
-- Fixed the config not being saved
-- Fixed bugs with entity effects
-- Update config
-- Add command permissions
