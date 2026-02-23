@@ -94,7 +94,7 @@ public class ParallelProcessor {
         }
 
         int poolSize = getPoolSize();
-        int chunkSize = Math.max(1, entities.size() / poolSize);
+        int chunkSize = (entities.size() + poolSize - 1) / poolSize;
 
         List<Future<Void>> futures = new ArrayList<>();
         for (int i = 0; i < entities.size(); i += chunkSize) {
