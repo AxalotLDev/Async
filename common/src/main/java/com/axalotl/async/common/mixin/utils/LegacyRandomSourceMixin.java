@@ -1,32 +1,59 @@
 package com.axalotl.async.common.mixin.utils;
 
-import com.axalotl.async.common.ParallelProcessor;
 import net.minecraft.world.level.levelgen.LegacyRandomSource;
-import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Unique;
-import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+import net.minecraft.world.level.levelgen.MarsagliaPolarGaussian;
+import org.spongepowered.asm.mixin.*;
 
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicLong;
 
 @Mixin(LegacyRandomSource.class)
 public abstract class LegacyRandomSourceMixin {
 
     @Unique
-    private final AtomicLong async$instanceSeed = new AtomicLong(ThreadLocalRandom.current().nextLong());
+    private final AtomicLong async$seed = new AtomicLong();
 
-    @Inject(method = "next", at = @At("HEAD"), cancellable = true)
-    private void async$threadLocalNext(int bits, CallbackInfoReturnable<Integer> cir) {
-        if (ParallelProcessor.isServerExecutionThread()) {
-            long oldSeed, newSeed;
-            do {
-                oldSeed = async$instanceSeed.get();
-                newSeed = oldSeed * 0x5DEECE66DL + 0xBL & 0xFFFFFFFFFFFFL;
-            } while (!async$instanceSeed.compareAndSet(oldSeed, newSeed));
+    @Shadow
+    @Final
+    private MarsagliaPolarGaussian gaussianSource;
 
-            cir.setReturnValue((int) (newSeed >>> (48 - bits)));
-        }
+    @Unique
+    private static final long async$MULTIPLIER = 25214903917L;
+    @Unique
+    private static final long async$INCREMENT = 11L;
+    @Unique
+    private static final long MODULUS_MASK = 281474976710655L;
+
+    /**
+     * @author Minecraft
+     * @reason ThreadSafeLegacyRandomSource
+     */
+    @Overwrite
+    public void setSeed(long seed) {
+        this.async$seed.set((seed ^ async$MULTIPLIER) & MODULUS_MASK);
+    }
+
+    /**
+     * @author Minecraft
+     * @reason ThreadSafeLegacyRandomSource
+     */
+    @Overwrite
+    public int next(int bits) {
+        long i;
+        long j;
+        do {
+            i = this.async$seed.get();
+            j = (i * async$MULTIPLIER + async$INCREMENT) & MODULUS_MASK;
+        } while (!this.async$seed.compareAndSet(i, j));
+
+        return (int)(j >>> (48 - bits));
+    }
+
+    /**
+     * @author Minecraft
+     * @reason ThreadSafeLegacyRandomSource
+     */
+    @Overwrite
+    public double nextGaussian() {
+        return this.gaussianSource.nextGaussian();
     }
 }
