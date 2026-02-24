@@ -52,7 +52,7 @@ public abstract class NetherPortalBlockMixin {
         ResourceKey<Level> dimension = level.dimension();
 
         synchronized (async$lock) {
-            BlockUtil.FoundRectangle cached = PortalCreationCache.get(dimension);
+            BlockUtil.FoundRectangle cached = PortalCreationCache.get(dimension, exitPos);
             if (cached != null) {
                 BlockPos blockpos = cached.minCorner;
                 return getDimensionTransitionFromExit(entity, pos, cached, level,
@@ -84,7 +84,7 @@ public abstract class NetherPortalBlockMixin {
                 teleporttransition$postteleporttransition = TeleportTransition.PLAY_PORTAL_SOUND.then(TeleportTransition.PLACE_PORTAL_TICKET);
             }
 
-            PortalCreationCache.put(dimension, blockutil$foundrectangle);
+            PortalCreationCache.put(dimension, exitPos, blockutil$foundrectangle);
             return getDimensionTransitionFromExit(entity, pos, blockutil$foundrectangle, level, teleporttransition$postteleporttransition);
         }
     }
