@@ -24,6 +24,7 @@
     "entity.GossipContainerMixin",
     "entity.InteractWithDoorMixin",
     "entity.LivingEntityMixin",
+    "entity.MinecartHopperMixin",
     "entity.MobMixin",
     "entity.NearestVisibleLivingEntitiesMixin",
     "entity.PandaMixin",
