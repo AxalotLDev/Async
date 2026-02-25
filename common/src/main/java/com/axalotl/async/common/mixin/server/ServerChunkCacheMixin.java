@@ -250,49 +250,33 @@ public abstract class ServerChunkCacheMixin extends ChunkSource implements IAsyn
         if (!AsyncConfig.disabled && AsyncConfig.enableAsyncSpawn) {
             NaturalSpawner.SpawnState currentState = lastSpawnState;
             if (currentState != null) {
+                List<LevelChunk> chunks = new ArrayList<>();
+                this.chunkMap.collectSpawningChunks(chunks);
+                Util.shuffle(chunks, this.level.random);
                 CompletableFuture.runAsync(() -> {
-                    List<LevelChunk> chunks = new ArrayList<>();
-                    this.chunkMap.collectSpawningChunks(chunks);
-                    Util.shuffle(chunks, this.level.random);
                     for (LevelChunk levelchunk : chunks) {
                         if (levelchunk != null) {
                             this.tickSpawningChunk(levelchunk, timeInhabited, list, currentState);
                         }
                     }
                 }, ParallelProcessor.tickPool).exceptionally(e -> {
-                    ParallelProcessor.LOGGER.error("Error in async entity spawning, switching to synchronous", e);
-                    List<LevelChunk> list1 = this.spawningChunks;
-                    try {
-                        profiler.popPush("filteringSpawningChunks");
-                        this.chunkMap.collectSpawningChunks(list1);
-                        profiler.popPush("shuffleSpawningChunks");
-                        Util.shuffle(list1, this.level.random);
-                        profiler.popPush("tickSpawningChunks");
-
-                        for(LevelChunk levelchunk : list1) {
-                            this.tickSpawningChunk(levelchunk, timeInhabited, list, lastSpawnState);
-                        }
-                    } finally {
-                        list1.clear();
-                    }
+                    ParallelProcessor.LOGGER.error("Error in async entity spawning", e);
                     return null;
                 });
             }
         } else {
             List<LevelChunk> list1 = this.spawningChunks;
-            try {
-                profiler.popPush("filteringSpawningChunks");
-                this.chunkMap.collectSpawningChunks(list1);
-                profiler.popPush("shuffleSpawningChunks");
-                Util.shuffle(list1, this.level.random);
-                profiler.popPush("tickSpawningChunks");
+            list1.clear();
+            profiler.popPush("filteringSpawningChunks");
+            this.chunkMap.collectSpawningChunks(list1);
+            profiler.popPush("shuffleSpawningChunks");
+            Util.shuffle(list1, this.level.random);
+            profiler.popPush("tickSpawningChunks");
 
-                for(LevelChunk levelchunk : list1) {
-                    this.tickSpawningChunk(levelchunk, timeInhabited, list, lastSpawnState);
-                }
-            } finally {
-                list1.clear();
+            for (LevelChunk levelchunk : list1) {
+                this.tickSpawningChunk(levelchunk, timeInhabited, list, lastSpawnState);
             }
+            list1.clear();
         }
 
         profiler.popPush("tickTickingChunks");
