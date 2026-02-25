@@ -1,6 +1,7 @@
 package com.axalotl.async.common;
 
 import com.axalotl.async.common.config.AsyncConfig;
+import com.axalotl.async.common.parallelised.utils.IAsyncChunkCache;
 import com.axalotl.async.common.parallelised.utils.PortalCreationCache;
 import lombok.Getter;
 import lombok.Setter;
@@ -101,6 +102,9 @@ public class ParallelProcessor {
         for (int i = 0; i < entities.size(); i += chunkSize) {
             List<Entity> chunk = entities.subList(i, Math.min(i + chunkSize, entities.size()));
             Future<Void> future = (Future<Void>) tickPool.submit(() -> {
+                if (world.getChunkSource() instanceof IAsyncChunkCache asyncCache) {
+                    asyncCache.async$clearWorkerCache();
+                }
                 for (Entity entity : chunk) {
                     if (shouldTickSynchronously(entity)) continue;
                     performAsyncEntityTick(world, entity);
