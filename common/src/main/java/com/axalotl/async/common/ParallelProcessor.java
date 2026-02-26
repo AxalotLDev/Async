@@ -1,7 +1,6 @@
 package com.axalotl.async.common;
 
 import com.axalotl.async.common.config.AsyncConfig;
-import com.axalotl.async.common.parallelised.utils.PortalCreationCache;
 import lombok.Getter;
 import lombok.Setter;
 import net.minecraft.server.MinecraftServer;
@@ -145,6 +144,9 @@ public class ParallelProcessor {
         if (entity.level().isClientSide()) {
             return true;
         }
+        if (entity.portalProcess != null) {
+            return true;
+        }
 
         UUID entityId = entity.getUUID();
 
@@ -187,7 +189,6 @@ public class ParallelProcessor {
         }
         AsyncConfig.clearCaches();
         blacklistedEntity.clear();
-        PortalCreationCache.clear();
     }
 
     private static void logEntityError(Entity entity, Throwable e) {

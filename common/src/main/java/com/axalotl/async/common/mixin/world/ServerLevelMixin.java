@@ -3,7 +3,6 @@ package com.axalotl.async.common.mixin.world;
 import com.axalotl.async.common.ParallelProcessor;
 import com.axalotl.async.common.config.AsyncConfig;
 import com.axalotl.async.common.parallelised.ConcurrentCollections;
-import com.axalotl.async.common.parallelised.utils.PortalCreationCache;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import it.unimi.dsi.fastutil.objects.ObjectLinkedOpenHashSet;
@@ -200,10 +199,5 @@ public abstract class ServerLevelMixin extends Level implements WorldGenLevel {
                     explosionSound
             );
         }
-    }
-
-    @Inject(method = "tick", at = @At("HEAD"))
-    private void async_clearPortalCache(BooleanSupplier hasTimeLeft, CallbackInfo ci) {
-        PortalCreationCache.clear();
     }
 }
