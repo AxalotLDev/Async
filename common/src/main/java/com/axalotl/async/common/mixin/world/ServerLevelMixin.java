@@ -42,11 +42,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.function.BooleanSupplier;
+import java.util.concurrent.*;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 
@@ -125,18 +121,30 @@ public abstract class ServerLevelMixin extends Level implements WorldGenLevel {
         });
 
         if (!toDespawnCheck.isEmpty()) {
-            int chunkSize = Math.max(1, toDespawnCheck.size() / ParallelProcessor.getPoolSize());
-            List<Callable<Void>> despawnTasks = new ArrayList<>();
+            int poolSize = ParallelProcessor.getPoolSize();
+            int chunkSize = Math.max(1, (toDespawnCheck.size() + poolSize - 1) / poolSize);
+            List<Future<Void>> despawnFutures = new ArrayList<>();
             for (int i = 0; i < toDespawnCheck.size(); i += chunkSize) {
                 List<Entity> chunk = toDespawnCheck.subList(i, Math.min(i + chunkSize, toDespawnCheck.size()));
-                despawnTasks.add(() -> {
+                despawnFutures.add(ParallelProcessor.tickPool.submit(() -> {
                     for (Entity e : chunk) e.checkDespawn();
-                    return null;
-                });
+                    return (Void) null;
+                }));
             }
-            try {
-                ((ThreadPoolExecutor) ParallelProcessor.tickPool).invokeAll(despawnTasks);
-            } catch (InterruptedException ignored) {}
+            boolean allDone;
+            do {
+                allDone = true;
+                for (Future<Void> f : despawnFutures) {
+                    if (!f.isDone()) { allDone = false; break; }
+                }
+                if (!allDone) {
+                    boolean pumped = false;
+                    for (ServerLevel lvl : ParallelProcessor.getServer().getAllLevels()) {
+                        pumped |= lvl.getChunkSource().pollTask();
+                    }
+                    if (!pumped) Thread.onSpinWait();
+                }
+            } while (!allDone);
         }
 
         profilerfiller.push("tick");

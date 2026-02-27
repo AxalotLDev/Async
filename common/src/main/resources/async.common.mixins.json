@@ -72,6 +72,7 @@
     "world.CollectingNeighborUpdaterMixin",
     "world.DistanceManagerMixin",
     "world.LevelChunkMixin",
+    "world.LevelChunkSectionMixin",
     "world.LevelMixin",
     "world.LevelTicksMixin",
     "world.RandomSequencesMixin",

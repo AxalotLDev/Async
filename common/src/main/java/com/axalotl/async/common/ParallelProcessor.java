@@ -3,6 +3,7 @@ package com.axalotl.async.common;
 import com.axalotl.async.common.config.AsyncConfig;
 import lombok.Getter;
 import lombok.Setter;
+import com.axalotl.async.common.parallelised.utils.IAsyncChunkCache;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -100,6 +101,9 @@ public class ParallelProcessor {
         for (int i = 0; i < entities.size(); i += chunkSize) {
             List<Entity> chunk = entities.subList(i, Math.min(i + chunkSize, entities.size()));
             Future<Void> future = (Future<Void>) tickPool.submit(() -> {
+                if (world.getChunkSource() instanceof IAsyncChunkCache asyncCache) {
+                    asyncCache.async$clearWorkerCache();
+                }
                 for (Entity entity : chunk) {
                     if (shouldTickSynchronously(entity)) continue;
                     performAsyncEntityTick(world, entity);
