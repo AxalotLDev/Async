@@ -36,3 +36,9 @@ accessible class net/minecraft/server/level/ChunkMap$DistanceManager
 accessible method net/minecraft/server/level/DistanceManager forEachEntityTickingChunk (Lit/unimi/dsi/fastutil/longs/LongConsumer;)V
 accessible method net/minecraft/server/level/ChunkMap collectSpawningChunks (Ljava/util/List;)V
 accessible method net/minecraft/server/level/ChunkMap forEachBlockTickingChunk (Ljava/util/function/Consumer;)V
+accessible class net/minecraft/world/entity/Entity$Movement
+accessible field net/minecraft/world/level/entity/EntitySectionStorage intialSectionVisibility Lit/unimi/dsi/fastutil/longs/Long2ObjectFunction;
+mutable field net/minecraft/world/level/entity/EntitySectionStorage intialSectionVisibility Lit/unimi/dsi/fastutil/longs/Long2ObjectFunction;
+accessible field net/minecraft/world/entity/PortalProcessor portal Lnet/minecraft/world/level/block/Portal;
+accessible field net/minecraft/server/level/GenerationChunkHolder futures Ljava/util/concurrent/atomic/AtomicReferenceArray;
+accessible field net/minecraft/world/level/entity/PersistentEntitySectionManager sectionStorage Lnet/minecraft/world/level/entity/EntitySectionStorage;

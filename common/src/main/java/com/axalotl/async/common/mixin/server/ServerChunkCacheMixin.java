@@ -3,11 +3,8 @@ package com.axalotl.async.common.mixin.server;
 import com.axalotl.async.common.ParallelProcessor;
 import com.axalotl.async.common.config.AsyncConfig;
 import com.axalotl.async.common.parallelised.utils.CarpetCompat;
-import com.axalotl.async.common.parallelised.utils.IAsyncChunkCache;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
-import io.netty.util.concurrent.DefaultPromise;
-import io.netty.util.concurrent.ImmediateEventExecutor;
 import net.minecraft.server.level.*;
 import net.minecraft.util.Util;
 import net.minecraft.util.profiling.ProfilerFiller;
@@ -34,11 +31,13 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.concurrent.locks.LockSupport;
 import java.util.function.Consumer;
 
 @Mixin(value = ServerChunkCache.class, priority = 1500)
-public abstract class ServerChunkCacheMixin extends ChunkSource implements IAsyncChunkCache {
+public abstract class ServerChunkCacheMixin extends ChunkSource {
 
     @Shadow @Final public ChunkMap chunkMap;
     @Shadow @Final Thread mainThread;
@@ -55,30 +54,13 @@ public abstract class ServerChunkCacheMixin extends ChunkSource implements IAsyn
     @Shadow protected abstract void getFullChunk(long chunkPos, Consumer<LevelChunk> fullChunkGetter);
     @Shadow public abstract void tickSpawningChunk(LevelChunk chunk, long timeInhabited, List<MobCategory> spawnCategories, NaturalSpawner.SpawnState spawnState);
 
-    @Unique
-    private static final int ASYNC_CACHE_SIZE = 4;
+    @Unique private boolean async$firstRunSpawnCounts = true;
+    @Unique private final AtomicBoolean async$spawnCountsReady = new AtomicBoolean(false);
+    @Unique private volatile NaturalSpawner.@Nullable SpawnState async$latestState;
 
-    @Unique
-    private final ThreadLocal<long[]> async$cachePos = ThreadLocal.withInitial(() -> {
-        long[] arr = new long[ASYNC_CACHE_SIZE];
-        Arrays.fill(arr, ChunkPos.INVALID_CHUNK_POS);
-        return arr;
-    });
+    @Unique private static final long INITIAL_PARK_NS = 50_000L;
+    @Unique private static final long MAX_PARK_NS = 1_000_000L;
 
-    @Unique
-    private final ThreadLocal<ChunkStatus[]> async$cacheStatus = ThreadLocal.withInitial(() -> new ChunkStatus[ASYNC_CACHE_SIZE]);
-
-    @Unique
-    private final ThreadLocal<ChunkAccess[]> async$cacheChunk = ThreadLocal.withInitial(() -> new ChunkAccess[ASYNC_CACHE_SIZE]);
-
-    @Unique
-    private final ConcurrentHashMap<Long, DefaultPromise<ChunkAccess>> async$chunkPromises = new ConcurrentHashMap<>();
-
-    @Unique
-    private volatile NaturalSpawner.SpawnState async$latestState = null;
-
-    @Unique
-    private volatile CompletableFuture<Void> async$createStateFuture = null;
 
     @Inject(
             method = "getChunk(IILnet/minecraft/world/level/chunk/status/ChunkStatus;Z)Lnet/minecraft/world/level/chunk/ChunkAccess;",
@@ -89,143 +71,29 @@ public abstract class ServerChunkCacheMixin extends ChunkSource implements IAsyn
         if (Thread.currentThread() == this.mainThread) return;
 
         long pos = ChunkPos.asLong(x, z);
-        long[] cPos = async$cachePos.get();
-        ChunkStatus[] cStatus = async$cacheStatus.get();
-        ChunkAccess[] cChunk = async$cacheChunk.get();
+        ChunkHolder holder = this.getVisibleChunkIfPresent(pos);
 
-        for (int j = 0; j < ASYNC_CACHE_SIZE; ++j) {
-            if (pos == cPos[j] && leastStatus == cStatus[j]) {
-                ChunkAccess cached = cChunk[j];
-                if (cached != null || !create) {
-                    cir.setReturnValue(cached);
-                    return;
-                }
+        if (holder != null) {
+            ChunkAccess ready = async$extractReady(holder, leastStatus);
+            if (ready != null) {
+                cir.setReturnValue(ready);
+                return;
             }
-        }
 
-        ChunkAccess found = async$probeHolder(pos, leastStatus);
-        if (found != null) {
-            async$storeInCache(cPos, cStatus, cChunk, pos, leastStatus, found);
-            cir.setReturnValue(found);
-            return;
+            // ===== PATH 2: DIRECT FUTURE =====
+            CompletableFuture<?> existingFuture = async$findPendingFuture(holder, leastStatus);
+            if (existingFuture != null) {
+                cir.setReturnValue(async$awaitWithProbing(existingFuture, pos, leastStatus));
+                return;
+            }
         }
 
         if (!create) {
             cir.setReturnValue(null);
             return;
         }
-
-        ChunkAccess result = async$loadChunk(x, z, leastStatus, pos);
-        if (result != null) {
-            async$storeInCache(cPos, cStatus, cChunk, pos, leastStatus, result);
-        }
-        cir.setReturnValue(result);
-    }
-
-    @Unique
-    private ChunkAccess async$loadChunk(int x, int z, ChunkStatus status, long pos) {
-        long key = pos * 17L + status.getIndex();
-
-        DefaultPromise<ChunkAccess> newPromise = new DefaultPromise<>(ImmediateEventExecutor.INSTANCE);
-        DefaultPromise<ChunkAccess> existing = async$chunkPromises.putIfAbsent(key, newPromise);
-
-        DefaultPromise<ChunkAccess> promise;
-        if (existing == null) {
-            promise = newPromise;
-            async$initiateLoad(x, z, status, promise, key);
-        } else {
-            promise = existing;
-        }
-
-        while (!promise.isDone()) {
-            ChunkAccess found = async$probeHolder(pos, status);
-            if (found != null) {
-                return found;
-            }
-            LockSupport.parkNanos(50_000L);
-        }
-
-        return promise.getNow();
-    }
-
-    @Unique
-    private void async$initiateLoad(int x, int z, ChunkStatus status,
-                                    DefaultPromise<ChunkAccess> promise, long key) {
-        CompletableFuture.supplyAsync(
-                () -> this.getChunkFutureMainThread(x, z, status, true),
-                this.mainThreadProcessor
-        ).thenCompose(f -> f).whenComplete((result, error) -> {
-            if (error != null) {
-                promise.tryFailure(error);
-                async$chunkPromises.remove(key);
-                return;
-            }
-
-            ChunkAccess chunk = result != null ? result.orElse(null) : null;
-            if (chunk != null) {
-                promise.trySuccess(async$unwrapImposter(chunk));
-            } else {
-                promise.tryFailure(new IllegalStateException("Chunk load returned null"));
-            }
-            async$chunkPromises.remove(key);
-        });
-    }
-
-    @Unique
-    private @Nullable ChunkAccess async$probeHolder(long pos, ChunkStatus status) {
-        ChunkHolder holder = this.getVisibleChunkIfPresent(pos);
-        if (holder == null) return null;
-
-        ChunkAccess chunk = holder.getChunkIfPresent(status);
-        if (chunk != null) return async$unwrapImposter(chunk);
-
-        chunk = holder.getChunkIfPresentUnchecked(status);
-        if (chunk != null) return async$unwrapImposter(chunk);
-
-        if (status == ChunkStatus.FULL) {
-            LevelChunk ticking = holder.getTickingChunk();
-            if (ticking != null) return ticking;
-        }
-
-        ChunkAccess latest = holder.getLatestChunk();
-        if (latest != null) {
-            ChunkStatus latestStatus = latest.getPersistedStatus();
-            if (!status.isAfter(latestStatus)) {
-                return async$unwrapImposter(latest);
-            }
-        }
-        return null;
-    }
-
-    @Unique
-    private static ChunkAccess async$unwrapImposter(ChunkAccess chunk) {
-        if (chunk instanceof ImposterProtoChunk imposter) {
-            return imposter.getWrapped();
-        }
-        return chunk;
-    }
-
-    @Unique
-    private static void async$storeInCache(long[] cPos, ChunkStatus[] cStatus, ChunkAccess[] cChunk,
-                                           long pos, ChunkStatus status, ChunkAccess chunk) {
-        for (int i = ASYNC_CACHE_SIZE - 1; i > 0; --i) {
-            cPos[i] = cPos[i - 1];
-            cStatus[i] = cStatus[i - 1];
-            cChunk[i] = cChunk[i - 1];
-        }
-        cPos[0] = pos;
-        cStatus[0] = status;
-        cChunk[0] = chunk;
-    }
-
-    @Override
-    public void async$clearWorkerCache() {
-        long[] cPos = async$cachePos.get();
-        ChunkStatus[] cStatus = async$cacheStatus.get();
-        ChunkAccess[] cChunk = async$cacheChunk.get();
-        Arrays.fill(cPos, ChunkPos.INVALID_CHUNK_POS);
-        Arrays.fill(cStatus, null);
-        Arrays.fill(cChunk, null);
+        CompletableFuture<?> ticketTask = CompletableFuture.runAsync(() -> this.getChunkFutureMainThread(x, z, leastStatus, true), this.mainThreadProcessor);
+        cir.setReturnValue(async$awaitAfterTicket(ticketTask, pos, leastStatus));
     }
 
     @Inject(method = "getChunkNow", at = @At("HEAD"), cancellable = true)
@@ -239,35 +107,136 @@ public abstract class ServerChunkCacheMixin extends ChunkSource implements IAsyn
         }
 
         ChunkAccess chunk = holder.getChunkIfPresent(ChunkStatus.FULL);
-        if (chunk instanceof LevelChunk levelChunk) {
-            cir.setReturnValue(levelChunk);
+        if (chunk instanceof LevelChunk lc) {
+            cir.setReturnValue(lc);
             return;
         }
 
-        LevelChunk ticking = holder.getTickingChunk();
-        if (ticking != null) {
-            cir.setReturnValue(ticking);
-            return;
-        }
+        cir.setReturnValue(holder.getTickingChunk());
+    }
 
-        cir.setReturnValue(null);
+    @Unique
+    private @Nullable ChunkAccess async$awaitAfterTicket(
+            CompletableFuture<?> ticketTask, long pos, ChunkStatus status
+    ) {
+        long sleepNs = INITIAL_PARK_NS;
+
+        for (;;) {
+            if (ticketTask.isCompletedExceptionally()) {
+                ticketTask.join();
+            }
+
+            ChunkHolder holder = this.getVisibleChunkIfPresent(pos);
+            if (holder != null) {
+                ChunkAccess ready = async$extractReady(holder, status);
+                if (ready != null) return ready;
+
+                CompletableFuture<?> directFuture = async$findPendingFuture(holder, status);
+                if (directFuture != null) {
+                    return async$awaitWithProbing(directFuture, pos, status);
+                }
+                ChunkAccess fromHolder = async$extractCompleted(holder, status);
+                if (fromHolder != null) return fromHolder;
+            }
+
+            LockSupport.parkNanos(sleepNs);
+            sleepNs = Math.min(sleepNs << 1, MAX_PARK_NS);
+        }
+    }
+
+    @Unique
+    private static @Nullable CompletableFuture<?> async$findPendingFuture(ChunkHolder holder, ChunkStatus status) {
+        AtomicReferenceArray<?> futures = holder.futures;CompletableFuture<?> genFuture = (CompletableFuture<?>) futures.get(status.getIndex());
+        if (genFuture != null && !genFuture.isDone()) {
+            return genFuture;
+        }
+        if (status == ChunkStatus.FULL) {
+            CompletableFuture<?> fullFuture = holder.getFullChunkFuture();
+            if (!fullFuture.isDone()) {
+                return fullFuture;
+            }
+        }
+        return null;
+    }
+
+    @Unique
+    private @Nullable ChunkAccess async$awaitWithProbing(CompletableFuture<?> future, long pos, ChunkStatus status) {
+        long sleepNs = INITIAL_PARK_NS;
+        while (!future.isDone()) {
+            ChunkHolder holder = this.getVisibleChunkIfPresent(pos);
+            if (holder != null) {
+                ChunkAccess ready = async$extractReady(holder, status);
+                if (ready != null) return ready;
+            }
+            LockSupport.parkNanos(sleepNs);
+            sleepNs = Math.min(sleepNs << 1, MAX_PARK_NS);
+        }
+        return async$extractFromFuture(future);
+    }
+
+    @Unique
+    private static @Nullable ChunkAccess async$extractReady(ChunkHolder holder, ChunkStatus status) {
+        ChunkAccess chunk = holder.getChunkIfPresent(status);
+        if (chunk != null) return async$unwrap(chunk);
+
+        chunk = holder.getChunkIfPresentUnchecked(status);
+        if (chunk != null) return async$unwrap(chunk);
+        if (status == ChunkStatus.FULL) {
+            LevelChunk ticking = holder.getTickingChunk();
+            if (ticking != null) return ticking;
+        }
+        return null;
+    }
+
+    @Unique
+    private static @Nullable ChunkAccess async$extractCompleted(ChunkHolder holder, ChunkStatus status) {
+        AtomicReferenceArray<?> futures = holder.futures;CompletableFuture<?> future = (CompletableFuture<?>) futures.get(status.getIndex());
+        if (future != null && future.isDone()) {
+            return async$extractFromFuture(future);
+        }
+        if (status == ChunkStatus.FULL) {
+            CompletableFuture<?> fullFuture = holder.getFullChunkFuture();
+            if (fullFuture.isDone()) {
+                return async$extractFromFuture(fullFuture);
+            }
+        }
+        return null;
+    }
+
+    @Unique
+    private static @Nullable ChunkAccess async$extractFromFuture(CompletableFuture<?> future) {
+        Object raw = future.join();
+        if (raw instanceof ChunkResult<?> result) {
+            Object chunk = result.orElse(null);
+            if (chunk instanceof ChunkAccess ca) return async$unwrap(ca);
+        }
+        return null;
+    }
+
+    @Unique
+    private static ChunkAccess async$unwrap(ChunkAccess chunk) {
+        if (chunk instanceof ImposterProtoChunk imposter) {
+            return imposter.getWrapped();
+        }
+        return chunk;
     }
 
     @Inject(method = "tickChunks()V", at = @At("TAIL"))
-    private void async$tickChunksCreateState(CallbackInfo ci) {
+    private void tickChunks(CallbackInfo ci) {
         if (AsyncConfig.disabled || !AsyncConfig.enableAsyncSpawn) return;
 
-        CompletableFuture<Void> pending = async$createStateFuture;
-        if (pending != null && !pending.isDone()) return;
-
-        final int i = distanceManager.getNaturalSpawnChunkCount();
-        async$createStateFuture = CompletableFuture.runAsync(() -> async$latestState = NaturalSpawner.createState(
-                i, this.level.getAllEntities(),
-                this::getFullChunk, new LocalMobCapCalculator(this.chunkMap)), ParallelProcessor.tickPool).whenComplete((result, error) -> {
-            if (error != null) {
-                ParallelProcessor.LOGGER.error("Failed to calculate spawn state", error);
-            }
-        });
+        if (async$firstRunSpawnCounts) {
+            async$firstRunSpawnCounts = false;
+            async$spawnCountsReady.set(true);
+        }
+        if (async$spawnCountsReady.getAndSet(false)) {
+            final int i = distanceManager.getNaturalSpawnChunkCount();
+            ParallelProcessor.tickPool.submit(() -> {
+                async$latestState = NaturalSpawner.createState(i, this.level.getAllEntities(),
+                        this::getFullChunk, new LocalMobCapCalculator(this.chunkMap));
+                async$spawnCountsReady.set(true);
+            });
+        }
     }
 
     @WrapMethod(method = "tickChunks(Lnet/minecraft/util/profiling/ProfilerFiller;J)V")
