@@ -3,7 +3,9 @@ package com.axalotl.async.common.mixin.server;
 import com.axalotl.async.common.parallelised.fastutil.ConcurrentLongLinkedOpenHashSet;
 import com.axalotl.async.common.parallelised.fastutil.Long2ObjectConcurrentHashMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
+import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import it.unimi.dsi.fastutil.longs.LongSet;
+import it.unimi.dsi.fastutil.longs.LongSets;
 import net.minecraft.world.level.entity.EntityAccess;
 import net.minecraft.world.level.entity.PersistentEntitySectionManager;
 import net.minecraft.world.level.entity.Visibility;
@@ -69,9 +71,7 @@ public abstract class PersistentEntitySectionManagerMixin<T extends EntityAccess
         concurrentUuids.addAll(this.knownUuids);
         this.knownUuids = concurrentUuids;
 
-        ConcurrentLongLinkedOpenHashSet concurrentUnload = new ConcurrentLongLinkedOpenHashSet();
-        concurrentUnload.addAll(this.chunksToUnload);
-        this.chunksToUnload = concurrentUnload;
+        this.chunksToUnload = LongSets.synchronize(new LongOpenHashSet(this.chunksToUnload));
     }
 
     @WrapMethod(method = "getEffectiveStatus")
