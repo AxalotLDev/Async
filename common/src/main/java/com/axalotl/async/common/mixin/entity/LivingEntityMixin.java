@@ -111,18 +111,6 @@ public abstract class LivingEntityMixin extends Entity {
         }
     }
 
-    @WrapMethod(method = "refreshDirtyAttributes")
-    private void async$refreshDirtyAttributes(Operation<Void> original) {
-        Set<AttributeInstance> toUpdate = getAttributes().getAttributesToUpdate();
-        AttributeInstance[] snapshot = toUpdate.toArray(new AttributeInstance[0]);
-        toUpdate.clear();
-        for (AttributeInstance instance : snapshot) {
-            if (instance != null) {
-                onAttributeUpdated(instance.getAttribute());
-            }
-        }
-    }
-
     @Inject(method = "causeFallDamage", at = @At("HEAD"), cancellable = true)
     private void causeFallDamage(double fallDistance, float multiplier, DamageSource source, CallbackInfoReturnable<Boolean> cir) {
         BlockPos pos = new BlockPos(Mth.floor(this.getX()), Mth.floor(this.getY()), Mth.floor(this.getZ()));
