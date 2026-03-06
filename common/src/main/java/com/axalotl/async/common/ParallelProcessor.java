@@ -95,25 +95,32 @@ public class ParallelProcessor {
             return;
         }
 
+        List<Entity> asyncEntities = new ArrayList<>();
+        List<Entity> syncEntities = new ArrayList<>();
+        for (Entity entity : entities) {
+            if (shouldTickSynchronously(entity)) {
+                syncEntities.add(entity);
+            } else {
+                asyncEntities.add(entity);
+            }
+        }
+
         int poolSize = getPoolSize();
-        int chunkSize = (entities.size() + poolSize - 1) / poolSize;
+        int chunkSize = (asyncEntities.size() + poolSize - 1) / poolSize;
 
         List<Future<Void>> futures = new ArrayList<>();
-        for (int i = 0; i < entities.size(); i += chunkSize) {
-            List<Entity> chunk = entities.subList(i, Math.min(i + chunkSize, entities.size()));
+        for (int i = 0; i < asyncEntities.size(); i += chunkSize) {
+            List<Entity> chunk = asyncEntities.subList(i, Math.min(i + chunkSize, asyncEntities.size()));
             Future<Void> future = (Future<Void>) tickPool.submit(() -> {
                 for (Entity entity : chunk) {
-                    if (shouldTickSynchronously(entity)) continue;
                     performAsyncEntityTick(world, entity);
                 }
             });
             futures.add(future);
         }
 
-        for (Entity e : entities) {
-            if (shouldTickSynchronously(e)) {
-                tickSynchronously(world, e);
-            }
+        for (Entity e : syncEntities) {
+            tickSynchronously(world, e);
         }
 
         boolean allDone;
