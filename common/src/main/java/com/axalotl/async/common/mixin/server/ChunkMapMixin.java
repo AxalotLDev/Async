@@ -91,16 +91,15 @@ public abstract class ChunkMapMixin extends SimpleRegionStorage implements Chunk
     @WrapMethod(method = "forEachBlockTickingChunk")
     private void forEachBlockTickingChunk(Consumer<LevelChunk> action, Operation<Void> original) {
         if (!AsyncConfig.disabled && AsyncConfig.enableAsyncRandomTicks) {
+            List<ChunkHolder> holders = new ArrayList<>();
+            distanceManager.forEachEntityTickingChunk(chunkPos -> {
+                ChunkHolder holder = visibleChunkMap.get(chunkPos);
+                if (holder != null) holders.add(holder);
+            });
             CompletableFuture.runAsync(() -> {
-                List<Long> keys = new ArrayList<>();
-                distanceManager.forEachEntityTickingChunk(keys::add);
-
-                for (long chunkPos : keys) {
-                    ChunkHolder holder = visibleChunkMap.get(chunkPos);
-                    if (holder != null) {
-                        LevelChunk chunk = holder.getTickingChunk();
-                        if (chunk != null) action.accept(chunk);
-                    }
+                for (ChunkHolder holder : holders) {
+                    LevelChunk chunk = holder.getTickingChunk();
+                    if (chunk != null) action.accept(chunk);
                 }
             }, ParallelProcessor.tickPool).exceptionally(e -> {
                 ParallelProcessor.LOGGER.error("Error in async random tick, switching to synchronous", e);
