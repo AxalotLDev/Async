@@ -15,7 +15,6 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.Attribute;
-import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.AttributeMap;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
@@ -29,7 +28,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Mixin(value = LivingEntity.class, priority = 1001)
@@ -37,12 +35,6 @@ public abstract class LivingEntityMixin extends Entity {
 
     @Shadow
     final private Map<Holder<MobEffect>, MobEffectInstance> activeEffects = new ConcurrentHashMap<>();
-
-    @Shadow
-    public abstract AttributeMap getAttributes();
-
-    @Shadow
-    protected abstract void onAttributeUpdated(Holder<Attribute> attribute);
 
     @Unique
     private static final Object async$lock = new Object();
