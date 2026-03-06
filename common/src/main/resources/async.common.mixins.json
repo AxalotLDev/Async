@@ -59,6 +59,7 @@
     "server.PersistentEntitySectionManagerMixin",
     "server.ServerChunkCacheMixin",
     "server.ServerLevelEntityCallbacksMixin",
+    "utils.EntityHandlePortalMixin",
     "server.ServerPlayerMixin",
     "utils.FastUtilsMixin",
     "utils.LegacyRandomSourceMixin",

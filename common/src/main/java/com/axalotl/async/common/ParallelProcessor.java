@@ -1,9 +1,9 @@
 package com.axalotl.async.common;
 
 import com.axalotl.async.common.config.AsyncConfig;
+import com.axalotl.async.common.parallelised.utils.PortalTeleportationManager;
 import lombok.Getter;
 import lombok.Setter;
-import com.axalotl.async.common.parallelised.utils.IAsyncChunkCache;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -42,6 +42,7 @@ public class ParallelProcessor {
     private static volatile boolean isShuttingDown = false;
 
     public static void setupThreadPool(int parallelism, Class<?> asyncClass) {
+        PortalTeleportationManager.init(server);
         isShuttingDown = false;
         ThreadFactory threadFactory = runnable -> {
             Thread thread = new Thread(runnable,
@@ -101,9 +102,6 @@ public class ParallelProcessor {
         for (int i = 0; i < entities.size(); i += chunkSize) {
             List<Entity> chunk = entities.subList(i, Math.min(i + chunkSize, entities.size()));
             Future<Void> future = (Future<Void>) tickPool.submit(() -> {
-                if (world.getChunkSource() instanceof IAsyncChunkCache asyncCache) {
-                    asyncCache.async$clearWorkerCache();
-                }
                 for (Entity entity : chunk) {
                     if (shouldTickSynchronously(entity)) continue;
                     performAsyncEntityTick(world, entity);
@@ -148,9 +146,6 @@ public class ParallelProcessor {
         if (entity.level().isClientSide()) {
             return true;
         }
-        if (entity.portalProcess != null) {
-            return true;
-        }
 
         UUID entityId = entity.getUUID();
 
@@ -193,6 +188,7 @@ public class ParallelProcessor {
         }
         AsyncConfig.clearCaches();
         blacklistedEntity.clear();
+        PortalTeleportationManager.shutdown();
     }
 
     private static void logEntityError(Entity entity, Throwable e) {
