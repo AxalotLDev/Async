@@ -45,18 +45,20 @@ public abstract class EntityHandlePortalMixin {
         if (!(level instanceof ServerLevel serverLevel)) return;
 
         this.processPortalCooldown();
-        if (this.portalProcess == null) return;
+
+        PortalProcessor process = this.portalProcess;
+        if (process == null) return;
 
         Entity self = (Entity) (Object) this;
 
-        if (this.portalProcess.processPortalTeleportation(serverLevel, self, this.canUsePortal(false))) {
-            Portal portal = this.portalProcess.portal;
+        if (process.processPortalTeleportation(serverLevel, self, this.canUsePortal(false))) {
+            Portal portal = process.portal;
 
             if (portal instanceof NetherPortalBlock) {
                 this.setPortalCooldown();
                 PortalTeleportationManager.submitAndAwait(
                         self, portal,
-                        this.portalProcess.getEntryPosition(),
+                        process.getEntryPosition(),
                         serverLevel
                 );
                 this.portalProcess = null;
@@ -65,7 +67,7 @@ public abstract class EntityHandlePortalMixin {
                 profiler.push("portal");
                 this.setPortalCooldown();
 
-                TeleportTransition transition = this.portalProcess.getPortalDestination(serverLevel, self);
+                TeleportTransition transition = process.getPortalDestination(serverLevel, self);
                 if (transition != null) {
                     ServerLevel newLevel = transition.newLevel();
                     if (serverLevel.isAllowedToEnterPortal(newLevel)
@@ -76,7 +78,7 @@ public abstract class EntityHandlePortalMixin {
                 }
                 profiler.pop();
             }
-        } else if (this.portalProcess.hasExpired()) {
+        } else if (process.hasExpired()) {
             this.portalProcess = null;
         }
     }
