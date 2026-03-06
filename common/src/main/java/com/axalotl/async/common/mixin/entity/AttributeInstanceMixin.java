@@ -1,30 +1,67 @@
 package com.axalotl.async.common.mixin.entity;
 
-import com.axalotl.async.common.parallelised.ConcurrentCollections;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
+import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Mutable;
 import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Mixin(AttributeInstance.class)
-public class AttributeInstanceMixin {
+public abstract class AttributeInstanceMixin {
+
+    @Mutable
+    @Shadow
+    @Final
+    private Map<AttributeModifier.Operation, Map<Identifier, AttributeModifier>> modifiersByOperation;
+
+    @Mutable
+    @Shadow
+    @Final
+    private Map<Identifier, AttributeModifier> modifierById;
+
+    @Mutable
+    @Shadow
+    @Final
+    private Map<Identifier, AttributeModifier> permanentModifiers;
 
     @Shadow
-    private final Map<AttributeModifier.Operation, Map<Identifier, AttributeModifier>> modifiersByOperation = ConcurrentCollections.newHashMap();
+    abstract Map<Identifier, AttributeModifier> getModifiers(AttributeModifier.Operation operation);
 
     @Shadow
-    private final Map<Identifier, AttributeModifier> modifierById = ConcurrentCollections.newHashMap();
+    protected abstract void setDirty();
 
-    @Shadow
-    private final Map<Identifier, AttributeModifier> permanentModifiers = ConcurrentCollections.newHashMap();
+    @Inject(method = "<init>", at = @At("RETURN"))
+    private void async$init(CallbackInfo ci) {
+        this.modifierById = new ConcurrentHashMap<>();
+        this.permanentModifiers = new ConcurrentHashMap<>();
+
+        ConcurrentHashMap<AttributeModifier.Operation, Map<Identifier, AttributeModifier>> concurrent =
+                new ConcurrentHashMap<>();
+        for (AttributeModifier.Operation op : AttributeModifier.Operation.values()) {
+            concurrent.put(op, new ConcurrentHashMap<>());
+        }
+        this.modifiersByOperation = concurrent;
+    }
+
+    @WrapMethod(method = "addModifier")
+    private void async$addModifier(AttributeModifier modifier, Operation<Void> original) {
+        modifierById.put(modifier.id(), modifier);
+        getModifiers(modifier.operation()).put(modifier.id(), modifier);
+        setDirty();
+    }
 
     @WrapMethod(method = "getModifiers(Lnet/minecraft/world/entity/ai/attributes/AttributeModifier$Operation;)Ljava/util/Map;")
     private Map<Identifier, AttributeModifier> getModifiersConcurrent(AttributeModifier.Operation operation, Operation<Map<Identifier, AttributeModifier>> original) {
-        return modifiersByOperation.computeIfAbsent(operation, op -> ConcurrentCollections.newHashMap());
+        return modifiersByOperation.computeIfAbsent(operation, op -> new ConcurrentHashMap<>());
     }
 }

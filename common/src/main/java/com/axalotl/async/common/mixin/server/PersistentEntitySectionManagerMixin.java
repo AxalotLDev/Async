@@ -1,24 +1,77 @@
 package com.axalotl.async.common.mixin.server;
 
-import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
-import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
-import net.minecraft.world.level.ChunkPos;
+import com.axalotl.async.common.parallelised.fastutil.ConcurrentLongLinkedOpenHashSet;
+import com.axalotl.async.common.parallelised.fastutil.Long2ObjectConcurrentHashMap;
+import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
+import it.unimi.dsi.fastutil.longs.LongSet;
 import net.minecraft.world.level.entity.EntityAccess;
 import net.minecraft.world.level.entity.PersistentEntitySectionManager;
 import net.minecraft.world.level.entity.Visibility;
+import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Unique;
+import org.spongepowered.asm.mixin.Mutable;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+import net.minecraft.world.level.entity.EntitySectionStorage;
+
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+
+@SuppressWarnings({"rawtypes", "unchecked"})
 @Mixin(PersistentEntitySectionManager.class)
-public abstract class PersistentEntitySectionManagerMixin implements AutoCloseable {
-    @Unique
-    private static final Object async$lock = new Object();
+public abstract class PersistentEntitySectionManagerMixin<T extends EntityAccess> implements AutoCloseable {
 
-    @WrapMethod(method = "updateChunkStatus(Lnet/minecraft/world/level/ChunkPos;Lnet/minecraft/world/level/entity/Visibility;)V")
-    private void updateChunkStatus(ChunkPos pos, Visibility p_visibility, Operation<Void> original) {
-        synchronized (async$lock) {
-            original.call(pos, p_visibility);
-        }
+    @Mutable
+    @Shadow
+    @Final
+    private Long2ObjectMap<Visibility> chunkVisibility;
+
+    @Mutable
+    @Shadow
+    @Final
+    private Long2ObjectMap chunkLoadStatuses;
+
+    @Mutable
+    @Shadow
+    @Final
+    Set<UUID> knownUuids;
+
+    @Mutable
+    @Shadow
+    @Final
+    private LongSet chunksToUnload;
+
+    @Shadow
+    @Final
+    public EntitySectionStorage<T> sectionStorage;
+
+    @Inject(method = "<init>", at = @At("RETURN"))
+    private void async$replaceMaps(CallbackInfo ci) {
+        Long2ObjectConcurrentHashMap<Visibility> concurrentVisibility = new Long2ObjectConcurrentHashMap<>();
+        concurrentVisibility.defaultReturnValue(Visibility.HIDDEN);
+        concurrentVisibility.putAll(this.chunkVisibility);
+        this.chunkVisibility = concurrentVisibility;
+
+        this.sectionStorage.intialSectionVisibility = concurrentVisibility;
+
+        Long2ObjectConcurrentHashMap concurrentStatuses = new Long2ObjectConcurrentHashMap();
+        concurrentStatuses.defaultReturnValue(this.chunkLoadStatuses.defaultReturnValue());
+        concurrentStatuses.putAll(this.chunkLoadStatuses);
+        this.chunkLoadStatuses = concurrentStatuses;
+
+        Set<UUID> concurrentUuids = ConcurrentHashMap.newKeySet();
+        concurrentUuids.addAll(this.knownUuids);
+        this.knownUuids = concurrentUuids;
+
+        ConcurrentLongLinkedOpenHashSet concurrentUnload = new ConcurrentLongLinkedOpenHashSet();
+        concurrentUnload.addAll(this.chunksToUnload);
+        this.chunksToUnload = concurrentUnload;
     }
 
     @WrapMethod(method = "getEffectiveStatus")

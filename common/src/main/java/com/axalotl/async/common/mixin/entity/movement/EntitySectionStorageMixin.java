@@ -9,9 +9,13 @@ import it.unimi.dsi.fastutil.longs.LongSortedSet;
 import net.minecraft.world.level.entity.EntityAccess;
 import net.minecraft.world.level.entity.EntitySection;
 import net.minecraft.world.level.entity.EntitySectionStorage;
+import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Mutable;
 import org.spongepowered.asm.mixin.Shadow;
-import org.spongepowered.asm.mixin.Unique;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.util.Objects;
 import java.util.stream.LongStream;
@@ -21,16 +25,28 @@ import java.util.stream.Stream;
 public abstract class EntitySectionStorageMixin<T extends EntityAccess> {
 
     @Shadow
-    private final Long2ObjectMap<EntitySection<T>> sections = new Long2ObjectConcurrentHashMap<>();
+    @Final
+    @Mutable
+    private Long2ObjectMap<EntitySection<T>> sections;
 
     @Shadow
-    private final LongSortedSet sectionIds = new ConcurrentLongSortedSet();
+    @Final
+    @Mutable
+    private LongSortedSet sectionIds;
 
     @Shadow
     public abstract LongStream getExistingSectionPositionsInChunk(long pos);
 
-    @Unique
-    private static final Object async$lock = new Object();
+    @Inject(method = "<init>", at = @At("TAIL"))
+    private void async$replaceMaps(CallbackInfo ci) {
+        Long2ObjectConcurrentHashMap<EntitySection<T>> newSections = new Long2ObjectConcurrentHashMap<>();
+        newSections.putAll(this.sections);
+        this.sections = newSections;
+
+        ConcurrentLongSortedSet newIds = new ConcurrentLongSortedSet();
+        newIds.addAll(this.sectionIds);
+        this.sectionIds = newIds;
+    }
 
     @WrapMethod(method = "getExistingSectionsInChunk")
     private Stream<EntitySection<T>> getExistingSections(long pos, Operation<Stream<EntitySection<T>>> original) {
@@ -39,14 +55,5 @@ public abstract class EntitySectionStorageMixin<T extends EntityAccess> {
                 .filter(Objects::nonNull)
                 .toList()
                 .stream();
-    }
-
-    @WrapMethod(method = "getOrCreateSection")
-    private EntitySection<T> getOrCreateSection(long pos, Operation<EntitySection<T>> original) {
-        EntitySection<T> existing = this.sections.get(pos);
-        if (existing != null) return existing;
-        synchronized (async$lock) {
-            return original.call(pos);
-        }
     }
 }

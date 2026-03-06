@@ -19,6 +19,9 @@ public abstract class EntityMixin {
     @Unique
     private static final Object async$lock = new Object();
 
+    @Unique
+    private final Object async$movementLock = new Object();
+
     @WrapMethod(method = "setRemoved")
     private void setRemoved(Entity.RemovalReason reason, Operation<Void> original) {
         synchronized (async$lock) {
@@ -31,7 +34,6 @@ public abstract class EntityMixin {
         BlockState blockState = original.call();
         return blockState != null ? blockState : Blocks.AIR.defaultBlockState();
     }
-
 
     @WrapMethod(method = "addPassenger")
     private void addPassenger(Entity passenger, Operation<Void> original) {
@@ -64,6 +66,34 @@ public abstract class EntityMixin {
     @WrapMethod(method = "removeVehicle")
     private void removeVehicle(Operation<Void> original) {
         synchronized (this) {
+            original.call();
+        }
+    }
+
+    @WrapMethod(method = "addMovementThisTick")
+    private void async$addMovementThisTick(Entity.Movement movement, Operation<Void> original) {
+        synchronized (async$movementLock) {
+            original.call(movement);
+        }
+    }
+
+    @WrapMethod(method = "removeLatestMovementRecording")
+    private void async$removeLatestMovementRecording(Operation<Void> original) {
+        synchronized (async$movementLock) {
+            original.call();
+        }
+    }
+
+    @WrapMethod(method = "clearMovementThisTick")
+    private void async$clearMovementThisTick(Operation<Void> original) {
+        synchronized (async$movementLock) {
+            original.call();
+        }
+    }
+
+    @WrapMethod(method = "applyEffectsFromBlocks()V")
+    private void async$applyEffectsFromBlocks(Operation<Void> original) {
+        synchronized (async$movementLock) {
             original.call();
         }
     }

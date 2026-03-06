@@ -22,7 +22,6 @@ import org.spongepowered.asm.mixin.Mixin;
         SimpleCriterionTrigger.class,
         AngerManagement.class,
         WorldBorder.class,
-        EntitySection.class,
         ClassInstanceMultiMap.class,
         ActiveProfiler.class,
 })

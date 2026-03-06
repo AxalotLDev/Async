@@ -14,6 +14,9 @@ import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.ai.attributes.Attribute;
+import net.minecraft.world.entity.ai.attributes.AttributeInstance;
+import net.minecraft.world.entity.ai.attributes.AttributeMap;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 import org.spongepowered.asm.mixin.Mixin;
@@ -26,6 +29,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Mixin(value = LivingEntity.class, priority = 1001)
@@ -33,6 +37,12 @@ public abstract class LivingEntityMixin extends Entity {
 
     @Shadow
     final private Map<Holder<MobEffect>, MobEffectInstance> activeEffects = new ConcurrentHashMap<>();
+
+    @Shadow
+    public abstract AttributeMap getAttributes();
+
+    @Shadow
+    protected abstract void onAttributeUpdated(Holder<Attribute> attribute);
 
     @Unique
     private static final Object async$lock = new Object();
@@ -65,24 +75,12 @@ public abstract class LivingEntityMixin extends Entity {
         }
     }
 
-    @WrapOperation(
-            method = "tickEffects",
-            at = @At(
-                    value = "INVOKE",
-                    target = "Lnet/minecraft/world/effect/MobEffectInstance;tickServer(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/world/entity/LivingEntity;Ljava/lang/Runnable;)Z"
-            )
-    )
+    @WrapOperation(method = "tickEffects", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/effect/MobEffectInstance;tickServer(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/world/entity/LivingEntity;Ljava/lang/Runnable;)Z"))
     private boolean wrapTickEffect(MobEffectInstance instance, ServerLevel level, LivingEntity entity, Runnable onEffectUpdated, Operation<Boolean> original) {
         return instance != null ? original.call(instance, level, entity, onEffectUpdated) : false;
     }
 
-    @WrapOperation(
-            method = "tickEffects",
-            at = @At(
-                    value = "INVOKE",
-                    target = "Ljava/util/List;of(Ljava/lang/Object;)Ljava/util/List;"
-            )
-    )
+    @WrapOperation(method = "tickEffects", at = @At(value = "INVOKE", target = "Ljava/util/List;of(Ljava/lang/Object;)Ljava/util/List;"))
     private List<?> wrapListOf(Object element, Operation<List<?>> original) {
         return element != null ? original.call(element) : Collections.emptyList();
     }
@@ -110,6 +108,18 @@ public abstract class LivingEntityMixin extends Entity {
     private boolean removeAllEffects(Operation<Boolean> original) {
         synchronized (async$lock) {
             return original.call();
+        }
+    }
+
+    @WrapMethod(method = "refreshDirtyAttributes")
+    private void async$refreshDirtyAttributes(Operation<Void> original) {
+        Set<AttributeInstance> toUpdate = getAttributes().getAttributesToUpdate();
+        AttributeInstance[] snapshot = toUpdate.toArray(new AttributeInstance[0]);
+        toUpdate.clear();
+        for (AttributeInstance instance : snapshot) {
+            if (instance != null) {
+                onAttributeUpdated(instance.getAttribute());
+            }
         }
     }
 
