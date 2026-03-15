@@ -42,6 +42,7 @@
     "entity.breed.FrogMixin",
     "entity.breed.SnifferMixin",
     "entity.breed.TurtleMixin",
+    "entity.movement.AsyncPathNavigationMixin",
     "entity.movement.EntitySectionMixin",
     "entity.movement.EntitySectionStorageMixin",
     "entity.movement.LevelPushableEntitiesMixin",

@@ -1,5 +1,6 @@
 package com.axalotl.async.common.mixin.lithium;
 
+import com.axalotl.async.common.parallelised.utils.AsyncSafeNavigation;
 import com.llamalad7.mixinextras.sugar.Local;
 import net.caffeinemc.mods.lithium.common.entity.NavigatingEntity;
 import net.caffeinemc.mods.lithium.common.world.ServerWorldExtended;
@@ -45,7 +46,7 @@ public abstract class LithiumServerLevel extends Level implements WorldGenLevel,
     )
     private void updateActiveListeners(BlockPos pos, BlockState oldState, BlockState newState, int arg3, CallbackInfo ci, @Local List<PathNavigation> list) {
         for (PathNavigation nav : async$activeNavigationsOver) {
-            if (nav.shouldRecomputePath(pos)) {
+            if (((AsyncSafeNavigation) nav).async$shouldRecomputePathSafe(pos)) {
                 list.add(nav);
             }
         }
@@ -53,11 +54,17 @@ public abstract class LithiumServerLevel extends Level implements WorldGenLevel,
 
     @Override
     public void lithium$setNavigationActive(Mob mobEntity) {
-        async$activeNavigationsOver.add(((NavigatingEntity) mobEntity).lithium$getRegisteredNavigation());
+        PathNavigation nav = ((NavigatingEntity) mobEntity).lithium$getRegisteredNavigation();
+        if (nav != null) {
+            async$activeNavigationsOver.add(nav);
+        }
     }
 
     @Override
     public void lithium$setNavigationInactive(Mob mobEntity) {
-        async$activeNavigationsOver.remove(((NavigatingEntity) mobEntity).lithium$getRegisteredNavigation());
+        PathNavigation nav = ((NavigatingEntity) mobEntity).lithium$getRegisteredNavigation();
+        if (nav != null) {
+            async$activeNavigationsOver.remove(nav);
+        }
     }
 }
