@@ -1,205 +1,102 @@
 package com.axalotl.async.common.parallelised.fastutil;
 
+import it.unimi.dsi.fastutil.HashCommon;
 import it.unimi.dsi.fastutil.longs.*;
-import org.jetbrains.annotations.NotNull;
 
-import java.util.Collection;
-import java.util.Objects;
+import java.util.*;
 import java.util.concurrent.ConcurrentSkipListSet;
 
 /**
- * A thread-safe implementation of LongSortedSet backed by ConcurrentSkipListSet.
+ * Thread-safe LongSortedSet backed by ConcurrentSkipListSet.
  * Provides concurrent access and maintains elements in sorted order.
  */
 public final class ConcurrentLongSortedSet implements LongSortedSet {
 
-    private final ConcurrentSkipListSet<Long> backing = new ConcurrentSkipListSet<>();
+    private final ConcurrentSkipListSet<Long> backing;
 
-    /**
-     * Creates a new empty concurrent sorted set
-     */
-    public ConcurrentLongSortedSet() {}
+    public ConcurrentLongSortedSet() { this.backing = new ConcurrentSkipListSet<>(); }
 
-    /**
-     * Creates a new concurrent sorted set containing elements from the given collection
-     *
-     * @param collection initial elements
-     * @throws NullPointerException if collection is null
-     */
     public ConcurrentLongSortedSet(Collection<Long> collection) {
         this();
-        addAll(Objects.requireNonNull(collection, "Initial collection cannot be null"));
+        addAll(Objects.requireNonNull(collection));
     }
 
-    @Override
-    public LongBidirectionalIterator iterator(long fromElement) {
-        return FastUtilHackUtil.wrap(backing.tailSet(fromElement).iterator());
+    @Override public LongBidirectionalIterator iterator(long fromElement) {
+        return wrap(backing.tailSet(fromElement).iterator());
     }
 
-    @Override
-    public @NotNull LongBidirectionalIterator iterator() {
-        return FastUtilHackUtil.wrap(backing.iterator());
-    }
+    @Override public LongBidirectionalIterator iterator() { return wrap(backing.iterator()); }
+    @Override public int size() { return backing.size(); }
+    @Override public boolean isEmpty() { return backing.isEmpty(); }
+    @Override public Object[] toArray() { return backing.toArray(); }
+    @Override public <T> T[] toArray(T[] a) { return backing.toArray(a); }
+    @Override public boolean containsAll(Collection<?> c) { return backing.containsAll(c); }
+    @Override public boolean addAll(Collection<? extends Long> c) { return backing.addAll(c); }
+    @Override public boolean removeAll(Collection<?> c) { return backing.removeAll(c); }
+    @Override public boolean retainAll(Collection<?> c) { return backing.retainAll(c); }
+    @Override public void clear() { backing.clear(); }
+    @Override public boolean add(long key) { return backing.add(key); }
+    @Override public boolean contains(long key) { return backing.contains(key); }
+    @Override public boolean remove(long k) { return backing.remove(k); }
 
-    @Override
-    public int size() {
-        return backing.size();
-    }
+    @Override public long[] toLongArray() { return backing.stream().mapToLong(Long::longValue).toArray(); }
 
-    @Override
-    public boolean isEmpty() {
-        return backing.isEmpty();
-    }
-
-    @NotNull
-    @Override
-    public Object @NotNull [] toArray() {
-        return backing.toArray();
-    }
-
-    @NotNull
-    @Override
-    public <T> T @NotNull [] toArray(@NotNull T @NotNull [] array) {
-        return backing.toArray(array);
-    }
-
-    @Override
-    public boolean containsAll(@NotNull Collection<?> collection) {
-        return backing.containsAll(collection);
-    }
-
-    @Override
-    public boolean addAll(@NotNull Collection<? extends Long> collection) {
-        return backing.addAll(collection);
-    }
-
-    @Override
-    public boolean removeAll(@NotNull Collection<?> collection) {
-        return backing.removeAll(collection);
-    }
-
-    @Override
-    public boolean retainAll(@NotNull Collection<?> collection) {
-        return backing.retainAll(collection);
-    }
-
-    @Override
-    public void clear() {
-        backing.clear();
-    }
-
-    @Override
-    public boolean add(long key) {
-        return backing.add(key);
-    }
-
-    @Override
-    public boolean contains(long key) {
-        return backing.contains(key);
-    }
-
-    @Override
-    public long[] toLongArray() {
-        return longStream().toArray();
-    }
-
-    @Override
-    public long[] toArray(long[] array) {
+    @Override public long[] toArray(long[] a) {
         long[] result = toLongArray();
-        if (array.length < result.length) {
-            return result;
-        }
-        System.arraycopy(result, 0, array, 0, result.length);
-        if (array.length > result.length) {
-            array[result.length] = 0L;
-        }
-        return array;
+        if (a.length < result.length) return result;
+        System.arraycopy(result, 0, a, 0, result.length);
+        if (a.length > result.length) a[result.length] = 0L;
+        return a;
     }
 
-    @Override
-    public boolean addAll(LongCollection c) {
-        boolean modified = false;
-        for (LongIterator it = c.iterator(); it.hasNext(); ) {
-            if (backing.add(it.nextLong())) {
-                modified = true;
-            }
-        }
-        return modified;
+    @Override public boolean addAll(LongCollection c) {
+        boolean mod = false;
+        for (LongIterator it = c.iterator(); it.hasNext(); ) if (backing.add(it.nextLong())) mod = true;
+        return mod;
     }
+    @Override public boolean containsAll(LongCollection c) {
+        for (LongIterator it = c.iterator(); it.hasNext(); ) if (!backing.contains(it.nextLong())) return false;
+        return true;
+    }
+    @Override public boolean removeAll(LongCollection c) {
+        boolean mod = false;
+        for (LongIterator it = c.iterator(); it.hasNext(); ) if (backing.remove(it.nextLong())) mod = true;
+        return mod;
+    }
+    @Override public boolean retainAll(LongCollection c) { return backing.retainAll(c); }
 
-    @Override
-    public boolean containsAll(LongCollection c) {
-        for (LongIterator it = c.iterator(); it.hasNext(); ) {
-            if (!backing.contains(it.nextLong())) {
-                return false;
-            }
-        }
+    @Override public LongSortedSet subSet(long from, long to) {
+        return new ConcurrentLongSortedSet(backing.subSet(Math.min(from, to), Math.max(from, to)));
+    }
+    @Override public LongSortedSet headSet(long to) { return new ConcurrentLongSortedSet(backing.headSet(to)); }
+    @Override public LongSortedSet tailSet(long from) { return new ConcurrentLongSortedSet(backing.tailSet(from)); }
+    @Override public LongComparator comparator() { return null; }
+    @Override public long firstLong() { return backing.first(); }
+    @Override public long lastLong() { return backing.last(); }
+
+    @Override public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof LongSet that)) return false;
+        if (size() != that.size()) return false;
+        for (LongIterator it = that.iterator(); it.hasNext(); ) if (!contains(it.nextLong())) return false;
         return true;
     }
 
-    @Override
-    public boolean removeAll(LongCollection c) {
-        boolean modified = false;
-        for (LongIterator it = c.iterator(); it.hasNext(); ) {
-            if (backing.remove(it.nextLong())) {
-                modified = true;
-            }
-        }
-        return modified;
+    @Override public int hashCode() {
+        int h = 0;
+        for (long v : backing) h += HashCommon.long2int(v);
+        return h;
     }
 
-    @Override
-    public boolean retainAll(LongCollection c) {
-        return backing.retainAll(c);
-    }
+    @Override public String toString() { return backing.toString(); }
 
-    @Override
-    public boolean remove(long k) {
-        return backing.remove(k);
-    }
-
-    @Override
-    public LongSortedSet subSet(long fromElement, long toElement) {
-        return new ConcurrentLongSortedSet(backing.subSet(Math.min(fromElement, toElement), Math.max(fromElement, toElement)));
-    }
-
-    @Override
-    public LongSortedSet headSet(long toElement) {
-        return new ConcurrentLongSortedSet(backing.headSet(toElement));
-    }
-
-    @Override
-    public LongSortedSet tailSet(long fromElement) {
-        return new ConcurrentLongSortedSet(backing.tailSet(fromElement));
-    }
-
-    @Override
-    public LongComparator comparator() {
-        return null;
-    }
-
-    @Override
-    public long firstLong() {
-        return backing.first();
-    }
-
-    @Override
-    public long lastLong() {
-        return backing.last();
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        return this == o || (o instanceof LongSortedSet that && backing.equals(that));
-    }
-
-    @Override
-    public int hashCode() {
-        return backing.hashCode();
-    }
-
-    @Override
-    public String toString() {
-        return backing.toString();
+    private static LongBidirectionalIterator wrap(Iterator<Long> it) {
+        return new LongBidirectionalIterator() {
+            @Override public long previousLong() { throw new UnsupportedOperationException(); }
+            @Override public boolean hasPrevious() { throw new UnsupportedOperationException(); }
+            @Override public long nextLong() { return it.next(); }
+            @Override public boolean hasNext() { return it.hasNext(); }
+            @Override public void remove() { it.remove(); }
+        };
     }
 }
