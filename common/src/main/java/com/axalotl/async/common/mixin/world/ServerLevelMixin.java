@@ -2,11 +2,15 @@ package com.axalotl.async.common.mixin.world;
 
 import com.axalotl.async.common.ParallelProcessor;
 import com.axalotl.async.common.config.AsyncConfig;
+import com.axalotl.async.common.parallelised.utils.ItemFluidPrecompute;
 import com.axalotl.async.common.parallelised.ConcurrentCollections;
 import com.axalotl.async.common.parallelised.ConcurrentList;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import it.unimi.dsi.fastutil.objects.ObjectLinkedOpenHashSet;
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.particles.ExplosionParticleInfo;
@@ -22,9 +26,11 @@ import net.minecraft.util.random.WeightedList;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.level.*;
 import net.minecraft.world.level.dimension.DimensionType;
 import net.minecraft.world.level.entity.EntityTickList;
+import net.minecraft.world.level.material.FluidState;
 import net.minecraft.world.level.storage.WritableLevelData;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -148,9 +154,64 @@ public abstract class ServerLevelMixin extends Level implements WorldGenLevel {
             } while (!allDone);
         }
 
+        async$precomputeItemFluidStates(toTick);
+
         profilerfiller.push("tick");
         ParallelProcessor.callEntityTickBatch(this.getLevel(), toTick);
         profilerfiller.pop();
+    }
+
+    @Unique
+    private void async$precomputeItemFluidStates(List<Entity> toTick) {
+        if (AsyncConfig.disabled || toTick.isEmpty()) return;
+
+        LongOpenHashSet posSet = new LongOpenHashSet();
+        for (Entity e : toTick) {
+            if (e instanceof ItemEntity) {
+                posSet.add(e.blockPosition().asLong());
+            }
+        }
+        if (posSet.isEmpty()) return;
+
+        long[] positions = posSet.toLongArray();
+        FluidState[] results = new FluidState[positions.length];
+        ServerLevel self = this.getLevel();
+
+        int poolSize = ParallelProcessor.getPoolSize();
+        int chunkSize = Math.max(1, (positions.length + poolSize - 1) / poolSize);
+        List<Future<?>> futures = new ArrayList<>();
+
+        for (int i = 0; i < positions.length; i += chunkSize) {
+            final int start = i;
+            final int end = Math.min(i + chunkSize, positions.length);
+            futures.add(ParallelProcessor.tickPool.submit(() -> {
+                for (int j = start; j < end; j++) {
+                    results[j] = self.getFluidState(BlockPos.of(positions[j]));
+                }
+                return null;
+            }));
+        }
+
+        boolean allDone;
+        do {
+            allDone = true;
+            for (Future<?> f : futures) {
+                if (!f.isDone()) { allDone = false; break; }
+            }
+            if (!allDone) {
+                boolean pumped = false;
+                for (ServerLevel lvl : ParallelProcessor.getServer().getAllLevels()) {
+                    pumped |= lvl.getChunkSource().pollTask();
+                }
+                if (!pumped) Thread.onSpinWait();
+            }
+        } while (!allDone);
+
+        Long2ObjectOpenHashMap<FluidState> fluidMap = new Long2ObjectOpenHashMap<>(positions.length);
+        for (int i = 0; i < positions.length; i++) {
+            fluidMap.put(positions[i], results[i]);
+        }
+        ItemFluidPrecompute.activate(fluidMap);
     }
 
     @Redirect(method = "blockEvent", at = @At(value = "INVOKE", target = "Lit/unimi/dsi/fastutil/objects/ObjectLinkedOpenHashSet;add(Ljava/lang/Object;)Z", remap = false))
