@@ -4,6 +4,7 @@
   "package": "com.axalotl.async.common.mixin",
   "compatibilityLevel": "JAVA_21",
   "mixins": [
+    "c2me.TheChunkSystemMixin",
     "entity.AllayMixin",
     "entity.AnimalMixin",
     "entity.AreaEffectCloudMixin",

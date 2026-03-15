@@ -7,6 +7,7 @@ import java.util.List;
 public class AsyncModMixinCanceller implements MixinCanceller {
     private boolean LITHIUM = false;
     private boolean VMP = false;
+    private boolean C2ME = false;
 
     @Override
     public boolean shouldCancel(List<String> targetClassNames, String mixinClassName) {
@@ -15,6 +16,9 @@ public class AsyncModMixinCanceller implements MixinCanceller {
         }
         if (mixinClassName.contains("vmp") && !mixinClassName.contains("async")) {
             VMP = true;
+        }
+        if (mixinClassName.contains("c2me") && !mixinClassName.contains("async")) {
+            C2ME = true;
         }
         switch (mixinClassName) {
             case "com.ishland.c2me.fixes.general.threading_issues.mixin.asynccatchers.MixinThreadedAnvilChunkStorage":
@@ -29,6 +33,9 @@ public class AsyncModMixinCanceller implements MixinCanceller {
         }
         if (mixinClassName.endsWith("com.axalotl.async.common.mixin.vmp.VMPChunkMapMixin")) {
             return !VMP;
+        }
+        if (mixinClassName.endsWith("com.axalotl.async.common.mixin.c2me.TheChunkSystemMixin")) {
+            return !C2ME;
         }
         return mixinClassName.endsWith("com.cupboard.mixin.ServerAddEntityMixin");
     }
