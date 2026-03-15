@@ -2,6 +2,7 @@ package com.axalotl.async.common.mixin.server;
 
 import com.axalotl.async.common.ParallelProcessor;
 import com.axalotl.async.common.config.AsyncConfig;
+import com.axalotl.async.common.parallelised.ConcurrentList;
 import com.axalotl.async.common.parallelised.fastutil.Int2ObjectConcurrentHashMap;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
@@ -29,7 +30,6 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 
 @Mixin(value = ChunkMap.class, priority = 1500)
@@ -64,7 +64,7 @@ public abstract class ChunkMapMixin extends SimpleRegionStorage implements Chunk
     @Inject(method = "<init>", at = @At("TAIL"))
     private void replaceConVars(CallbackInfo ci) {
         entityMap = new Int2ObjectConcurrentHashMap<>();
-        pendingGenerationTasks = new CopyOnWriteArrayList<>();
+        pendingGenerationTasks = new ConcurrentList<>();
         chunksToEagerlySave = LongSets.synchronize(new LongLinkedOpenHashSet());
     }
 

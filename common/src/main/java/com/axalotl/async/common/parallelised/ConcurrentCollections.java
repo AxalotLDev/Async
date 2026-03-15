@@ -5,7 +5,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
 
 /**
@@ -39,9 +38,9 @@ public class ConcurrentCollections {
      * Creates a collector that accumulates elements into a thread-safe list
      *
      * @param <T> the type of elements in the list
-     * @return a collector that accumulates elements into a CopyOnWriteArrayList
+     * @return a collector that accumulates elements into a ConcurrentList
      */
     public static <T> java.util.stream.Collector<T, ?, List<T>> toList() {
-        return Collectors.toCollection(CopyOnWriteArrayList::new);
+        return Collectors.toCollection(ConcurrentList::new);
     }
 }

@@ -1,5 +1,6 @@
 package com.axalotl.async.common.mixin.world;
 
+import com.axalotl.async.common.parallelised.ConcurrentList;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import net.minecraft.core.BlockPos;
@@ -11,7 +12,6 @@ import org.spongepowered.asm.mixin.Mutable;
 import org.spongepowered.asm.mixin.Shadow;
 
 import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
 
 @Mixin(CollectingNeighborUpdater.class)
 public abstract class CollectingNeighborUpdaterMixin implements NeighborUpdater {
@@ -19,7 +19,7 @@ public abstract class CollectingNeighborUpdaterMixin implements NeighborUpdater 
     @Shadow
     @Final
     @Mutable
-    private List<CollectingNeighborUpdater.NeighborUpdates> addedThisLayer = new CopyOnWriteArrayList<>();
+    private List<CollectingNeighborUpdater.NeighborUpdates> addedThisLayer = new ConcurrentList<>();
 
     @WrapMethod(method = "addAndRun")
     private synchronized void syncAddAndRun(BlockPos pos, CollectingNeighborUpdater.NeighborUpdates entry, Operation<Void> original) {
