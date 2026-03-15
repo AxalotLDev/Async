@@ -52,6 +52,8 @@
     "entity.sensor.NearestLivingEntitiesSensorMixin",
     "entity.sensor.PlayerSensorMixin",
     "entity.spawn.LocalMobCapCalculatorMixin",
+    "entity.spawn.MobCountsMixin",
+    "entity.spawn.SpawnStateMixin",
     "entity.spawn.PotentialCalculatorMixin",
     "lithium.LithiumGameEventDispatcherStorage",
     "lithium.LithiumServerLevel",
