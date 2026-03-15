@@ -55,6 +55,8 @@
     "entity.spawn.MobCountsMixin",
     "entity.spawn.SpawnStateMixin",
     "entity.spawn.PotentialCalculatorMixin",
+    "lithium.AsyncLithiumEntityMovementTrackerMixin",
+    "lithium.AsyncLithiumEntitySectionMixin",
     "lithium.LithiumGameEventDispatcherStorage",
     "lithium.LithiumServerLevel",
     "lithium.ReferenceMaskedListMixin",
