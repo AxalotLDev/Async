@@ -2,7 +2,6 @@ package com.axalotl.async.common;
 
 import com.axalotl.async.common.config.AsyncConfig;
 import com.axalotl.async.common.parallelised.utils.PortalTeleportationManager;
-import lombok.Getter;
 import lombok.Setter;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
@@ -25,15 +24,19 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class ParallelProcessor {
     public static final Logger LOGGER = LogManager.getLogger(ParallelProcessor.class);
 
-    @Getter
     @Setter
     private static MinecraftServer server;
+
+    public static MinecraftServer getServer() {
+        return server;
+    }
 
     public static final AtomicInteger currentEntities = new AtomicInteger();
     private static final AtomicInteger threadPoolID = new AtomicInteger();
     public static ExecutorService tickPool;
     private static final Set<UUID> blacklistedEntity = ConcurrentHashMap.newKeySet();
     private static final Map<String, Set<WeakReference<Thread>>> mcThreadTracker = new ConcurrentHashMap<>();
+    private static final ThreadLocal<Boolean> IS_POOL_THREAD = ThreadLocal.withInitial(() -> Boolean.FALSE);
     public static final Set<Class<?>> BLOCKED_ENTITIES = Set.of(
             FallingBlockEntity.class,
             Shulker.class,
@@ -45,8 +48,10 @@ public class ParallelProcessor {
         PortalTeleportationManager.init(server);
         isShuttingDown = false;
         ThreadFactory threadFactory = runnable -> {
-            Thread thread = new Thread(runnable,
-                    "Async-Tick-Pool-Thread-" + threadPoolID.getAndIncrement());
+            Thread thread = new Thread(() -> {
+                IS_POOL_THREAD.set(Boolean.TRUE);
+                runnable.run();
+            }, "Async-Tick-Pool-Thread-" + threadPoolID.getAndIncrement());
             registerThread("Async-Tick", thread);
             thread.setDaemon(false);
             thread.setPriority(Thread.NORM_PRIORITY - 1);
@@ -73,14 +78,8 @@ public class ParallelProcessor {
                 .add(new WeakReference<>(thread));
     }
 
-    private static boolean isThreadInPool(Thread thread) {
-        return mcThreadTracker.getOrDefault("Async-Tick", Set.of()).stream()
-                .map(WeakReference::get)
-                .anyMatch(thread::equals);
-    }
-
     public static boolean isServerExecutionThread() {
-        return isThreadInPool(Thread.currentThread());
+        return IS_POOL_THREAD.get();
     }
 
     public static int getPoolSize() {
