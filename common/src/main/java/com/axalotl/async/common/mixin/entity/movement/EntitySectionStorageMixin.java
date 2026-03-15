@@ -13,11 +13,13 @@ import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Mutable;
 import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.util.Objects;
+import java.util.concurrent.locks.StampedLock;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
 
@@ -37,6 +39,9 @@ public abstract class EntitySectionStorageMixin<T extends EntityAccess> {
     @Shadow
     public abstract LongStream getExistingSectionPositionsInChunk(long pos);
 
+    @Unique
+    private final StampedLock async$sectionGuard = new StampedLock();
+
     @Inject(method = "<init>", at = @At("TAIL"))
     private void async$replaceMaps(CallbackInfo ci) {
         Long2ObjectConcurrentHashMap<EntitySection<T>> newSections = new Long2ObjectConcurrentHashMap<>();
@@ -46,6 +51,21 @@ public abstract class EntitySectionStorageMixin<T extends EntityAccess> {
         ConcurrentLongSortedSet newIds = new ConcurrentLongSortedSet();
         newIds.addAll(this.sectionIds);
         this.sectionIds = newIds;
+    }
+
+    @WrapMethod(method = "getOrCreateSection")
+    private EntitySection<T> async$guardGetOrCreate(long sectionPos, Operation<EntitySection<T>> original) {
+        long stamp = async$sectionGuard.readLock();
+        EntitySection<T> result = original.call(sectionPos);
+        async$sectionGuard.unlockRead(stamp);
+        return result;
+    }
+
+    @WrapMethod(method = "remove")
+    private void async$guardRemove(long sectionId, Operation<Void> original) {
+        long stamp = async$sectionGuard.writeLock();
+        original.call(sectionId);
+        async$sectionGuard.unlockWrite(stamp);
     }
 
     @WrapMethod(method = "getExistingSectionsInChunk")
