@@ -14,6 +14,7 @@ import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 import org.spongepowered.asm.mixin.Mixin;
@@ -21,11 +22,10 @@ import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Mixin(value = LivingEntity.class, priority = 1001)
@@ -121,5 +121,15 @@ public abstract class LivingEntityMixin extends Entity {
         if (currentBlock.is(BlockTags.CLIMBABLE)) {
             cir.setReturnValue(false);
         }
+    }
+
+    @Redirect(method = "refreshDirtyAttributes", at = @At(value = "INVOKE", target = "Ljava/util/Set;iterator()Ljava/util/Iterator;"))
+    private Iterator<AttributeInstance> async$snapshotIterator(Set<AttributeInstance> set) {
+        Set<AttributeInstance> snapshot;
+        synchronized (async$lock) {
+            snapshot = new HashSet<>(set);
+            set.clear();
+        }
+        return snapshot.iterator();
     }
 }

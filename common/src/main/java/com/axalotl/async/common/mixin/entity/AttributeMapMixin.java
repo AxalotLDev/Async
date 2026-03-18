@@ -10,17 +10,16 @@ import org.spongepowered.asm.mixin.Shadow;
 
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 
 @Mixin(AttributeMap.class)
 public class AttributeMapMixin {
 
     @Shadow
-    private final Set<AttributeInstance> attributesToSync = ConcurrentHashMap.newKeySet();
+    private final Set<AttributeInstance> attributesToSync = ConcurrentCollections.newHashSet();
 
     @Shadow
     private final Map<Holder<Attribute>, AttributeInstance> attributes = ConcurrentCollections.newHashMap();
 
     @Shadow
-    private final Set<AttributeInstance> attributesToUpdate = ConcurrentHashMap.newKeySet();
+    private final Set<AttributeInstance> attributesToUpdate = ConcurrentCollections.newHashSet();
 }
