@@ -1,14 +1,16 @@
 package com.axalotl.async.common.mixin.entity;
 
 import com.axalotl.async.common.config.AsyncConfig;
+import com.google.common.collect.Maps;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.Brain;
-import net.minecraft.world.entity.ai.memory.ExpirableValue;
 import net.minecraft.world.entity.ai.memory.MemoryModuleType;
+import net.minecraft.world.entity.ai.memory.MemorySlot;
 import net.minecraft.world.entity.ai.memory.MemoryStatus;
+import org.jspecify.annotations.Nullable;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -27,10 +29,10 @@ public class BrainMixin<E extends LivingEntity> {
 
     @Shadow
     @Final
-    private Map<MemoryModuleType<?>, Optional<? extends ExpirableValue<?>>> memories;
+    private final Map<MemoryModuleType<?>, MemorySlot<?>> memories = Maps.newHashMap();
 
     @Unique
-    private volatile Map<MemoryModuleType<?>, Optional<? extends ExpirableValue<?>>> async$snapshot;
+    private volatile Map<MemoryModuleType<?>, MemorySlot<?>> async$snapshot;
 
     @Unique
     private volatile boolean async$needsRebuild = true;
@@ -66,15 +68,13 @@ public class BrainMixin<E extends LivingEntity> {
     private <U> void async$getMemory(MemoryModuleType<U> type, CallbackInfoReturnable<Optional<U>> cir) {
         if (AsyncConfig.disabled) return;
 
-        Map<MemoryModuleType<?>, Optional<? extends ExpirableValue<?>>> snapshot = async$snapshot;
+        Map<MemoryModuleType<?>, MemorySlot<?>> snapshot = async$snapshot;
         if (async$inTick && snapshot != null) {
-            Optional<? extends ExpirableValue<?>> value = snapshot.get(type);
-            if (value == null) {
-                cir.setReturnValue(Optional.empty());
-                return;
-            }
             @SuppressWarnings("unchecked")
-            Optional<U> result = (Optional<U>) value.map(ExpirableValue::getValue);
+            MemorySlot<U> slot = (MemorySlot<U>) snapshot.get(type);
+            Optional<U> result = (slot != null && slot.hasValue() && !slot.hasExpired())
+                    ? Optional.ofNullable(slot.value())
+                    : Optional.empty();
             cir.setReturnValue(result);
         }
     }
@@ -83,10 +83,10 @@ public class BrainMixin<E extends LivingEntity> {
     private void async$hasMemoryValue(MemoryModuleType<?> type, CallbackInfoReturnable<Boolean> cir) {
         if (AsyncConfig.disabled) return;
 
-        Map<MemoryModuleType<?>, Optional<? extends ExpirableValue<?>>> snapshot = async$snapshot;
+        Map<MemoryModuleType<?>, MemorySlot<?>> snapshot = async$snapshot;
         if (async$inTick && snapshot != null) {
-            Optional<? extends ExpirableValue<?>> value = snapshot.get(type);
-            cir.setReturnValue(value != null && value.isPresent());
+            MemorySlot<?> slot = snapshot.get(type);
+            cir.setReturnValue(slot != null && slot.hasValue() && !slot.hasExpired());
         }
     }
 
@@ -94,35 +94,35 @@ public class BrainMixin<E extends LivingEntity> {
     private void async$checkMemory(MemoryModuleType<?> type, MemoryStatus status, CallbackInfoReturnable<Boolean> cir) {
         if (AsyncConfig.disabled) return;
 
-        Map<MemoryModuleType<?>, Optional<? extends ExpirableValue<?>>> snapshot = async$snapshot;
+        Map<MemoryModuleType<?>, MemorySlot<?>> snapshot = async$snapshot;
         if (async$inTick && snapshot != null) {
-            Optional<? extends ExpirableValue<?>> value = snapshot.get(type);
+            MemorySlot<?> slot = snapshot.get(type);
 
             boolean result = switch (status) {
                 case REGISTERED -> true;
-                case VALUE_PRESENT -> value != null && value.isPresent();
-                case VALUE_ABSENT -> value == null || value.isEmpty();
+                case VALUE_PRESENT -> slot != null && slot.hasValue() && !slot.hasExpired();
+                case VALUE_ABSENT -> slot == null || !slot.hasValue() || slot.hasExpired();
             };
 
             cir.setReturnValue(result);
         }
     }
 
-    @WrapMethod(method = "setMemoryInternal")
-    private <U> void async$setMemory(
-            MemoryModuleType<U> memoryType,
-            Optional<? extends ExpirableValue<?>> memory,
-            Operation<Void> original
-    ) {
+    @WrapMethod(method = "setMemoryInternal(Lnet/minecraft/world/entity/ai/memory/MemoryModuleType;Ljava/lang/Object;)V")
+    private <U> void async$setMemory(MemoryModuleType<U> type, @Nullable U value, Operation<Void> original) {
         if (AsyncConfig.disabled) {
-            original.call(memoryType, memory);
+            original.call(type, value);
             return;
         }
 
         synchronized (async$writeLock) {
-            original.call(memoryType, memory);
-            if (async$snapshot != null && async$snapshot.containsKey(memoryType)) {
-                async$snapshot.put(memoryType, memory);
+            original.call(type, value);
+            if (async$snapshot != null && async$snapshot.containsKey(type)) {
+                @SuppressWarnings("unchecked")
+                MemorySlot<U> slot = (MemorySlot<U>) async$snapshot.get(type);
+                if (slot != null && value != null) {
+                    slot.set(value);
+                }
             }
         }
     }

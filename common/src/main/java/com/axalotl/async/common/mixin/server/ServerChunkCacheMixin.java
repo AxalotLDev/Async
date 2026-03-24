@@ -42,7 +42,7 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
 
     @Shadow
     @Final
-    Thread mainThread;
+    private Thread mainThread;
 
     @Shadow
     @Final
@@ -120,7 +120,7 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
 
     @Unique
     private @Nullable ChunkAccess async$tryGetChunk(int x, int z, ChunkStatus leastStatus) {
-        ChunkHolder holder = this.getVisibleChunkIfPresent(ChunkPos.asLong(x, z));
+        ChunkHolder holder = this.getVisibleChunkIfPresent(ChunkPos.pack(x, z));
         if (holder == null) return null;
 
         ChunkAccess chunk = holder.getChunkIfPresent(leastStatus);
@@ -137,7 +137,7 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
     @Inject(method = "getChunkNow", at = @At("HEAD"), cancellable = true)
     private void shortcutGetChunkNow(int chunkX, int chunkZ, CallbackInfoReturnable<LevelChunk> cir) {
         if (Thread.currentThread() != this.mainThread) {
-            final ChunkHolder holder = this.getVisibleChunkIfPresent(ChunkPos.asLong(chunkX, chunkZ));
+            final ChunkHolder holder = this.getVisibleChunkIfPresent(ChunkPos.pack(chunkX, chunkZ));
             if (holder != null) {
                 final CompletableFuture<ChunkResult<ChunkAccess>> future = holder.scheduleChunkGenerationTask(ChunkStatus.FULL, this.chunkMap);
                 ChunkAccess chunk = future.getNow(ChunkHolder.UNLOADED_CHUNK).orElse(null);
@@ -192,14 +192,14 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
                     List<LevelChunk> chunks = new ArrayList<>();
                     profiler.popPush("shuffleSpawningChunks");
                     this.chunkMap.collectSpawningChunks(chunks);
-                    Util.shuffle(chunks, this.level.random);
+                    Util.shuffle(chunks, this.level.getRandom());
                     profiler.popPush("tickSpawningChunks");
                     for (LevelChunk levelchunk : chunks) {
                         if (levelchunk != null) {
                             this.tickSpawningChunk(levelchunk, timeInhabited, list, currentState);
                         }
                     }
-                }, ParallelProcessor.tickPool).whenComplete((r, e) -> {
+                }, ParallelProcessor.tickPool).whenComplete((_, e) -> {
                     if (e != null) {
                         ParallelProcessor.LOGGER.error("Error in async entity spawning, switching to synchronous", e);
                         List<LevelChunk> list1 = this.spawningChunks;
@@ -207,7 +207,7 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
                             profiler.popPush("filteringSpawningChunks");
                             this.chunkMap.collectSpawningChunks(list1);
                             profiler.popPush("shuffleSpawningChunks");
-                            Util.shuffle(list1, this.level.random);
+                            Util.shuffle(list1, this.level.getRandom());
                             profiler.popPush("tickSpawningChunks");
 
                             for (LevelChunk levelchunk : list1) {
@@ -225,7 +225,7 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
                 profiler.popPush("filteringSpawningChunks");
                 this.chunkMap.collectSpawningChunks(list1);
                 profiler.popPush("shuffleSpawningChunks");
-                Util.shuffle(list1, this.level.random);
+                Util.shuffle(list1, this.level.getRandom());
                 profiler.popPush("tickSpawningChunks");
 
                 for (LevelChunk levelchunk : list1) {

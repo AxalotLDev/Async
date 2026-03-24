@@ -37,8 +37,8 @@ dependencies {
     implementation(annotationProcessor("com.github.bawnorton.mixinsquared:mixinsquared-common:${mixinsquared_version}"))
     implementation("org.ow2.asm:asm:9.6")
     implementation("org.ow2.asm:asm-tree:9.6")
-    compileOnly 'org.projectlombok:lombok:1.18.32'
-    annotationProcessor 'org.projectlombok:lombok:1.18.32'
+    compileOnly 'org.projectlombok:lombok:1.18.44'
+    annotationProcessor 'org.projectlombok:lombok:1.18.44'
     implementation "maven.modrinth:lithium:${lithium_version}-neoforge"
 }
 

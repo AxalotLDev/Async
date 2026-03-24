@@ -1,6 +1,6 @@
 plugins {
     id 'multiloader-loader'
-    id 'fabric-loom'
+    id 'net.fabricmc.fabric-loom'
     id "com.modrinth.minotaur" version "2.+"
     id 'idea'
     id 'java-library'
@@ -55,33 +55,33 @@ modrinth {
 
 dependencies {
     minecraft "com.mojang:minecraft:${minecraft_version}"
-    mappings loom.layered {
-        officialMojangMappings()
-        if (project.hasProperty('parchment_minecraft_version') && project.hasProperty('parchment_mappings_version')) {
-            def mcVer = project.parchment_minecraft_version
-            def mapVer = project.parchment_mappings_version
-
-            if (mcVer != null && mapVer != null && !mcVer.isBlank() && !mapVer.isBlank()) {
-                parchment("org.parchmentmc.data:parchment-${mcVer}:${mapVer}@zip")
-            }
-        }
-    }
-    modImplementation "net.fabricmc:fabric-loader:${fabric_loader_version}"
-    modImplementation "net.fabricmc.fabric-api:fabric-api:${fabric_version}"
+//    mappings loom.layered {
+//        officialMojangMappings()
+//        if (project.hasProperty('parchment_minecraft_version') && project.hasProperty('parchment_mappings_version')) {
+//            def mcVer = project.parchment_minecraft_version
+//            def mapVer = project.parchment_mappings_version
+//
+//            if (mcVer != null && mapVer != null && !mcVer.isBlank() && !mapVer.isBlank()) {
+//                parchment("org.parchmentmc.data:parchment-${mcVer}:${mapVer}@zip")
+//            }
+//        }
+//    }
+    implementation "net.fabricmc:fabric-loader:${fabric_loader_version}"
+    implementation "net.fabricmc.fabric-api:fabric-api:${fabric_version}"
 
     include(implementation(annotationProcessor("com.github.bawnorton.mixinsquared:mixinsquared-fabric:${mixinsquared_version}")))
-    modImplementation 'com.electronwill.night-config:toml:3.8.1'
+    implementation 'com.electronwill.night-config:toml:3.8.1'
     include group: 'com.electronwill.night-config', name: 'toml', version: '3.8.1'
     include group: 'com.electronwill.night-config', name: 'core', version: '3.8.1'
-    compileOnly 'org.projectlombok:lombok:1.18.32'
-    annotationProcessor 'org.projectlombok:lombok:1.18.32'
+    compileOnly 'org.projectlombok:lombok:1.18.44'
+    annotationProcessor 'org.projectlombok:lombok:1.18.44'
 
     implementation "maven.modrinth:lithium:${lithium_version}-neoforge"
-    modImplementation(include("me.lucko:fabric-permissions-api:${project.permission_api}"))
+    implementation(include("me.lucko:fabric-permissions-api:${project.permission_api}"))
 }
 
 loom {
-    mixin.useLegacyMixinAp = true
+//    mixin.useLegacyMixinAp = true
     def aw = project(':common').file("src/main/resources/async.accesswidener")
     accessWidenerPath.set(project(":common").file("src/main/resources/async.accesswidener"))
     if (aw.exists()) {

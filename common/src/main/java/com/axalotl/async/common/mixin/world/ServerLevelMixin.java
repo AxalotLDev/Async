@@ -46,7 +46,6 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ThreadPoolExecutor;
-import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 
@@ -113,7 +112,7 @@ public abstract class ServerLevelMixin extends Level implements WorldGenLevel {
             }
 
             if (!this.chunkSource.chunkMap.getDistanceManager()
-                    .inEntityTickingRange(entity.chunkPosition().toLong())) return;
+                    .inEntityTickingRange(entity.chunkPosition().pack())) return;
 
             Entity vehicle = entity.getVehicle();
             if (vehicle != null) {

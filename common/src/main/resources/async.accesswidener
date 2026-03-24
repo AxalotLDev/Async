@@ -1,4 +1,4 @@
-accessWidener   v1  named
+accessWidener v1 official
 accessible field net/minecraft/server/level/ChunkMap poiManager Lnet/minecraft/world/entity/ai/village/poi/PoiManager;
 accessible field net/minecraft/server/level/ChunkMap$TrackedEntity entity Lnet/minecraft/world/entity/Entity;
 accessible method net/minecraft/server/level/ChunkMap anyPlayerCloseEnoughForSpawning (Lnet/minecraft/world/level/ChunkPos;)Z
