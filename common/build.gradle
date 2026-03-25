@@ -10,19 +10,6 @@ neoForge {
     if (at.exists()) {
         accessTransformers.from(at.absolutePath)
     }
-    if (project.hasProperty('parchment_mappings_version') && project.hasProperty('parchment_minecraft_version')) {
-        def parchmentMappings = project.parchment_mappings_version
-        def parchmentMinecraft = project.parchment_minecraft_version
-
-        if (parchmentMappings != null && parchmentMinecraft != null &&
-                !parchmentMappings.toString().isBlank() && !parchmentMinecraft.toString().isBlank()) {
-
-            parchment {
-                mappingsVersion = parchmentMappings
-                minecraftVersion = parchmentMinecraft
-            }
-        }
-    }
 }
 
 repositories {

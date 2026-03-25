@@ -55,17 +55,6 @@ modrinth {
 
 dependencies {
     minecraft "com.mojang:minecraft:${minecraft_version}"
-//    mappings loom.layered {
-//        officialMojangMappings()
-//        if (project.hasProperty('parchment_minecraft_version') && project.hasProperty('parchment_mappings_version')) {
-//            def mcVer = project.parchment_minecraft_version
-//            def mapVer = project.parchment_mappings_version
-//
-//            if (mcVer != null && mapVer != null && !mcVer.isBlank() && !mapVer.isBlank()) {
-//                parchment("org.parchmentmc.data:parchment-${mcVer}:${mapVer}@zip")
-//            }
-//        }
-//    }
     implementation "net.fabricmc:fabric-loader:${fabric_loader_version}"
     implementation "net.fabricmc.fabric-api:fabric-api:${fabric_version}"
 
@@ -81,15 +70,14 @@ dependencies {
 }
 
 loom {
-//    mixin.useLegacyMixinAp = true
     def aw = project(':common').file("src/main/resources/async.accesswidener")
     accessWidenerPath.set(project(":common").file("src/main/resources/async.accesswidener"))
     if (aw.exists()) {
         accessWidenerPath.set(aw)
     }
-    mixin {
-        defaultRefmapName.set("async.refmap.json")
-    }
+//    mixin {
+//        defaultRefmapName.set("async.refmap.json")
+//    }
     runs {
         client {
             client()

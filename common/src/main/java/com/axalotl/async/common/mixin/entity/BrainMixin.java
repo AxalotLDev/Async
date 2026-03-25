@@ -11,7 +11,6 @@ import net.minecraft.world.entity.ai.memory.MemoryModuleType;
 import net.minecraft.world.entity.ai.memory.MemorySlot;
 import net.minecraft.world.entity.ai.memory.MemoryStatus;
 import org.jspecify.annotations.Nullable;
-import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
@@ -28,7 +27,6 @@ import java.util.concurrent.ConcurrentHashMap;
 public class BrainMixin<E extends LivingEntity> {
 
     @Shadow
-    @Final
     private final Map<MemoryModuleType<?>, MemorySlot<?>> memories = Maps.newHashMap();
 
     @Unique
