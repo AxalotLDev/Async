@@ -32,7 +32,7 @@ public class SynchronisePlugin implements IMixinConfigPlugin {
 
     @Override
     public String getRefMapperConfig() {
-        return PlatformUtils.platformUsesRefmap() ? "async.refmap.json" : null;
+        return null;
     }
 
     @Override

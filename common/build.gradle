@@ -1,15 +1,6 @@
 plugins {
-    id 'net.neoforged.moddev'
     id 'idea'
-}
-
-neoForge {
-    neoFormVersion = neoform_version
-    // Automatically enable AccessTransformers if the file exists
-    def at = file('src/main/resources/META-INF/accesstransformer.cfg')
-    if (at.exists()) {
-        accessTransformers.from(at.absolutePath)
-    }
+    id 'net.fabricmc.fabric-loom'
 }
 
 repositories {
@@ -18,15 +9,23 @@ repositories {
 }
 
 dependencies {
-    implementation("io.github.llamalad7:mixinextras-common:${mixinextras_version}")
-    annotationProcessor("io.github.llamalad7:mixinextras-common:${mixinextras_version}")
-    compileOnly("org.spongepowered:mixin:${mixin_version}")
+    minecraft("com.mojang:minecraft:${minecraft_version}")
+    compileOnly("net.fabricmc:fabric-loader:$fabric_loader_version")
+    compileOnly "net.fabricmc.fabric-api:fabric-api:${fabric_version}"
     implementation(annotationProcessor("com.github.bawnorton.mixinsquared:mixinsquared-common:${mixinsquared_version}"))
     implementation("org.ow2.asm:asm:9.6")
     implementation("org.ow2.asm:asm-tree:9.6")
     compileOnly 'org.projectlombok:lombok:1.18.44'
     annotationProcessor 'org.projectlombok:lombok:1.18.44'
     implementation "maven.modrinth:lithium:${lithium_version}-neoforge"
+}
+
+loom {
+    mixin {
+        defaultRefmapName = "async.refmap.json"
+        useLegacyMixinAp = false
+    }
+    accessWidenerPath = file("src/main/resources/async.accesswidener")
 }
 
 configurations {

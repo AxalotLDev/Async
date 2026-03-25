@@ -67,7 +67,7 @@ public class ParallelProcessor {
 
     public static void registerThread(String poolName, Thread thread) {
         mcThreadTracker
-                .computeIfAbsent(poolName, key -> ConcurrentHashMap.newKeySet())
+                .computeIfAbsent(poolName, _ -> ConcurrentHashMap.newKeySet())
                 .add(new WeakReference<>(thread));
     }
 
