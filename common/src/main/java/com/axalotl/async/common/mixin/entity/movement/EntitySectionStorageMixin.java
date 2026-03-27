@@ -1,7 +1,7 @@
 package com.axalotl.async.common.mixin.entity.movement;
 
-import com.axalotl.async.common.parallelised.fastutil.ConcurrentLongSortedSet;
-import com.axalotl.async.common.parallelised.fastutil.Long2ObjectConcurrentHashMap;
+import com.axalotl.async.common.fastutil.ConcurrentLongSortedSet;
+import com.axalotl.async.common.fastutil.Long2ObjectConcurrentHashMap;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;

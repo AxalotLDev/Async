@@ -6,6 +6,7 @@ import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.entity.EntityAccess;
 import net.minecraft.world.level.entity.PersistentEntitySectionManager;
 import net.minecraft.world.level.entity.Visibility;
+import org.jspecify.annotations.NonNull;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
@@ -23,15 +24,15 @@ public abstract class PersistentEntitySectionManagerMixin implements AutoCloseab
     private static final Object lock = new Object();
 
     @WrapMethod(method = "updateChunkStatus(Lnet/minecraft/world/level/ChunkPos;Lnet/minecraft/world/level/entity/Visibility;)V")
-    private void updateChunkStatus(ChunkPos pos, Visibility p_visibility, Operation<Void> original) {
+    private void updateChunkStatus(ChunkPos pos, Visibility chunkStatus, @NonNull Operation<Void> original) {
         synchronized (lock) {
-            original.call(pos, p_visibility);
+            original.call(pos, chunkStatus);
         }
     }
 
     @WrapMethod(method = "getEffectiveStatus")
-    private static <T extends EntityAccess> Visibility getEffectiveStatus(T entity, Visibility visibility, Operation<Visibility> original) {
-        Visibility result = original.call(entity, visibility);
+    private static <T extends EntityAccess> Visibility getEffectiveStatus(T entity, Visibility status, Operation<Visibility> original) {
+        Visibility result = original.call(entity, status);
         if (result == null) {
             return entity.isAlwaysTicking() ? Visibility.TICKING : Visibility.TRACKED;
         }

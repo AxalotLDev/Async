@@ -1,6 +1,6 @@
 package com.axalotl.async.common.mixin.entity.sensor;
 
-import com.axalotl.async.common.parallelised.utils.FastBitRadixSort;
+import com.axalotl.async.common.utils.FastBitRadixSort;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import net.minecraft.server.level.ServerLevel;

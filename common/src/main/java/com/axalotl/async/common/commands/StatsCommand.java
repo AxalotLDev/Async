@@ -2,7 +2,7 @@ package com.axalotl.async.common.commands;
 
 import com.axalotl.async.common.ParallelProcessor;
 import com.axalotl.async.common.config.AsyncConfig;
-import com.axalotl.async.common.platform.Permission;
+import com.axalotl.async.common.platform.PlatformPermission;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import net.minecraft.ChatFormatting;
@@ -26,7 +26,7 @@ import static net.minecraft.commands.Commands.literal;
 public class StatsCommand {
 
     public static LiteralArgumentBuilder<CommandSourceStack> registerStatus(LiteralArgumentBuilder<CommandSourceStack> root) {
-        return root.then(literal("stats").requires(Permission.require("command.statistics", 0))
+        return root.then(literal("stats").requires(PlatformPermission.require("command.statistics", 0))
                 .executes(cmdCtx -> {
                     showGeneralStats(cmdCtx.getSource());
                     return 1;

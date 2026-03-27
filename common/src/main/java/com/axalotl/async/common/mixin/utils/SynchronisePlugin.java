@@ -1,6 +1,5 @@
 package com.axalotl.async.common.mixin.utils;
 
-import com.axalotl.async.common.platform.PlatformUtils;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Multimap;
 import org.apache.logging.log4j.LogManager;
@@ -26,7 +25,7 @@ public class SynchronisePlugin implements IMixinConfigPlugin {
     @Override
     public void onLoad(String mixinPackage) {
         mixin2MethodsExcludeMap.put("com.axalotl.async.common.mixin.utils.SyncAllMixin", "net.minecraft.world.level.chunk.ChunkStatus.isOrAfter");
-        syncAllSet.add("com.axalotl.async.common.mixin.utils.FastUtilsMixin");
+        syncAllSet.add("com.axalotl.async.common.mixin.utils.FastUtilSynchronizeMixin");
         syncAllSet.add("com.axalotl.async.common.mixin.utils.SyncAllMixin");
     }
 
@@ -82,7 +81,7 @@ public class SynchronisePlugin implements IMixinConfigPlugin {
     }
 
     private void logSynchronize(String methodName, String targetClassName, String mixinClassName) {
-        if (mixinClassName == null || !mixinClassName.equals("com.axalotl.async.mixin.utils.FastUtilsMixin")) {
+        if (mixinClassName == null || !mixinClassName.equals("com.axalotl.async.mixin.utils.FastUtilSynchronizeMixin")) {
             String message = "Setting synchronize bit for " + methodName + " in " + targetClassName + ".";
             LOGGER.debug(message);
         }

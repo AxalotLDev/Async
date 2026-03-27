@@ -12,7 +12,6 @@ import net.minecraft.world.entity.item.FallingBlockEntity;
 import net.minecraft.world.entity.monster.Shulker;
 import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.entity.vehicle.boat.AbstractBoat;
-import net.minecraft.world.entity.vehicle.minecart.AbstractMinecart;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -157,7 +156,6 @@ public class ParallelProcessor {
 
         return AsyncConfig.disabled
                 || entity instanceof Projectile
-                || entity instanceof AbstractMinecart
                 || entity instanceof ServerPlayer
                 || BLOCKED_ENTITIES.contains(entity.getClass())
                 || BLACKLISTED_ENTITIES.contains(entityId)

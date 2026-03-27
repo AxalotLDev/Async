@@ -1,4 +1,4 @@
-package com.axalotl.async.common.parallelised.utils;
+package com.axalotl.async.common.utils;
 
 import com.axalotl.async.common.platform.PlatformUtils;
 

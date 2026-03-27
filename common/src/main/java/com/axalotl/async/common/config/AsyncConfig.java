@@ -1,6 +1,6 @@
 package com.axalotl.async.common.config;
 
-import com.axalotl.async.common.parallelised.utils.ModCompatible;
+import com.axalotl.async.common.utils.ModCompatible;
 import com.axalotl.async.common.platform.PlatformUtils;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;

@@ -1,6 +1,6 @@
 package com.axalotl.async.common.mixin.entity;
 
-import com.axalotl.async.common.parallelised.utils.IteratorSafeOrderedReferenceSet;
+import com.axalotl.async.common.utils.IteratorSafeOrderedReferenceSet;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import net.minecraft.world.entity.Entity;
@@ -35,11 +35,11 @@ public class EntityTickListMixin {
     }
 
     @WrapMethod(method = "forEach")
-    private void forEach(Consumer<Entity> p_entity, Operation<Void> original) {
+    private void forEach(Consumer<Entity> output, Operation<Void> original) {
         final IteratorSafeOrderedReferenceSet.Iterator<Entity> iterator = this.entities.iterator();
         try {
             while (iterator.hasNext()) {
-                p_entity.accept(iterator.next());
+                output.accept(iterator.next());
             }
         } finally {
             iterator.finishedIterating();

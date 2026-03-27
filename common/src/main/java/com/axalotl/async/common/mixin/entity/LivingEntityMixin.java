@@ -28,7 +28,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
-@Mixin(value = LivingEntity.class, priority = 1001)
+@Mixin(value = LivingEntity.class)
 public abstract class LivingEntityMixin extends Entity {
 
     @Shadow

@@ -8,6 +8,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -19,7 +20,7 @@ public abstract class FoxBreedGoalMixin extends BreedGoal {
     }
 
     @Unique
-    private static final ConcurrentHashMap<String, Boolean> breedingPairs = new ConcurrentHashMap<>();
+    private static final Map<String, Boolean> breedingPairs = new ConcurrentHashMap<>();
 
     @Inject(method = "start", at = @At("HEAD"))
     private void resetBreedingFlag(CallbackInfo ci) {

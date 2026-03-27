@@ -14,16 +14,16 @@ public class CopperGolemMixin {
     private static final Object lock = new Object();
 
     @WrapMethod(method = "hasContainerOpen")
-    private boolean hasContainerOpen(ContainerOpenersCounter counter, BlockPos pos, Operation<Boolean> original) {
+    private boolean hasContainerOpen(ContainerOpenersCounter container, BlockPos blockPos, Operation<Boolean> original) {
         synchronized (lock) {
-            return original.call(counter, pos);
+            return original.call(container, blockPos);
         }
     }
 
     @WrapMethod(method = "setOpenedChestPos")
-    private void setOpenedChestPos(BlockPos pos, Operation<Void> original) {
+    private void setOpenedChestPos(BlockPos openedChestPos, Operation<Void> original) {
         synchronized (lock) {
-            original.call(pos);
+            original.call(openedChestPos);
         }
     }
 

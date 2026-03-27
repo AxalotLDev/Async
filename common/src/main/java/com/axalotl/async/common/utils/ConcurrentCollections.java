@@ -1,4 +1,4 @@
-package com.axalotl.async.common.parallelised;
+package com.axalotl.async.common.utils;
 
 import java.util.Collections;
 import java.util.List;

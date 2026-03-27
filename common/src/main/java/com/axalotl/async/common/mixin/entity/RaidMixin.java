@@ -1,6 +1,6 @@
 package com.axalotl.async.common.mixin.entity;
 
-import com.axalotl.async.common.parallelised.ConcurrentCollections;
+import com.axalotl.async.common.utils.ConcurrentCollections;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import net.minecraft.server.level.ServerLevel;
@@ -42,6 +42,6 @@ public class RaidMixin {
     @Redirect(method = "addWaveMob(Lnet/minecraft/server/level/ServerLevel;ILnet/minecraft/world/entity/raid/Raider;Z)Z", at =
     @At(value = "INVOKE", target = "Ljava/util/Map;computeIfAbsent(Ljava/lang/Object;Ljava/util/function/Function;)Ljava/lang/Object;"))
     private Object redirectComputeIfAbsent(Map<Integer, Set<Raider>> instance, Object k, Function<?, ?> key) {
-        return instance.computeIfAbsent((Integer) k, wave -> ConcurrentCollections.newHashSet());
+        return instance.computeIfAbsent((Integer) k, _ -> ConcurrentCollections.newHashSet());
     }
 }

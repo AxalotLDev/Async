@@ -1,7 +1,7 @@
 package com.axalotl.async.common.mixin.world;
 
-import com.axalotl.async.common.parallelised.ConcurrentCollections;
-import com.axalotl.async.common.parallelised.fastutil.ConcurrentLongLinkedOpenHashSet;
+import com.axalotl.async.common.utils.ConcurrentCollections;
+import com.axalotl.async.common.fastutil.ConcurrentLongLinkedOpenHashSet;
 import it.unimi.dsi.fastutil.longs.LongSet;
 import net.minecraft.server.level.ChunkHolder;
 import net.minecraft.server.level.DistanceManager;

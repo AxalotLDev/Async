@@ -7,7 +7,7 @@ import org.spongepowered.asm.mixin.*;
 import java.util.concurrent.atomic.AtomicLong;
 
 @Mixin(LegacyRandomSource.class)
-public abstract class LegacyRandomSourceMixin {
+public abstract class ThreadSafeLegacyRandomSourceMixin {
 
     @Unique
     private final AtomicLong seed = new AtomicLong();
