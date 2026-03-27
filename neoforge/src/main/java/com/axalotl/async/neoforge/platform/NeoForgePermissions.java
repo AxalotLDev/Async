@@ -10,8 +10,6 @@ import java.util.Map;
 
 public class NeoForgePermissions {
     private static final Map<String, PermissionNode<Boolean>> PERMISSIONS = NeoForgePermissions.build(
-            "command.config",
-            "command.statistics"
     );
 
     public static PermissionNode<Boolean> getPermissionNode(String node) {
@@ -24,10 +22,10 @@ public class NeoForgePermissions {
         }
     }
 
-    private static Map<String, PermissionNode<Boolean>> build(String... nodes) {
+    private static Map<String, PermissionNode<Boolean>> build() {
         Map<String, PermissionNode<Boolean>> permissions = new Object2ObjectOpenHashMap<>();
-        for (String node : nodes) {
-            permissions.put(node, new PermissionNode<>(AsyncCommon.MODID, node, PermissionTypes.BOOLEAN, (x, y, z) -> false));
+        for (String node : new String[]{"command.config", "command.statistics"}) {
+            permissions.put(node, new PermissionNode<>(AsyncCommon.MODID, node, PermissionTypes.BOOLEAN, (_, _, _) -> false));
         }
         return permissions;
     }

@@ -35,7 +35,7 @@ public abstract class LivingEntityMixin extends Entity {
     final private Map<Holder<MobEffect>, MobEffectInstance> activeEffects = new ConcurrentHashMap<>();
 
     @Unique
-    private static final Object async$lock = new Object();
+    private static final Object lock = new Object();
 
     public LivingEntityMixin(EntityType<?> type, Level world) {
         super(type, world);
@@ -53,14 +53,14 @@ public abstract class LivingEntityMixin extends Entity {
 
     @WrapMethod(method = "knockback")
     private void knockback(double strength, double x, double z, Operation<Void> original) {
-        synchronized (async$lock) {
+        synchronized (lock) {
             original.call(strength, x, z);
         }
     }
 
     @WrapMethod(method = "tickEffects")
     private void tickStatusEffects(Operation<Void> original) {
-        synchronized (async$lock) {
+        synchronized (lock) {
             original.call();
         }
     }
@@ -89,14 +89,14 @@ public abstract class LivingEntityMixin extends Entity {
 
     @WrapMethod(method = "addEffect(Lnet/minecraft/world/effect/MobEffectInstance;Lnet/minecraft/world/entity/Entity;)Z")
     private boolean addEffect(MobEffectInstance effect, Entity source, Operation<Boolean> original) {
-        synchronized (async$lock) {
+        synchronized (lock) {
             return effect != null ? original.call(effect, source) : false;
         }
     }
 
     @WrapMethod(method = "removeEffect")
     private boolean removeEffect(Holder<MobEffect> effect, Operation<Boolean> original) {
-        synchronized (async$lock) {
+        synchronized (lock) {
             return effect != null ? original.call(effect) : false;
         }
     }
@@ -108,7 +108,7 @@ public abstract class LivingEntityMixin extends Entity {
 
     @WrapMethod(method = "removeAllEffects")
     private boolean removeAllEffects(Operation<Boolean> original) {
-        synchronized (async$lock) {
+        synchronized (lock) {
             return original.call();
         }
     }
@@ -124,9 +124,9 @@ public abstract class LivingEntityMixin extends Entity {
     }
 
     @Redirect(method = "refreshDirtyAttributes", at = @At(value = "INVOKE", target = "Ljava/util/Set;iterator()Ljava/util/Iterator;"))
-    private Iterator<AttributeInstance> async$snapshotIterator(Set<AttributeInstance> set) {
+    private Iterator<AttributeInstance> snapshotIterator(Set<AttributeInstance> set) {
         Set<AttributeInstance> snapshot;
-        synchronized (async$lock) {
+        synchronized (lock) {
             snapshot = new HashSet<>(set);
             set.clear();
         }

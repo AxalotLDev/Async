@@ -20,21 +20,21 @@ import java.util.function.Function;
 public class RaidMixin {
 
     @Unique
-    private static final Object async$lock = new Object();
+    private static final Object lock = new Object();
 
     @Shadow
     private final Map<Integer, Set<Raider>> groupRaiderMap = ConcurrentCollections.newHashMap();
 
     @WrapMethod(method = "addWaveMob(Lnet/minecraft/server/level/ServerLevel;ILnet/minecraft/world/entity/raid/Raider;Z)Z")
     private boolean addWaveMob(ServerLevel level, int wave, Raider p_raider, boolean isRecruited, Operation<Boolean> original) {
-        synchronized (async$lock) {
+        synchronized (lock) {
             return original.call(level, wave, p_raider, isRecruited);
         }
     }
 
     @WrapMethod(method = "addWaveMob(Lnet/minecraft/server/level/ServerLevel;ILnet/minecraft/world/entity/raid/Raider;)Z")
     private boolean addWaveMob(ServerLevel level, int wave, Raider raider, Operation<Boolean> original) {
-        synchronized (async$lock) {
+        synchronized (lock) {
             return original.call(level, wave, raider);
         }
     }

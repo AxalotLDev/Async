@@ -17,7 +17,7 @@ import java.util.*;
 @Mixin(value = NearestItemSensor.class, priority = 1500)
 public class NearestItemSensorMixin {
     @Unique
-    private static final FastBitRadixSort async$itemSorter = new FastBitRadixSort();
+    private static final FastBitRadixSort itemSorter = new FastBitRadixSort();
 
     @WrapMethod(method = "doTick(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/world/entity/Mob;)V")
     private void doTick(ServerLevel level, Mob entity, Operation<Void> original) {
@@ -25,11 +25,11 @@ public class NearestItemSensorMixin {
         List<ItemEntity> list = level.getEntitiesOfClass(
                 ItemEntity.class,
                 entity.getBoundingBox().inflate(32.0F, 16.0F, 32.0F),
-                (p_26703_) -> true
+                _ -> true
         );
 
         Object[] arr = list.toArray();
-        async$itemSorter.sort(arr, arr.length, entity.position());
+        itemSorter.sort(arr, arr.length, entity.position());
 
         Optional<ItemEntity> optional = Arrays.stream(arr)
                 .map(o -> (ItemEntity) o)

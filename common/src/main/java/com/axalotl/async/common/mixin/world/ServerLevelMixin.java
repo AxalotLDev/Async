@@ -58,7 +58,7 @@ public abstract class ServerLevelMixin extends Level implements WorldGenLevel {
     public EntityTickList entityTickList;
 
     @Unique
-    ConcurrentLinkedQueue<BlockEventData> async$syncedBlockEventQueue;
+    ConcurrentLinkedQueue<BlockEventData> syncedBlockEventQueue;
 
     @Shadow
     @Final
@@ -87,7 +87,7 @@ public abstract class ServerLevelMixin extends Level implements WorldGenLevel {
     @Inject(method = "<init>", at = @At("RETURN"))
     private void init(CallbackInfo ci) {
         navigatingMobs = ConcurrentCollections.newHashSet();
-        async$syncedBlockEventQueue = new ConcurrentLinkedQueue<>();
+        syncedBlockEventQueue = new ConcurrentLinkedQueue<>();
         players = new CopyOnWriteArrayList<>();
     }
 
@@ -134,7 +134,7 @@ public abstract class ServerLevelMixin extends Level implements WorldGenLevel {
                 });
             }
             try {
-                ((ThreadPoolExecutor) ParallelProcessor.tickPool).invokeAll(despawnTasks);
+                ((ThreadPoolExecutor) ParallelProcessor.executor).invokeAll(despawnTasks);
             } catch (InterruptedException ignored) {}
         }
 
@@ -145,27 +145,27 @@ public abstract class ServerLevelMixin extends Level implements WorldGenLevel {
 
     @Redirect(method = "blockEvent", at = @At(value = "INVOKE", target = "Lit/unimi/dsi/fastutil/objects/ObjectLinkedOpenHashSet;add(Ljava/lang/Object;)Z", remap = false))
     private boolean overwriteQueueAdd(ObjectLinkedOpenHashSet<BlockEventData> objectLinkedOpenHashSet, Object object) {
-        return async$syncedBlockEventQueue.add((BlockEventData) object);
+        return syncedBlockEventQueue.add((BlockEventData) object);
     }
 
     @Redirect(method = "clearBlockEvents", at = @At(value = "INVOKE", target = "Lit/unimi/dsi/fastutil/objects/ObjectLinkedOpenHashSet;removeIf(Ljava/util/function/Predicate;)Z", remap = false))
     private boolean overwriteQueueRemoveIf(ObjectLinkedOpenHashSet<BlockEventData> objectLinkedOpenHashSet, Predicate<BlockEventData> filter) {
-        return async$syncedBlockEventQueue.removeIf(filter);
+        return syncedBlockEventQueue.removeIf(filter);
     }
 
     @Redirect(method = "runBlockEvents", at = @At(value = "INVOKE", target = "Lit/unimi/dsi/fastutil/objects/ObjectLinkedOpenHashSet;isEmpty()Z", remap = false))
     private boolean overwriteEmptyCheck(ObjectLinkedOpenHashSet<BlockEventData> objectLinkedOpenHashSet) {
-        return async$syncedBlockEventQueue.isEmpty();
+        return syncedBlockEventQueue.isEmpty();
     }
 
     @Redirect(method = "runBlockEvents", at = @At(value = "INVOKE", target = "Lit/unimi/dsi/fastutil/objects/ObjectLinkedOpenHashSet;removeFirst()Ljava/lang/Object;", remap = false))
     private Object overwriteQueueRemoveFirst(ObjectLinkedOpenHashSet<BlockEventData> objectLinkedOpenHashSet) {
-        return async$syncedBlockEventQueue.poll();
+        return syncedBlockEventQueue.poll();
     }
 
     @Redirect(method = "runBlockEvents", at = @At(value = "INVOKE", target = "Lit/unimi/dsi/fastutil/objects/ObjectLinkedOpenHashSet;addAll(Ljava/util/Collection;)Z", remap = false))
     private boolean overwriteQueueAddAll(ObjectLinkedOpenHashSet<BlockEventData> instance, Collection<? extends BlockEventData> c) {
-        return async$syncedBlockEventQueue.addAll(c);
+        return syncedBlockEventQueue.addAll(c);
     }
 
     @Redirect(method = "sendBlockUpdated", at = @At(value = "FIELD", target = "Lnet/minecraft/server/level/ServerLevel;isUpdatingNavigations:Z", opcode = Opcodes.PUTFIELD))

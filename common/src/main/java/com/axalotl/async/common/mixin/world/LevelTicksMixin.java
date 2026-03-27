@@ -24,39 +24,39 @@ public abstract class LevelTicksMixin<T> implements LevelTickAccess<T> {
     private final Long2LongMap nextTickForContainer = Util.make(new Long2LongConcurrentHashMap(), p_193262_ -> p_193262_.defaultReturnValue(Long.MAX_VALUE));
 
     @Unique
-    private static final Object async$lock = new Object();
+    private static final Object lock = new Object();
 
     @WrapMethod(method = "sortContainersToTick")
     private void wrapContainersToTick(long gameTime, Operation<Void> original) {
-        synchronized (async$lock) {
+        synchronized (lock) {
             original.call(gameTime);
         }
     }
 
     @WrapMethod(method = "collectTicks")
     private void wrapCollectTicks(long gameTime, int maxAllowedTicks, ProfilerFiller profiler, Operation<Void> original) {
-        synchronized (async$lock) {
+        synchronized (lock) {
             original.call(gameTime, maxAllowedTicks, profiler);
         }
     }
 
     @WrapMethod(method = "schedule")
     private void wrapSchedule(ScheduledTick<T> p_193252_, Operation<Void> original) {
-        synchronized (async$lock) {
+        synchronized (lock) {
             original.call(p_193252_);
         }
     }
 
     @WrapMethod(method = "addContainer")
     private void wrapAddContainer(net.minecraft.world.level.ChunkPos pos, LevelChunkTicks<@NotNull T> ticks, Operation<Void> original) {
-        synchronized (async$lock) {
+        synchronized (lock) {
             original.call(pos, ticks);
         }
     }
 
     @WrapMethod(method = "removeContainer")
     private void wrapRemoveContainer(net.minecraft.world.level.ChunkPos pos, Operation<Void> original) {
-        synchronized (async$lock) {
+        synchronized (lock) {
             original.call(pos);
         }
     }

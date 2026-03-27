@@ -49,7 +49,7 @@ public abstract class EntityLookupMixin<T extends EntityAccess> {
         UUID uuid = entity.getUUID();
         int id = entity.getId();
 
-        byUuid.compute(uuid, (k, existing) -> {
+        byUuid.compute(uuid, (_, existing) -> {
             if (existing == null) {
                 byId.put(id, entity);
                 return entity;
@@ -70,7 +70,7 @@ public abstract class EntityLookupMixin<T extends EntityAccess> {
         UUID uuid = entity.getUUID();
         int id = entity.getId();
 
-        byUuid.computeIfPresent(uuid, (k, existing) -> {
+        byUuid.computeIfPresent(uuid, (_, existing) -> {
             if (existing.getId() == id) {
                 byId.remove(id);
                 return null;

@@ -102,7 +102,7 @@ public abstract class ChunkMapMixin extends SimpleRegionStorage implements Chunk
                         if (chunk != null) action.accept(chunk);
                     }
                 }
-            }, ParallelProcessor.tickPool).whenComplete((r, e) -> {
+            }, ParallelProcessor.executor).whenComplete((_, e) -> {
                 if (e != null) {
                     ParallelProcessor.LOGGER.error("Error in async random tick, switching to synchronous", e);
                     original.call(action);

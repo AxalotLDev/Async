@@ -26,7 +26,7 @@ public abstract class PlayerSensorMixin {
     @Shadow
     protected abstract double getFollowDistance(LivingEntity entity);
     @Unique
-    private static final FastBitRadixSort async$playerSort = new FastBitRadixSort();
+    private static final FastBitRadixSort playerSort = new FastBitRadixSort();
 
     @WrapMethod(method = "doTick(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/world/entity/LivingEntity;)V")
     private void doTick(ServerLevel level, LivingEntity entity, Operation<Void> original) {
@@ -37,7 +37,7 @@ public abstract class PlayerSensorMixin {
                 .filter(p -> entity.closerThan(p, followDist))
                 .toArray();
 
-        async$playerSort.sort(arr, arr.length, entity.position());
+        playerSort.sort(arr, arr.length, entity.position());
 
         List<Player> list = new ArrayList<>(arr.length);
         for (Object o : arr) list.add((Player) o);

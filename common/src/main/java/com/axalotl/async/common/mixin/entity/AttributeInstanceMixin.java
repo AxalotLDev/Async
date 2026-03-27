@@ -25,6 +25,6 @@ public class AttributeInstanceMixin {
 
     @WrapMethod(method = "getModifiers(Lnet/minecraft/world/entity/ai/attributes/AttributeModifier$Operation;)Ljava/util/Map;")
     private Map<Identifier, AttributeModifier> getModifiersConcurrent(AttributeModifier.Operation operation, Operation<Map<Identifier, AttributeModifier>> original) {
-        return modifiersByOperation.computeIfAbsent(operation, op -> ConcurrentCollections.newHashMap());
+        return modifiersByOperation.computeIfAbsent(operation, _ -> ConcurrentCollections.newHashMap());
     }
 }

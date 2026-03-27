@@ -18,32 +18,32 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class TransportItemsBetweenContainersMixin {
 
     @Unique
-    private static final Object async$lock = new Object();
+    private static final Object lock = new Object();
     @Unique
-    private static final Map<BlockPos, AtomicBoolean> async$containerFlags = new ConcurrentHashMap<>();
+    private static final Map<BlockPos, AtomicBoolean> containerFlags = new ConcurrentHashMap<>();
 
     @WrapMethod(method = "pickUpItems")
     private void pickUpItems(PathfinderMob mob, Container counter, Operation<Void> original) {
-        synchronized (async$lock) {
+        synchronized (lock) {
             original.call(mob, counter);
         }
     }
 
     @WrapMethod(method = "putDownItem")
     private void putDownItem(PathfinderMob mob, Container counter, Operation<Void> original) {
-        synchronized (async$lock) {
+        synchronized (lock) {
             original.call(mob, counter);
         }
     }
 
     @WrapMethod(method = "isAnotherMobInteractingWithTarget")
-    private boolean async$isAnotherMobInteractingWithTarget(
+    private boolean isAnotherMobInteractingWithTarget(
             TransportItemsBetweenContainers.TransportItemTarget target,
             Level level,
             Operation<Boolean> original
     ) {
         BlockPos pos = target.pos();
-        AtomicBoolean flag = async$containerFlags.computeIfAbsent(pos, p -> new AtomicBoolean(false));
+        AtomicBoolean flag = containerFlags.computeIfAbsent(pos, _ -> new AtomicBoolean(false));
 
         if (!flag.compareAndSet(false, true)) {
             return true;
@@ -53,7 +53,7 @@ public class TransportItemsBetweenContainersMixin {
             return original.call(target, level);
         } finally {
             flag.set(false);
-            async$containerFlags.remove(pos, flag);
+            containerFlags.remove(pos, flag);
         }
     }
 }

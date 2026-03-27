@@ -17,14 +17,14 @@ import java.util.concurrent.ConcurrentHashMap;
 @Mixin(PersistentEntitySectionManager.class)
 public abstract class PersistentEntitySectionManagerMixin implements AutoCloseable {
     @Shadow
-    final Set<UUID> knownUuids = ConcurrentHashMap.newKeySet();
+    private final Set<UUID> knownUuids = ConcurrentHashMap.newKeySet();
 
     @Unique
-    private static final Object async$lock = new Object();
+    private static final Object lock = new Object();
 
     @WrapMethod(method = "updateChunkStatus(Lnet/minecraft/world/level/ChunkPos;Lnet/minecraft/world/level/entity/Visibility;)V")
     private void updateChunkStatus(ChunkPos pos, Visibility p_visibility, Operation<Void> original) {
-        synchronized (async$lock) {
+        synchronized (lock) {
             original.call(pos, p_visibility);
         }
     }

@@ -80,7 +80,7 @@ public class ConfigCommand {
     private static LiteralArgumentBuilder<CommandSourceStack> buildAddEntityCommand() {
         return literal("add")
                 .then(Commands.argument("entity", IdentifierArgument.id())
-                        .suggests((context, builder) -> {
+                        .suggests((_, builder) -> {
                             BuiltInRegistries.ENTITY_TYPE.keySet().forEach(
                                     id -> builder.suggest(id.toString())
                             );
@@ -100,7 +100,7 @@ public class ConfigCommand {
     private static LiteralArgumentBuilder<CommandSourceStack> buildRemoveEntityCommand() {
         return literal("remove")
                 .then(Commands.argument("entity", IdentifierArgument.id())
-                        .suggests((context, builder) -> {
+                        .suggests((_, builder) -> {
                             AsyncConfig.synchronizedEntities.forEach(builder::suggest);
                             return builder.buildFuture();
                         })

@@ -13,21 +13,21 @@ import java.util.function.Consumer;
 @Mixin(EntityTickList.class)
 public class EntityTickListMixin {
     @Unique
-    public final IteratorSafeOrderedReferenceSet<Entity> async$entities = new IteratorSafeOrderedReferenceSet<>();
+    public final IteratorSafeOrderedReferenceSet<Entity> entities = new IteratorSafeOrderedReferenceSet<>();
 
     @WrapMethod(method = "add")
     private void add(Entity entity, Operation<Void> original) {
-        this.async$entities.add(entity);
+        this.entities.add(entity);
     }
 
     @WrapMethod(method = "remove")
     private void remove(Entity entity, Operation<Void> original) {
-        this.async$entities.remove(entity);
+        this.entities.remove(entity);
     }
 
     @WrapMethod(method = "contains")
     private boolean contains(Entity entity, Operation<Void> original) {
-        return this.async$entities.contains(entity);
+        return this.entities.contains(entity);
     }
 
     @WrapMethod(method = "ensureActiveIsNotIterated")
@@ -36,7 +36,7 @@ public class EntityTickListMixin {
 
     @WrapMethod(method = "forEach")
     private void forEach(Consumer<Entity> p_entity, Operation<Void> original) {
-        final IteratorSafeOrderedReferenceSet.Iterator<Entity> iterator = this.async$entities.iterator();
+        final IteratorSafeOrderedReferenceSet.Iterator<Entity> iterator = this.entities.iterator();
         try {
             while (iterator.hasNext()) {
                 p_entity.accept(iterator.next());

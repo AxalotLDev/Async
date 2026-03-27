@@ -17,9 +17,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public abstract class AnimalMixin extends Entity {
 
     @Unique
-    private final AtomicBoolean async$breedingFlag = new AtomicBoolean(false);
+    private final AtomicBoolean breedingFlag = new AtomicBoolean(false);
     @Unique
-    private final AtomicBoolean async$breedingBabyFlag = new AtomicBoolean(false);
+    private final AtomicBoolean breedingBabyFlag = new AtomicBoolean(false);
 
     public AnimalMixin(EntityType<?> entityType, Level level) {
         super(entityType, level);
@@ -29,12 +29,12 @@ public abstract class AnimalMixin extends Entity {
     private void breed(ServerLevel world, Animal other, Operation<Void> original) {
         if (this.getId() > other.getId()) return;
         AnimalMixin otherMixin = (AnimalMixin) (Object) other;
-        if (this.async$breedingFlag.compareAndSet(false, true) && otherMixin.async$breedingFlag.compareAndSet(false, true)) {
+        if (this.breedingFlag.compareAndSet(false, true) && otherMixin.breedingFlag.compareAndSet(false, true)) {
             try {
                 original.call(world, other);
             } finally {
-                this.async$breedingFlag.set(false);
-                otherMixin.async$breedingFlag.set(false);
+                this.breedingFlag.set(false);
+                otherMixin.breedingFlag.set(false);
             }
         }
     }
@@ -43,12 +43,12 @@ public abstract class AnimalMixin extends Entity {
     private void breed(ServerLevel world, Animal other, AgeableMob baby, Operation<Void> original) {
         if (this.getId() > other.getId()) return;
         AnimalMixin otherMixin = (AnimalMixin) (Object) other;
-        if (this.async$breedingBabyFlag.compareAndSet(false, true) && otherMixin.async$breedingBabyFlag.compareAndSet(false, true)) {
+        if (this.breedingBabyFlag.compareAndSet(false, true) && otherMixin.breedingBabyFlag.compareAndSet(false, true)) {
             try {
                 original.call(world, other, baby);
             } finally {
-                this.async$breedingBabyFlag.set(false);
-                otherMixin.async$breedingBabyFlag.set(false);
+                this.breedingBabyFlag.set(false);
+                otherMixin.breedingBabyFlag.set(false);
             }
         }
     }

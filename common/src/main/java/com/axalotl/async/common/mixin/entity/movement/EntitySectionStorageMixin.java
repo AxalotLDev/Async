@@ -30,7 +30,7 @@ public abstract class EntitySectionStorageMixin<T extends EntityAccess> {
     public abstract LongStream getExistingSectionPositionsInChunk(long pos);
 
     @Unique
-    private static final Object async$lock = new Object();
+    private static final Object lock = new Object();
 
     @WrapMethod(method = "getExistingSectionsInChunk")
     private Stream<EntitySection<T>> getExistingSections(long pos, Operation<Stream<EntitySection<T>>> original) {
@@ -45,7 +45,7 @@ public abstract class EntitySectionStorageMixin<T extends EntityAccess> {
     private EntitySection<T> getOrCreateSection(long pos, Operation<EntitySection<T>> original) {
         EntitySection<T> existing = this.sections.get(pos);
         if (existing != null) return existing;
-        synchronized (async$lock) {
+        synchronized (lock) {
             return original.call(pos);
         }
     }

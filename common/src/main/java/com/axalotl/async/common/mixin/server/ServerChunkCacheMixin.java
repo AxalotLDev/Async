@@ -78,19 +78,19 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
     private boolean spawnEnemies;
 
     @Unique
-    private boolean async$firstRunSpawnCounts = true;
+    private boolean firstRunSpawnCounts = true;
 
     @Unique
-    private final AtomicBoolean async$spawnCountsReady = new AtomicBoolean(false);
+    private final AtomicBoolean spawnCountsReady = new AtomicBoolean(false);
 
     @Shadow
     public abstract void tickSpawningChunk(LevelChunk chunk, long timeInhabited, List<MobCategory> spawnCategories, NaturalSpawner.SpawnState spawnState);
 
     @Inject(method = "getChunk(IILnet/minecraft/world/level/chunk/status/ChunkStatus;Z)Lnet/minecraft/world/level/chunk/ChunkAccess;", at = @At("HEAD"), cancellable = true)
-    private void async$getChunk(int x, int z, ChunkStatus leastStatus, boolean create, CallbackInfoReturnable<ChunkAccess> cir) {
+    private void getChunk(int x, int z, ChunkStatus leastStatus, boolean create, CallbackInfoReturnable<ChunkAccess> cir) {
         if (Thread.currentThread() == this.mainThread) return;
 
-        ChunkAccess access = async$tryGetChunk(x, z, leastStatus);
+        ChunkAccess access = tryGetChunk(x, z, leastStatus);
         if (access != null) {
             cir.setReturnValue(access);
             return;
@@ -102,7 +102,7 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
         ).thenCompose(f -> f);
 
         while (!future.isDone()) {
-            ChunkAccess cached = async$tryGetChunk(x, z, leastStatus);
+            ChunkAccess cached = tryGetChunk(x, z, leastStatus);
             if (cached != null) {
                 future.cancel(false);
                 cir.setReturnValue(cached);
@@ -119,7 +119,7 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
     }
 
     @Unique
-    private @Nullable ChunkAccess async$tryGetChunk(int x, int z, ChunkStatus leastStatus) {
+    private @Nullable ChunkAccess tryGetChunk(int x, int z, ChunkStatus leastStatus) {
         ChunkHolder holder = this.getVisibleChunkIfPresent(ChunkPos.pack(x, z));
         if (holder == null) return null;
 
@@ -152,15 +152,15 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
     private void tickChunks(CallbackInfo ci) {
         if (AsyncConfig.disabled || !AsyncConfig.enableAsyncSpawn) return;
 
-        if (async$firstRunSpawnCounts) {
-            async$firstRunSpawnCounts = false;
-            async$spawnCountsReady.set(true);
+        if (firstRunSpawnCounts) {
+            firstRunSpawnCounts = false;
+            spawnCountsReady.set(true);
         }
-        if (async$spawnCountsReady.getAndSet(false)) {
+        if (spawnCountsReady.getAndSet(false)) {
             final int i = distanceManager.getNaturalSpawnChunkCount();
-            ParallelProcessor.tickPool.submit(() -> {
+            ParallelProcessor.executor.submit(() -> {
                 lastSpawnState = NaturalSpawner.createState(i, this.level.getAllEntities(), this::getFullChunk, new LocalMobCapCalculator(this.chunkMap));
-                async$spawnCountsReady.set(true);
+                spawnCountsReady.set(true);
             });
         }
     }
@@ -170,7 +170,7 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
         profiler.push("naturalSpawnCount");
         int i = this.distanceManager.getNaturalSpawnChunkCount();
 
-        if (AsyncConfig.disabled || !AsyncConfig.enableAsyncSpawn || async$firstRunSpawnCounts) {
+        if (AsyncConfig.disabled || !AsyncConfig.enableAsyncSpawn || firstRunSpawnCounts) {
             lastSpawnState = NaturalSpawner.createState(i, this.level.getAllEntities(), this::getFullChunk, new LocalMobCapCalculator(this.chunkMap));
         }
 
@@ -199,7 +199,7 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
                             this.tickSpawningChunk(levelchunk, timeInhabited, list, currentState);
                         }
                     }
-                }, ParallelProcessor.tickPool).whenComplete((_, e) -> {
+                }, ParallelProcessor.executor).whenComplete((_, e) -> {
                     if (e != null) {
                         ParallelProcessor.LOGGER.error("Error in async entity spawning, switching to synchronous", e);
                         List<LevelChunk> list1 = this.spawningChunks;

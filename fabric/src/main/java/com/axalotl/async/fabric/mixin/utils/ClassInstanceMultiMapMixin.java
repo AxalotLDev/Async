@@ -19,7 +19,7 @@ import java.util.stream.Collector;
 public abstract class ClassInstanceMultiMapMixin<T> extends AbstractCollection<T> {
 
     @Unique
-    private static final Object async$lock = new Object();
+    private static final Object lock = new Object();
 
     @Shadow
     private final Map<Class<?>, List<T>> byClass = new ConcurrentHashMap<>();
@@ -34,14 +34,14 @@ public abstract class ClassInstanceMultiMapMixin<T> extends AbstractCollection<T
 
     @WrapMethod(method = "add")
     private boolean add(Object e, Operation<Boolean> original) {
-        synchronized (async$lock) {
+        synchronized (lock) {
             return original.call(e);
         }
     }
 
     @WrapMethod(method = "remove")
     private boolean remove(Object o, Operation<Boolean> original) {
-        synchronized (async$lock) {
+        synchronized (lock) {
             return original.call(o);
         }
     }

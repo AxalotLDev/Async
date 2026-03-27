@@ -30,44 +30,44 @@ public class BrainMixin<E extends LivingEntity> {
     private final Map<MemoryModuleType<?>, MemorySlot<?>> memories = Maps.newHashMap();
 
     @Unique
-    private volatile Map<MemoryModuleType<?>, MemorySlot<?>> async$snapshot;
+    private volatile Map<MemoryModuleType<?>, MemorySlot<?>> snapshot;
 
     @Unique
-    private volatile boolean async$needsRebuild = true;
+    private volatile boolean needsRebuild = true;
 
     @Unique
-    private volatile boolean async$inTick;
+    private volatile boolean inTick;
 
     @Unique
-    private final Object async$writeLock = new Object();
+    private final Object writeLock = new Object();
 
     @Inject(method = "tick", at = @At("HEAD"))
-    private void async$buildSnapshot(ServerLevel level, E entity, CallbackInfo ci) {
+    private void buildSnapshot(ServerLevel level, E entity, CallbackInfo ci) {
         if (AsyncConfig.disabled) return;
 
-        if (async$needsRebuild || async$snapshot == null) {
-            synchronized (async$writeLock) {
-                if (async$needsRebuild || async$snapshot == null) {
-                    async$snapshot = new ConcurrentHashMap<>(this.memories);
-                    async$needsRebuild = false;
+        if (needsRebuild || snapshot == null) {
+            synchronized (writeLock) {
+                if (needsRebuild || snapshot == null) {
+                    snapshot = new ConcurrentHashMap<>(this.memories);
+                    needsRebuild = false;
                 }
             }
         }
 
-        async$inTick = true;
+        inTick = true;
     }
 
     @Inject(method = "tick", at = @At("RETURN"))
-    private void async$endTick(ServerLevel level, E entity, CallbackInfo ci) {
-        async$inTick = false;
+    private void endTick(ServerLevel level, E entity, CallbackInfo ci) {
+        inTick = false;
     }
 
     @Inject(method = "getMemory", at = @At("HEAD"), cancellable = true)
-    private <U> void async$getMemory(MemoryModuleType<U> type, CallbackInfoReturnable<Optional<U>> cir) {
+    private <U> void getMemory(MemoryModuleType<U> type, CallbackInfoReturnable<Optional<U>> cir) {
         if (AsyncConfig.disabled) return;
 
-        Map<MemoryModuleType<?>, MemorySlot<?>> snapshot = async$snapshot;
-        if (async$inTick && snapshot != null) {
+        Map<MemoryModuleType<?>, MemorySlot<?>> snapshot = this.snapshot;
+        if (inTick && snapshot != null) {
             @SuppressWarnings("unchecked")
             MemorySlot<U> slot = (MemorySlot<U>) snapshot.get(type);
             Optional<U> result = (slot != null && slot.hasValue() && !slot.hasExpired())
@@ -78,22 +78,22 @@ public class BrainMixin<E extends LivingEntity> {
     }
 
     @Inject(method = "hasMemoryValue", at = @At("HEAD"), cancellable = true)
-    private void async$hasMemoryValue(MemoryModuleType<?> type, CallbackInfoReturnable<Boolean> cir) {
+    private void hasMemoryValue(MemoryModuleType<?> type, CallbackInfoReturnable<Boolean> cir) {
         if (AsyncConfig.disabled) return;
 
-        Map<MemoryModuleType<?>, MemorySlot<?>> snapshot = async$snapshot;
-        if (async$inTick && snapshot != null) {
+        Map<MemoryModuleType<?>, MemorySlot<?>> snapshot = this.snapshot;
+        if (inTick && snapshot != null) {
             MemorySlot<?> slot = snapshot.get(type);
             cir.setReturnValue(slot != null && slot.hasValue() && !slot.hasExpired());
         }
     }
 
     @Inject(method = "checkMemory", at = @At("HEAD"), cancellable = true)
-    private void async$checkMemory(MemoryModuleType<?> type, MemoryStatus status, CallbackInfoReturnable<Boolean> cir) {
+    private void checkMemory(MemoryModuleType<?> type, MemoryStatus status, CallbackInfoReturnable<Boolean> cir) {
         if (AsyncConfig.disabled) return;
 
-        Map<MemoryModuleType<?>, MemorySlot<?>> snapshot = async$snapshot;
-        if (async$inTick && snapshot != null) {
+        Map<MemoryModuleType<?>, MemorySlot<?>> snapshot = this.snapshot;
+        if (inTick && snapshot != null) {
             MemorySlot<?> slot = snapshot.get(type);
 
             boolean result = switch (status) {
@@ -107,17 +107,17 @@ public class BrainMixin<E extends LivingEntity> {
     }
 
     @WrapMethod(method = "setMemoryInternal(Lnet/minecraft/world/entity/ai/memory/MemoryModuleType;Ljava/lang/Object;)V")
-    private <U> void async$setMemory(MemoryModuleType<U> type, @Nullable U value, Operation<Void> original) {
+    private <U> void setMemory(MemoryModuleType<U> type, @Nullable U value, Operation<Void> original) {
         if (AsyncConfig.disabled) {
             original.call(type, value);
             return;
         }
 
-        synchronized (async$writeLock) {
+        synchronized (writeLock) {
             original.call(type, value);
-            if (async$snapshot != null && async$snapshot.containsKey(type)) {
+            if (snapshot != null && snapshot.containsKey(type)) {
                 @SuppressWarnings("unchecked")
-                MemorySlot<U> slot = (MemorySlot<U>) async$snapshot.get(type);
+                MemorySlot<U> slot = (MemorySlot<U>) snapshot.get(type);
                 if (slot != null && value != null) {
                     slot.set(value);
                 }
@@ -126,15 +126,15 @@ public class BrainMixin<E extends LivingEntity> {
     }
 
     @WrapMethod(method = "clearMemories")
-    private void async$clearMemories(Operation<Void> original) {
+    private void clearMemories(Operation<Void> original) {
         if (AsyncConfig.disabled) {
             original.call();
             return;
         }
 
-        synchronized (async$writeLock) {
+        synchronized (writeLock) {
             original.call();
-            async$needsRebuild = true;
+            needsRebuild = true;
         }
     }
 }

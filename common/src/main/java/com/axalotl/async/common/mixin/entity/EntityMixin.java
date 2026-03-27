@@ -17,11 +17,11 @@ public abstract class EntityMixin {
     public abstract Level level();
 
     @Unique
-    private static final Object async$lock = new Object();
+    private static final Object lock = new Object();
 
     @WrapMethod(method = "setRemoved")
     private void setRemoved(Entity.RemovalReason reason, Operation<Void> original) {
-        synchronized (async$lock) {
+        synchronized (lock) {
             original.call(reason);
         }
     }
@@ -35,21 +35,21 @@ public abstract class EntityMixin {
 
     @WrapMethod(method = "addPassenger")
     private void addPassenger(Entity passenger, Operation<Void> original) {
-        synchronized (async$lock) {
+        synchronized (lock) {
             original.call(passenger);
         }
     }
 
     @WrapMethod(method = "removePassenger")
     private void removePassenger(Entity passenger, Operation<Void> original) {
-        synchronized (async$lock) {
+        synchronized (lock) {
             original.call(passenger);
         }
     }
 
     @WrapMethod(method = "ejectPassengers")
     private void ejectPassengers(Operation<Void> original) {
-        synchronized (async$lock) {
+        synchronized (lock) {
             original.call();
         }
     }

@@ -16,7 +16,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public abstract class AnimalMakeLoveMixin {
 
     @Unique
-    private static final Object async$lock = new Object();
+    private static final Object lock = new Object();
 
     @Shadow
     protected abstract Animal getBreedTarget(Animal animal);
@@ -38,7 +38,7 @@ public abstract class AnimalMakeLoveMixin {
 
     @Inject(method = "getBreedTarget", at = @At("HEAD"), cancellable = true)
     private void syncBreedTarget(Animal animal, CallbackInfoReturnable<Animal> cir) {
-        synchronized (async$lock) {
+        synchronized (lock) {
             cir.setReturnValue((Animal) animal.getBrain().getMemory(MemoryModuleType.BREED_TARGET).orElse(null));
         }
     }

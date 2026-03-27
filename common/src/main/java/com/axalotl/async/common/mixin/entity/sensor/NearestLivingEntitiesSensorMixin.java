@@ -20,7 +20,7 @@ import java.util.List;
 @Mixin(value = NearestLivingEntitySensor.class, priority = 1500)
 public class NearestLivingEntitiesSensorMixin<T extends LivingEntity> {
     @Unique
-    private static final FastBitRadixSort async$entitySorter = new FastBitRadixSort();
+    private static final FastBitRadixSort entitySorter = new FastBitRadixSort();
 
     @WrapMethod(method = "doTick(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/world/entity/LivingEntity;)V")
     private void doTick(ServerLevel level, T entity, Operation<Void> original) {
@@ -34,7 +34,7 @@ public class NearestLivingEntitiesSensorMixin<T extends LivingEntity> {
         );
 
         Object[] arr = list.toArray();
-        async$entitySorter.sort(arr, arr.length, entity.position());
+        entitySorter.sort(arr, arr.length, entity.position());
 
         List<LivingEntity> sorted = new ArrayList<>(arr.length);
         for (Object o : arr) sorted.add((LivingEntity) o);

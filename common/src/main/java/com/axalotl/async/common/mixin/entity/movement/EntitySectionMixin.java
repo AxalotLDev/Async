@@ -25,25 +25,25 @@ public class EntitySectionMixin<T extends EntityAccess> {
     private volatile Visibility chunkStatus;
 
     @Unique
-    private final Object async$storageLock = new Object();
+    private final Object storageLock = new Object();
 
     @WrapMethod(method = "add")
-    private void async$add(EntityAccess entity, Operation<Void> original) {
-        synchronized (async$storageLock) {
+    private void add(EntityAccess entity, Operation<Void> original) {
+        synchronized (storageLock) {
             original.call(entity);
         }
     }
 
     @WrapMethod(method = "remove")
-    private boolean async$remove(EntityAccess entity, Operation<Boolean> original) {
-        synchronized (async$storageLock) {
+    private boolean remove(EntityAccess entity, Operation<Boolean> original) {
+        synchronized (storageLock) {
             return original.call(entity);
         }
     }
 
     @WrapMethod(method = "getEntities()Ljava/util/stream/Stream;")
-    private Stream<T> async$getEntities(Operation<Stream<T>> original) {
-        synchronized (async$storageLock) {
+    private Stream<T> getEntities(Operation<Stream<T>> original) {
+        synchronized (storageLock) {
             return storage.stream()
                     .filter(Objects::nonNull)
                     .toList()

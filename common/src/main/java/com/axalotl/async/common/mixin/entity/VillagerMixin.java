@@ -12,11 +12,11 @@ import org.spongepowered.asm.mixin.Unique;
 public class VillagerMixin {
 
     @Unique
-    private static final Object async$lock = new Object();
+    private static final Object lock = new Object();
 
     @WrapMethod(method = "pickUpItem")
     private void pickUpItem(ServerLevel level, ItemEntity entity, Operation<Void> original) {
-        synchronized (async$lock) {
+        synchronized (lock) {
             if (!entity.isRemoved()) {
                 original.call(level, entity);
             }
@@ -25,7 +25,7 @@ public class VillagerMixin {
 
     @WrapMethod(method = "spawnGolemIfNeeded")
     private void spawnGolemIfNeeded(ServerLevel world, long time, int requiredCount, Operation<Void> original) {
-        synchronized (async$lock) {
+        synchronized (lock) {
             original.call(world, time, requiredCount);
         }
     }
