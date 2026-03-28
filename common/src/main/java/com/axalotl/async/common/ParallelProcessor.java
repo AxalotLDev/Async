@@ -132,7 +132,7 @@ public class ParallelProcessor {
                 .forEach(e -> tickEntity(world, e, false));
 
         waitForFutures(futures);
-        RECORDING_TICKS_LEFT.updateAndGet(v -> v > 0 ? v - 1 : 0);
+        RECORDING_TICKS_LEFT.decrementAndGet();
     }
 
     private static void waitForFutures(List<Future<Void>> futures) {
@@ -152,7 +152,7 @@ public class ParallelProcessor {
             try {
                 future.get();
             } catch (ExecutionException e) {
-                LOGGER.error("Error in async entity tick", e.getCause());
+                LOGGER.error("Error during async entity tick", e.getCause());
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 return;

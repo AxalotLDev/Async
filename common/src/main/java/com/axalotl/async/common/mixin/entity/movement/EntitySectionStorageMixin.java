@@ -43,10 +43,15 @@ public abstract class EntitySectionStorageMixin<T extends EntityAccess> {
 
     @WrapMethod(method = "getOrCreateSection")
     private EntitySection<T> getOrCreateSection(long pos, Operation<EntitySection<T>> original) {
-        EntitySection<T> existing = this.sections.get(pos);
-        if (existing != null) return existing;
         synchronized (lock) {
             return original.call(pos);
+        }
+    }
+
+    @WrapMethod(method = "remove")
+    private void remove(long sectionKey, Operation<Void> original) {
+        synchronized (lock) {
+            original.call(sectionKey);
         }
     }
 }
