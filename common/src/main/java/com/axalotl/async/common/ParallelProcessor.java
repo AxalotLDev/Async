@@ -12,6 +12,7 @@ import net.minecraft.world.entity.item.FallingBlockEntity;
 import net.minecraft.world.entity.monster.Shulker;
 import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.entity.vehicle.boat.AbstractBoat;
+import net.minecraft.world.entity.vehicle.boat.Boat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -28,18 +29,22 @@ public class ParallelProcessor {
     @Setter
     private static MinecraftServer server;
 
+    //Thread pool
     public static ExecutorService executor;
-
     private static final AtomicInteger THREAD_POOL_ID = new AtomicInteger();
+    private static volatile boolean isShuttingDown = false;
+
+    //Blacklist
     private static final Set<UUID> BLACKLISTED_ENTITIES = ConcurrentHashMap.newKeySet();
     private static final Set<Class<?>> BLOCKED_ENTITIES = Set.of(
             FallingBlockEntity.class,
             Shulker.class,
-            AbstractBoat.class
+            AbstractBoat.class,
+            Boat.class
     );
 
+    //Threads
     private static final Map<String, Set<WeakReference<Thread>>> MC_THREAD_TRACKER = new ConcurrentHashMap<>();
-    private static volatile boolean isShuttingDown = false;
 
     public static void setupThreadPool(int parallelism, Class<?> asyncClass) {
         isShuttingDown = false;
@@ -97,7 +102,7 @@ public class ParallelProcessor {
         if (entities.isEmpty()) return;
 
         if (AsyncConfig.disabled) {
-            entities.forEach(e -> tickSynchronously(world, e));
+            entities.forEach(e -> tickEntity(world, e, false));
             return;
         }
 
@@ -111,7 +116,7 @@ public class ParallelProcessor {
             Future<Void> future = (Future<Void>) executor.submit(() -> {
                 for (Entity entity : chunk) {
                     if (!shouldTickSynchronously(entity)) {
-                        performAsyncEntityTick(world, entity);
+                        tickEntity(world, entity, true);
                     }
                 }
             });
@@ -120,7 +125,7 @@ public class ParallelProcessor {
 
         entities.stream()
                 .filter(ParallelProcessor::shouldTickSynchronously)
-                .forEach(e -> tickSynchronously(world, e));
+                .forEach(e -> tickEntity(world, e, false));
 
         waitForFutures(futures);
     }
@@ -165,19 +170,12 @@ public class ParallelProcessor {
                 || AsyncConfig.isEntitySynchronized(EntityType.getKey(entity.getType()));
     }
 
-    private static void tickSynchronously(ServerLevel world, Entity entity) {
+    private static void tickEntity(ServerLevel world, Entity entity, boolean async) {
         try {
             world.tickNonPassenger(entity);
         } catch (Exception e) {
-            logEntityError(entity, e, false);
-        }
-    }
-
-    private static void performAsyncEntityTick(ServerLevel world, Entity entity) {
-        try {
-            world.tickNonPassenger(entity);
-        } catch (Exception e) {
-            logEntityError(entity, e, true);
+            LOGGER.error("Error during {} tick. Entity: {}, UUID: {}",
+                    async ? "async" : "sync", entity.getType(), entity.getUUID(), e);
         }
     }
 
@@ -198,11 +196,5 @@ public class ParallelProcessor {
 
         AsyncConfig.clearCaches();
         BLACKLISTED_ENTITIES.clear();
-    }
-
-    private static void logEntityError(Entity entity, Throwable e, boolean async) {
-        LOGGER.error("Error during {} tick. Entity: {}, UUID: {}",
-                async ? "async" : "synchronous",
-                entity.getType(), entity.getUUID(), e);
     }
 }
