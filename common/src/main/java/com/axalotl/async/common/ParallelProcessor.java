@@ -12,8 +12,8 @@ import net.minecraft.world.entity.item.FallingBlockEntity;
 import net.minecraft.world.entity.monster.Shulker;
 import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.entity.vehicle.boat.AbstractBoat;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.lang.ref.WeakReference;
 import java.util.*;
@@ -22,7 +22,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class ParallelProcessor {
 
-    public static final Logger LOGGER = LogManager.getLogger(ParallelProcessor.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(ParallelProcessor.class);
 
     @Getter
     @Setter
@@ -47,7 +47,7 @@ public class ParallelProcessor {
         ThreadFactory threadFactory = runnable -> {
             Thread thread = new Thread(runnable, "Async-Tick-Pool-Thread-" + THREAD_POOL_ID.getAndIncrement());
             registerThread("Async-Tick", thread);
-            thread.setDaemon(false);
+            thread.setDaemon(true);
             thread.setPriority(Thread.NORM_PRIORITY - 1);
             thread.setContextClassLoader(asyncClass.getClassLoader());
             return thread;
@@ -141,8 +141,11 @@ public class ParallelProcessor {
         for (Future<Void> future : futures) {
             try {
                 future.get();
-            } catch (Exception e) {
-                LOGGER.error("Error in async entity tick", e);
+            } catch (ExecutionException e) {
+                LOGGER.error("Error in async entity tick", e.getCause());
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
             }
         }
     }
@@ -166,12 +169,16 @@ public class ParallelProcessor {
         try {
             world.tickNonPassenger(entity);
         } catch (Exception e) {
-            logEntityError(entity, e);
+            logEntityError(entity, e, false);
         }
     }
 
     private static void performAsyncEntityTick(ServerLevel world, Entity entity) {
-        world.tickNonPassenger(entity);
+        try {
+            world.tickNonPassenger(entity);
+        } catch (Exception e) {
+            logEntityError(entity, e, true);
+        }
     }
 
     @SuppressWarnings("ResultOfMethodCallIgnored")
@@ -183,7 +190,9 @@ public class ParallelProcessor {
             executor.shutdown();
             try {
                 executor.awaitTermination(60L, TimeUnit.SECONDS);
-            } catch (InterruptedException ignored) {
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                LOGGER.warn("Interrupted while waiting for thread pool shutdown", e);
             }
         }
 
@@ -191,8 +200,9 @@ public class ParallelProcessor {
         BLACKLISTED_ENTITIES.clear();
     }
 
-    private static void logEntityError(Entity entity, Throwable e) {
-        LOGGER.error("Error during synchronous tick. Entity Type: {}, UUID: {}",
+    private static void logEntityError(Entity entity, Throwable e, boolean async) {
+        LOGGER.error("Error during {} tick. Entity: {}, UUID: {}",
+                async ? "async" : "synchronous",
                 entity.getType(), entity.getUUID(), e);
     }
 }

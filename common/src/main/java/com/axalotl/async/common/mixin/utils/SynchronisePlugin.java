@@ -2,10 +2,11 @@ package com.axalotl.async.common.mixin.utils;
 
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Multimap;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.spongepowered.asm.mixin.extensibility.IMixinConfigPlugin;
 import org.spongepowered.asm.mixin.extensibility.IMixinInfo;
 
@@ -15,7 +16,8 @@ import java.util.Set;
 import java.util.TreeSet;
 
 public class SynchronisePlugin implements IMixinConfigPlugin {
-    private static final Logger LOGGER = LogManager.getLogger();
+    private static final Logger LOGGER = LoggerFactory.getLogger(SynchronisePlugin.class);
+
     private static final int FINAL_STATIC_PRIVATE_ABSTRACT = 0x1548; // final, static, private, abstract
     private static final int SYNCHRONIZED = 0x20; // synchronized
     private final Multimap<String, String> mixin2MethodsMap = ArrayListMultimap.create();

@@ -18,6 +18,8 @@ import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.chunk.status.ChunkStatus;
 import net.minecraft.world.level.gamerules.GameRules;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -36,6 +38,10 @@ import java.util.function.Consumer;
 
 @Mixin(value = ServerChunkCache.class, priority = 1500)
 public abstract class ServerChunkCacheMixin extends ChunkSource {
+
+    @Unique
+    private static final Logger LOGGER = LoggerFactory.getLogger(ServerChunkCacheMixin.class);
+
     @Shadow
     @Final
     public ChunkMap chunkMap;
@@ -201,7 +207,7 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
                     }
                 }, ParallelProcessor.executor).whenComplete((_, e) -> {
                     if (e != null) {
-                        ParallelProcessor.LOGGER.error("Error in async entity spawning, switching to synchronous", e);
+                        LOGGER.error("Error in async entity spawning, switching to synchronous", e);
                         List<LevelChunk> list1 = this.spawningChunks;
                         try {
                             profiler.popPush("filteringSpawningChunks");

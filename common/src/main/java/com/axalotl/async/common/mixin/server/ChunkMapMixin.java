@@ -20,6 +20,8 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.chunk.storage.RegionStorageInfo;
 import net.minecraft.world.level.chunk.storage.SimpleRegionStorage;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.spongepowered.asm.mixin.*;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -34,6 +36,9 @@ import java.util.function.Consumer;
 
 @Mixin(value = ChunkMap.class, priority = 1500)
 public abstract class ChunkMapMixin extends SimpleRegionStorage implements ChunkHolder.PlayerProvider {
+
+    @Unique
+    private static final Logger LOGGER = LoggerFactory.getLogger(ChunkMapMixin.class);
 
     @Shadow
     @Final
@@ -104,7 +109,7 @@ public abstract class ChunkMapMixin extends SimpleRegionStorage implements Chunk
                 }
             }, ParallelProcessor.executor).whenComplete((_, e) -> {
                 if (e != null) {
-                    ParallelProcessor.LOGGER.error("Error in async random tick, switching to synchronous", e);
+                    LOGGER.error("Error in async random tick, switching to synchronous", e);
                     original.call(action);
                 }
             });
