@@ -11,13 +11,9 @@ import java.util.concurrent.atomic.LongAdder;
 public class TickStats {
     public static final Map<EntityType<?>, LongAdder> TICK_TIME_NS = new ConcurrentHashMap<>();
     public static final Map<EntityType<?>, LongAdder> TICK_COUNT = new ConcurrentHashMap<>();
-
     public static final Map<EntityType<?>, LongAdder> ASYNC_TICK_TIME_NS = new ConcurrentHashMap<>();
     public static final Map<EntityType<?>, LongAdder> ASYNC_TICK_COUNT = new ConcurrentHashMap<>();
-
     public static final AtomicInteger RECORDING_TICKS_LEFT = new AtomicInteger(0);
-
-    private static final int poolSize = ParallelProcessor.getPoolSize();
 
     public static void startRecording(int ticks) {
         clean();
@@ -36,6 +32,8 @@ public class TickStats {
     }
 
     public static double getMSPTForType(EntityType<?> type, int recordedTicks) {
+        if (recordedTicks <= 0) return 0;
+
         double syncMs = 0;
         double asyncMs = 0;
 
@@ -45,8 +43,10 @@ public class TickStats {
         }
 
         LongAdder asyncTime = ASYNC_TICK_TIME_NS.get(type);
-        if (asyncTime != null && poolSize > 0) {
-            asyncMs = (asyncTime.sum() / 1_000_000.0) / poolSize;
+        if (asyncTime != null) {
+            int currentPoolSize = ParallelProcessor.getPoolSize();
+            double rawAsyncMs = asyncTime.sum() / 1_000_000.0;
+            asyncMs = currentPoolSize > 0 ? rawAsyncMs / currentPoolSize : rawAsyncMs;
         }
 
         return (syncMs + asyncMs) / recordedTicks;
