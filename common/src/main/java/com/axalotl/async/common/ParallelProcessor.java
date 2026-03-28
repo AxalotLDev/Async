@@ -20,6 +20,9 @@ import java.lang.ref.WeakReference;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.LongAdder;
+
+import static com.axalotl.async.common.utils.TickStats.*;
 
 public class ParallelProcessor {
 
@@ -103,6 +106,7 @@ public class ParallelProcessor {
 
         if (AsyncConfig.disabled) {
             entities.forEach(e -> tickEntity(world, e, false));
+            RECORDING_TICKS_LEFT.decrementAndGet();
             return;
         }
 
@@ -128,6 +132,7 @@ public class ParallelProcessor {
                 .forEach(e -> tickEntity(world, e, false));
 
         waitForFutures(futures);
+        RECORDING_TICKS_LEFT.updateAndGet(v -> v > 0 ? v - 1 : 0);
     }
 
     private static void waitForFutures(List<Future<Void>> futures) {
@@ -171,11 +176,25 @@ public class ParallelProcessor {
     }
 
     private static void tickEntity(ServerLevel world, Entity entity, boolean async) {
+        long start = System.nanoTime();
         try {
             world.tickNonPassenger(entity);
         } catch (Exception e) {
             LOGGER.error("Error during {} tick. Entity: {}, UUID: {}",
                     async ? "async" : "sync", entity.getType(), entity.getUUID(), e);
+        } finally {
+            if (RECORDING_TICKS_LEFT.get() > 0) {
+                EntityType<?> type = entity.getType();
+                long elapsed = System.nanoTime() - start;
+
+                if (async) {
+                    ASYNC_TICK_TIME_NS.computeIfAbsent(type, _ -> new LongAdder()).add(elapsed);
+                    ASYNC_TICK_COUNT.computeIfAbsent(type, _ -> new LongAdder()).increment();
+                } else {
+                    TICK_TIME_NS.computeIfAbsent(type, _ -> new LongAdder()).add(elapsed);
+                    TICK_COUNT.computeIfAbsent(type, _ -> new LongAdder()).increment();
+                }
+            }
         }
     }
 
@@ -196,5 +215,6 @@ public class ParallelProcessor {
 
         AsyncConfig.clearCaches();
         BLACKLISTED_ENTITIES.clear();
+        resetEntityTickStats();
     }
 }
