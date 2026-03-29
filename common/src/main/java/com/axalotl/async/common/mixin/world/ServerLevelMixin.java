@@ -2,6 +2,7 @@ package com.axalotl.async.common.mixin.world;
 
 import com.axalotl.async.common.ParallelProcessor;
 import com.axalotl.async.common.config.AsyncConfig;
+import com.axalotl.async.common.mixin.lithium.LithiumServerLevel;
 import com.axalotl.async.common.parallelised.utils.ItemFluidPrecompute;
 import com.axalotl.async.common.parallelised.ConcurrentCollections;
 import com.axalotl.async.common.parallelised.ConcurrentList;
@@ -259,6 +260,7 @@ public abstract class ServerLevelMixin extends Level implements WorldGenLevel {
             Operation<Void> original
     ) {
         synchronized (lock) {
+            ((LithiumServerLevel) (Object) this).async$setSuppress(true);
             original.call(
                     source, damageSource, damageCalculator,
                     x, y, z, radius, fire,
@@ -268,6 +270,8 @@ public abstract class ServerLevelMixin extends Level implements WorldGenLevel {
                     particleInfo,
                     explosionSound
             );
+            ((LithiumServerLevel) (Object) this).async$setSuppress(false);
+            ((LithiumServerLevel) (Object) this).async$recomputeAllNavigations();
         }
     }
 }

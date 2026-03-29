@@ -29,13 +29,16 @@ import java.util.concurrent.ConcurrentHashMap;
 
 @Mixin(value = ServerLevel.class, priority = 1500)
 public abstract class LithiumServerLevel extends Level implements WorldGenLevel, ServerWorldExtended {
+
     @Unique
     private final Set<PathNavigation> async$activeNavigationsOver = Collections.newSetFromMap(new ConcurrentHashMap<>());
+
+    @Unique
+    private volatile boolean async$suppressNavigationUpdates = false;
 
     protected LithiumServerLevel(WritableLevelData levelData, ResourceKey<Level> dimension, RegistryAccess registryAccess, Holder<DimensionType> dimensionTypeRegistration, boolean isClientSide, boolean isDebug, long biomeZoomSeed, int maxChainedNeighborUpdates) {
         super(levelData, dimension, registryAccess, dimensionTypeRegistration, isClientSide, isDebug, biomeZoomSeed, maxChainedNeighborUpdates);
     }
-
 
     @Inject(
             method = "sendBlockUpdated",
@@ -44,7 +47,8 @@ public abstract class LithiumServerLevel extends Level implements WorldGenLevel,
                     target = "Ljava/util/Set;iterator()Ljava/util/Iterator;"
             )
     )
-    private void updateActiveListeners(BlockPos pos, BlockState oldState, BlockState newState, int arg3, CallbackInfo ci, @Local List<PathNavigation> list) {
+    private void updateActiveListeners(BlockPos pos, BlockState oldState, BlockState newState, int arg3, CallbackInfo ci, @Local(ordinal = 0) List<PathNavigation> list) {
+        if (async$suppressNavigationUpdates) return;
         for (PathNavigation nav : async$activeNavigationsOver) {
             if (((AsyncSafeNavigation) nav).async$shouldRecomputePathSafe(pos)) {
                 list.add(nav);
@@ -65,6 +69,18 @@ public abstract class LithiumServerLevel extends Level implements WorldGenLevel,
         PathNavigation nav = ((NavigatingEntity) mobEntity).lithium$getRegisteredNavigation();
         if (nav != null) {
             async$activeNavigationsOver.remove(nav);
+        }
+    }
+
+    @Unique
+    public void async$setSuppress(boolean suppress) {
+        this.async$suppressNavigationUpdates = suppress;
+    }
+
+    @Unique
+    public void async$recomputeAllNavigations() {
+        for (PathNavigation nav : async$activeNavigationsOver) {
+            nav.recomputePath();
         }
     }
 }
