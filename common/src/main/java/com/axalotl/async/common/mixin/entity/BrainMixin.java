@@ -4,7 +4,6 @@ import com.axalotl.async.common.config.AsyncConfig;
 import com.google.common.collect.ImmutableList;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
-import com.mojang.datafixers.util.Pair;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.Brain;
@@ -16,11 +15,11 @@ import net.minecraft.world.entity.schedule.Activity;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Mutable;
-import org.spongepowered.asm.mixin.Overwrite;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
@@ -54,14 +53,6 @@ public class BrainMixin<E extends LivingEntity> {
     @Shadow
     private Set<Activity> coreActivities;
 
-    @Shadow
-    @Final
-    private Map<Activity, Set<Pair<MemoryModuleType<?>, MemoryStatus>>> activityRequirements;
-
-    @Shadow
-    @Final
-    private Map<Activity, Set<MemoryModuleType<?>>> activityMemoriesToEraseWhenStopped;
-
     @Unique
     private volatile Map<MemoryModuleType<?>, Optional<? extends ExpirableValue<?>>> async$snapshot;
 
@@ -90,35 +81,25 @@ public class BrainMixin<E extends LivingEntity> {
         this.coreActivities = newCore;
     }
 
-    /**
-     * @author FurryMileon
-     * @reason Internal Map/Set availableBehaviorsByPriority should be concurrent
-     */
-    @Overwrite
-    public void addActivityAndRemoveMemoriesWhenStopped(
-            Activity activity,
-            ImmutableList<? extends Pair<Integer, ? extends BehaviorControl<? super E>>> tasks,
-            Set<Pair<MemoryModuleType<?>, MemoryStatus>> memoryStatuses,
-            Set<MemoryModuleType<?>> memoryTypes) {
-        this.activityRequirements.put(activity, memoryStatuses);
-        if (!memoryTypes.isEmpty()) {
-            this.activityMemoriesToEraseWhenStopped.put(activity, memoryTypes);
-        }
-
-        for (Pair<Integer, ? extends BehaviorControl<? super E>> pair : tasks) {
-            this.availableBehaviorsByPriority
-                    .computeIfAbsent(pair.getFirst(), k -> new ConcurrentHashMap<>())
-                    .computeIfAbsent(activity, k -> ConcurrentHashMap.newKeySet())
-                    .add(pair.getSecond());
-        }
+    @Redirect(method = "addActivityAndRemoveMemoriesWhenStopped", at = @At(value = "INVOKE", target = "Ljava/util/Map;computeIfAbsent(Ljava/lang/Object;Ljava/util/function/Function;)Ljava/lang/Object;", ordinal = 0))
+    private Object async$concurrentInnerMap(Map<Object, Object> map, Object key, java.util.function.Function<Object, Object> mappingFunction) {
+        if (AsyncConfig.disabled) return map.computeIfAbsent(key, mappingFunction);
+        return map.computeIfAbsent(key, k -> new ConcurrentHashMap<>());
     }
 
-    /**
-     * @author FurryMileon
-     * @reason Stop vanilla from swapping concurrent set to plain HashSet
-     */
-    @Overwrite
-    public void setCoreActivities(Set<Activity> newActivities) {
+    @Redirect(method = "addActivityAndRemoveMemoriesWhenStopped", at = @At(value = "INVOKE", target = "Ljava/util/Map;computeIfAbsent(Ljava/lang/Object;Ljava/util/function/Function;)Ljava/lang/Object;", ordinal = 1)
+    )
+    private Object async$concurrentInnerSet(Map<Object, Object> map, Object key, java.util.function.Function<Object, Object> mappingFunction) {
+        if (AsyncConfig.disabled) return map.computeIfAbsent(key, mappingFunction);
+        return map.computeIfAbsent(key, k -> ConcurrentHashMap.newKeySet());
+    }
+
+    @WrapMethod(method = "setCoreActivities")
+    private void async$setCoreActivities(Set<Activity> newActivities, Operation<Void> original) {
+        if (AsyncConfig.disabled) {
+            original.call(newActivities);
+            return;
+        }
         Set<Activity> concurrent = Collections.newSetFromMap(new ConcurrentHashMap<>());
         concurrent.addAll(newActivities);
         this.coreActivities = concurrent;
@@ -192,11 +173,7 @@ public class BrainMixin<E extends LivingEntity> {
     }
 
     @WrapMethod(method = "setMemoryInternal")
-    private <U> void async$setMemory(
-            MemoryModuleType<U> memoryType,
-            Optional<? extends ExpirableValue<?>> memory,
-            Operation<Void> original
-    ) {
+    private <U> void async$setMemory(MemoryModuleType<U> memoryType, Optional<? extends ExpirableValue<?>> memory, Operation<Void> original) {
         if (AsyncConfig.disabled) {
             original.call(memoryType, memory);
             return;
