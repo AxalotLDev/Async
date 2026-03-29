@@ -37,6 +37,8 @@ public class ParallelProcessor {
     private static final Set<UUID> blacklistedEntity = ConcurrentHashMap.newKeySet();
     private static final Map<String, Set<WeakReference<Thread>>> mcThreadTracker = new ConcurrentHashMap<>();
     private static final ThreadLocal<Boolean> IS_POOL_THREAD = ThreadLocal.withInitial(() -> Boolean.FALSE);
+    private static final Object ENTITY_ADD_LOCK = new Object();
+    public static volatile it.unimi.dsi.fastutil.longs.LongOpenHashSet spawnableChunkPositions;
     public static final Set<Class<?>> BLOCKED_ENTITIES = Set.of(
             FallingBlockEntity.class,
             Shulker.class,
@@ -84,6 +86,10 @@ public class ParallelProcessor {
 
     public static int getPoolSize() {
         return ((ThreadPoolExecutor) tickPool).getCorePoolSize();
+    }
+
+    public static Object getEntityAddLock() {
+        return ENTITY_ADD_LOCK;
     }
 
     @SuppressWarnings("unchecked")

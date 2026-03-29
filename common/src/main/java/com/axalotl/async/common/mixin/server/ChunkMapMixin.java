@@ -1,7 +1,5 @@
 package com.axalotl.async.common.mixin.server;
 
-import com.axalotl.async.common.ParallelProcessor;
-import com.axalotl.async.common.config.AsyncConfig;
 import com.axalotl.async.common.parallelised.ConcurrentList;
 import com.axalotl.async.common.parallelised.fastutil.Int2ObjectConcurrentHashMap;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
@@ -18,7 +16,6 @@ import net.minecraft.server.level.ChunkMap;
 import net.minecraft.server.level.GenerationChunkHolder;
 import net.minecraft.util.datafix.DataFixTypes;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.chunk.storage.RegionStorageInfo;
 import net.minecraft.world.level.chunk.storage.SimpleRegionStorage;
 import org.spongepowered.asm.mixin.*;
@@ -27,10 +24,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import java.util.function.Consumer;
 
 @Mixin(value = ChunkMap.class, priority = 1500)
 public abstract class ChunkMapMixin extends SimpleRegionStorage implements ChunkHolder.PlayerProvider {
@@ -44,10 +38,6 @@ public abstract class ChunkMapMixin extends SimpleRegionStorage implements Chunk
     @Final
     @Mutable
     private List<ChunkGenerationTask> pendingGenerationTasks;
-
-    @Shadow
-    @Final
-    private ChunkMap.DistanceManager distanceManager;
 
     @Shadow
     private volatile Long2ObjectLinkedOpenHashMap<ChunkHolder> visibleChunkMap;
@@ -86,28 +76,5 @@ public abstract class ChunkMapMixin extends SimpleRegionStorage implements Chunk
     @Inject(method = "addEntity", at = @At(value = "INVOKE", target = "Lnet/minecraft/util/Util;pauseInIde(Ljava/lang/Throwable;)Ljava/lang/Throwable;"), cancellable = true)
     private void skipThrowLoadEntity(Entity entity, CallbackInfo ci) {
         ci.cancel();
-    }
-
-    @WrapMethod(method = "forEachBlockTickingChunk")
-    private void forEachBlockTickingChunk(Consumer<LevelChunk> action, Operation<Void> original) {
-        if (!AsyncConfig.disabled && AsyncConfig.enableAsyncRandomTicks) {
-            List<ChunkHolder> holders = new ArrayList<>();
-            distanceManager.forEachEntityTickingChunk(chunkPos -> {
-                ChunkHolder holder = visibleChunkMap.get(chunkPos);
-                if (holder != null) holders.add(holder);
-            });
-            CompletableFuture.runAsync(() -> {
-                for (ChunkHolder holder : holders) {
-                    LevelChunk chunk = holder.getTickingChunk();
-                    if (chunk != null) action.accept(chunk);
-                }
-            }, ParallelProcessor.tickPool).exceptionally(e -> {
-                ParallelProcessor.LOGGER.error("Error in async random tick, switching to synchronous", e);
-                original.call(action);
-                return null;
-            });
-        } else {
-            original.call(action);
-        }
     }
 }

@@ -45,6 +45,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -58,36 +59,22 @@ import java.util.function.Predicate;
 @Mixin(value = ServerLevel.class, priority = 1500)
 public abstract class ServerLevelMixin extends Level implements WorldGenLevel {
 
-    @Shadow
-    @Final
-    public EntityTickList entityTickList;
+    @Shadow @Final public EntityTickList entityTickList;
+    @Shadow @Final private ServerChunkCache chunkSource;
+    @Shadow @Final @Mutable Set<Mob> navigatingMobs;
+    @Shadow @Mutable @Final private List<ServerPlayer> players;
+
+    @Shadow public abstract @NotNull ServerLevel getLevel();
+
+    @Unique
+    private static final Object lock = new Object();
 
     @Unique
     ConcurrentLinkedQueue<BlockEventData> async$syncedBlockEventQueue;
 
-    @Shadow
-    @Final
-    @Mutable
-    Set<Mob> navigatingMobs;
-
-    @Shadow
-    @Final
-    private ServerChunkCache chunkSource;
-
     protected ServerLevelMixin(WritableLevelData levelData, ResourceKey<Level> dimension, RegistryAccess registryAccess, Holder<DimensionType> dimensionTypeRegistration, boolean isClientSide, boolean isDebug, long biomeZoomSeed, int maxChainedNeighborUpdates) {
         super(levelData, dimension, registryAccess, dimensionTypeRegistration, isClientSide, isDebug, biomeZoomSeed, maxChainedNeighborUpdates);
     }
-
-    @Shadow
-    public abstract @NotNull ServerLevel getLevel();
-
-    @Shadow
-    @Mutable
-    @Final
-    private List<ServerPlayer> players;
-
-    @Unique
-    private static final Object lock = new Object();
 
     @Inject(method = "<init>", at = @At("RETURN"))
     private void init(CallbackInfo ci) {
@@ -213,6 +200,25 @@ public abstract class ServerLevelMixin extends Level implements WorldGenLevel {
             fluidMap.put(positions[i], results[i]);
         }
         ItemFluidPrecompute.activate(fluidMap);
+    }
+
+    @WrapMethod(method = "addFreshEntity")
+    private boolean wrapAddFreshEntity(Entity entity, Operation<Boolean> original) {
+        if (AsyncConfig.disabled || !AsyncConfig.enableAsyncSpawn) {
+            return original.call(entity);
+        }
+
+        synchronized (ParallelProcessor.getEntityAddLock()) {
+            return original.call(entity);
+        }
+    }
+
+    @Inject(method = "canSpawnEntitiesInChunk", at = @At("HEAD"), cancellable = true)
+    private void async$canSpawnEntitiesInChunk(ChunkPos pos, CallbackInfoReturnable<Boolean> cir) {
+        it.unimi.dsi.fastutil.longs.LongOpenHashSet set = ParallelProcessor.spawnableChunkPositions;
+        if (set != null && ParallelProcessor.isServerExecutionThread()) {
+            cir.setReturnValue(set.contains(pos.toLong()));
+        }
     }
 
     @Redirect(method = "blockEvent", at = @At(value = "INVOKE", target = "Lit/unimi/dsi/fastutil/objects/ObjectLinkedOpenHashSet;add(Ljava/lang/Object;)Z", remap = false))
