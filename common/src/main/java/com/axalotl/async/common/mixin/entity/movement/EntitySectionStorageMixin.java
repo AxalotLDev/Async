@@ -55,9 +55,9 @@ public abstract class EntitySectionStorageMixin<T extends EntityAccess> {
 
     @WrapMethod(method = "getOrCreateSection")
     private EntitySection<T> async$guardGetOrCreate(long sectionPos, Operation<EntitySection<T>> original) {
-        long stamp = async$sectionGuard.readLock();
+        long stamp = async$sectionGuard.writeLock();
         EntitySection<T> result = original.call(sectionPos);
-        async$sectionGuard.unlockRead(stamp);
+        async$sectionGuard.unlockWrite(stamp);
         return result;
     }
 

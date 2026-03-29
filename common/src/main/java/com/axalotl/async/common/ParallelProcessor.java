@@ -124,7 +124,10 @@ public class ParallelProcessor {
 
         boolean allDone;
         do {
-            allDone = futures.stream().allMatch(Future::isDone);
+            allDone = true;
+            for (int fi = 0; fi < futures.size(); fi++) {
+                if (!futures.get(fi).isDone()) { allDone = false; break; }
+            }
             if (!allDone) {
                 boolean pumped = false;
                 for (ServerLevel lvl : server.getAllLevels()) {
