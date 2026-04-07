@@ -13,11 +13,8 @@ dependencies {
     compileOnly("net.fabricmc:fabric-loader:$fabric_loader_version")
     compileOnly "net.fabricmc.fabric-api:fabric-api:${fabric_version}"
     implementation(annotationProcessor("com.github.bawnorton.mixinsquared:mixinsquared-common:${mixinsquared_version}"))
-    implementation("org.ow2.asm:asm:9.6")
-    implementation("org.ow2.asm:asm-tree:9.6")
-    compileOnly 'org.projectlombok:lombok:1.18.44'
-    annotationProcessor 'org.projectlombok:lombok:1.18.44'
-    implementation "maven.modrinth:lithium:${lithium_version}-neoforge"
+    compileOnly(annotationProcessor'org.projectlombok:lombok:1.18.44')
+    implementation "maven.modrinth:lithium:${lithium_version}-fabric"
 }
 
 loom {
