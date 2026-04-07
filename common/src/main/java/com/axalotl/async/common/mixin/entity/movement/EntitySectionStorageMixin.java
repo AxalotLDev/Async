@@ -34,7 +34,7 @@ public abstract class EntitySectionStorageMixin<T extends EntityAccess> {
     private LongSortedSet sectionIds;
 
     @Shadow
-    public abstract LongStream getExistingSectionPositionsInChunk(long pos);
+    public abstract LongStream getExistingSectionPositionsInChunk(long chunkKey);
 
     @Unique
     private static final Object lock = new Object();
@@ -53,8 +53,8 @@ public abstract class EntitySectionStorageMixin<T extends EntityAccess> {
     }
 
     @WrapMethod(method = "getExistingSectionsInChunk")
-    private Stream<EntitySection<T>> getExistingSections(long pos, Operation<Stream<EntitySection<T>>> original) {
-        return this.getExistingSectionPositionsInChunk(pos)
+    private Stream<EntitySection<T>> getExistingSections(long chunkKey, Operation<Stream<EntitySection<T>>> original) {
+        return this.getExistingSectionPositionsInChunk(chunkKey)
                 .mapToObj(this.sections::get)
                 .filter(Objects::nonNull)
                 .toList()
@@ -62,9 +62,9 @@ public abstract class EntitySectionStorageMixin<T extends EntityAccess> {
     }
 
     @WrapMethod(method = "getOrCreateSection")
-    private EntitySection<T> getOrCreateSection(long pos, Operation<EntitySection<T>> original) {
+    private EntitySection<T> getOrCreateSection(long key, Operation<EntitySection<T>> original) {
         synchronized (lock) {
-            return original.call(pos);
+            return original.call(key);
         }
     }
 

@@ -30,9 +30,9 @@ public class ChunkHolderMixin {
     }
 
     @WrapMethod(method = "sectionLightChanged")
-    private boolean wrapSectionLightChanged(LightLayer lightLayer, int y, Operation<Boolean> original) {
+    private boolean wrapSectionLightChanged(LightLayer layer, int chunkY, Operation<Boolean> original) {
         synchronized (lock) {
-            return original.call(lightLayer, y);
+            return original.call(layer, chunkY);
         }
     }
 }

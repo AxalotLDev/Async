@@ -26,12 +26,12 @@ public abstract class AnimalMixin extends Entity {
     }
 
     @WrapMethod(method = "spawnChildFromBreeding")
-    private void breed(ServerLevel world, Animal other, Operation<Void> original) {
-        if (this.getId() > other.getId()) return;
-        AnimalMixin otherMixin = (AnimalMixin) (Object) other;
+    private void breed(ServerLevel level, Animal partner, Operation<Void> original) {
+        if (this.getId() > partner.getId()) return;
+        AnimalMixin otherMixin = (AnimalMixin) (Object) partner;
         if (this.breedingFlag.compareAndSet(false, true) && otherMixin.breedingFlag.compareAndSet(false, true)) {
             try {
-                original.call(world, other);
+                original.call(level, partner);
             } finally {
                 this.breedingFlag.set(false);
                 otherMixin.breedingFlag.set(false);
@@ -40,12 +40,12 @@ public abstract class AnimalMixin extends Entity {
     }
 
     @WrapMethod(method = "finalizeSpawnChildFromBreeding")
-    private void breed(ServerLevel world, Animal other, AgeableMob baby, Operation<Void> original) {
-        if (this.getId() > other.getId()) return;
-        AnimalMixin otherMixin = (AnimalMixin) (Object) other;
+    private void breed(ServerLevel level, Animal partner, AgeableMob offspring, Operation<Void> original) {
+        if (this.getId() > partner.getId()) return;
+        AnimalMixin otherMixin = (AnimalMixin) (Object) partner;
         if (this.breedingBabyFlag.compareAndSet(false, true) && otherMixin.breedingBabyFlag.compareAndSet(false, true)) {
             try {
-                original.call(world, other, baby);
+                original.call(level, partner, offspring);
             } finally {
                 this.breedingBabyFlag.set(false);
                 otherMixin.breedingBabyFlag.set(false);

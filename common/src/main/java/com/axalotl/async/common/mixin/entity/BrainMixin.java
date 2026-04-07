@@ -42,7 +42,7 @@ public class BrainMixin<E extends LivingEntity> {
     private final Object writeLock = new Object();
 
     @Inject(method = "tick", at = @At("HEAD"))
-    private void buildSnapshot(ServerLevel level, E entity, CallbackInfo ci) {
+    private void buildSnapshot(ServerLevel level, E body, CallbackInfo ci) {
         if (AsyncConfig.disabled) return;
 
         if (needsRebuild || snapshot == null) {
@@ -58,7 +58,7 @@ public class BrainMixin<E extends LivingEntity> {
     }
 
     @Inject(method = "tick", at = @At("RETURN"))
-    private void endTick(ServerLevel level, E entity, CallbackInfo ci) {
+    private void endTick(ServerLevel level, E body, CallbackInfo ci) {
         inTick = false;
     }
 

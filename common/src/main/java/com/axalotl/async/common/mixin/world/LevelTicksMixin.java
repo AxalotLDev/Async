@@ -27,30 +27,30 @@ public abstract class LevelTicksMixin<T> implements LevelTickAccess<T> {
     private static final Object lock = new Object();
 
     @WrapMethod(method = "sortContainersToTick")
-    private void wrapContainersToTick(long gameTime, Operation<Void> original) {
+    private void wrapContainersToTick(long currentTick, Operation<Void> original) {
         synchronized (lock) {
-            original.call(gameTime);
+            original.call(currentTick);
         }
     }
 
     @WrapMethod(method = "collectTicks")
-    private void wrapCollectTicks(long gameTime, int maxAllowedTicks, ProfilerFiller profiler, Operation<Void> original) {
+    private void wrapCollectTicks(long currentTick, int maxTicksToProcess, ProfilerFiller profiler, Operation<Void> original) {
         synchronized (lock) {
-            original.call(gameTime, maxAllowedTicks, profiler);
+            original.call(currentTick, maxTicksToProcess, profiler);
         }
     }
 
     @WrapMethod(method = "schedule")
-    private void wrapSchedule(ScheduledTick<T> p_193252_, Operation<Void> original) {
+    private void wrapSchedule(ScheduledTick<T> tick, Operation<Void> original) {
         synchronized (lock) {
-            original.call(p_193252_);
+            original.call(tick);
         }
     }
 
     @WrapMethod(method = "addContainer")
-    private void wrapAddContainer(net.minecraft.world.level.ChunkPos pos, LevelChunkTicks<@NotNull T> ticks, Operation<Void> original) {
+    private void wrapAddContainer(net.minecraft.world.level.ChunkPos pos, LevelChunkTicks<@NotNull T> container, Operation<Void> original) {
         synchronized (lock) {
-            original.call(pos, ticks);
+            original.call(pos, container);
         }
     }
 

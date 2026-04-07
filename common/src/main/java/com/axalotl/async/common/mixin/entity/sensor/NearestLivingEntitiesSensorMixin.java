@@ -23,25 +23,25 @@ public class NearestLivingEntitiesSensorMixin<T extends LivingEntity> {
     private static final FastBitRadixSort entitySorter = new FastBitRadixSort();
 
     @WrapMethod(method = "doTick(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/world/entity/LivingEntity;)V")
-    private void doTick(ServerLevel level, T entity, Operation<Void> original) {
-        double d0 = entity.getAttributeValue(Attributes.FOLLOW_RANGE);
-        AABB aabb = entity.getBoundingBox().inflate(d0, d0, d0);
+    private void doTick(ServerLevel level, T body, Operation<Void> original) {
+        double d0 = body.getAttributeValue(Attributes.FOLLOW_RANGE);
+        AABB aabb = body.getBoundingBox().inflate(d0, d0, d0);
 
         List<LivingEntity> list = level.getEntitiesOfClass(
                 LivingEntity.class,
                 aabb,
-                e -> e != entity && e.isAlive()
+                e -> e != body && e.isAlive()
         );
 
         Object[] arr = list.toArray();
-        entitySorter.sort(arr, arr.length, entity.position());
+        entitySorter.sort(arr, arr.length, body.position());
 
         List<LivingEntity> sorted = new ArrayList<>(arr.length);
         for (Object o : arr) sorted.add((LivingEntity) o);
 
-        Brain<?> brain = entity.getBrain();
+        Brain<?> brain = body.getBrain();
         brain.setMemory(MemoryModuleType.NEAREST_LIVING_ENTITIES, sorted);
         brain.setMemory(MemoryModuleType.NEAREST_VISIBLE_LIVING_ENTITIES,
-                new NearestVisibleLivingEntities(level, entity, sorted));
+                new NearestVisibleLivingEntities(level, body, sorted));
     }
 }

@@ -34,9 +34,9 @@ public class BlockMixin {
     }
 
     @WrapMethod(method = "dropResources(Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/world/level/Level;Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/entity/BlockEntity;Lnet/minecraft/world/entity/Entity;Lnet/minecraft/world/item/ItemStack;)V")
-    private static void dropResources(BlockState state, Level level, BlockPos pos, BlockEntity blockEntity, Entity entity, ItemStack tool, Operation<Void> original) {
+    private static void dropResources(BlockState state, Level level, BlockPos pos, BlockEntity blockEntity, Entity breaker, ItemStack tool, Operation<Void> original) {
         synchronized (lock) {
-            original.call(state, level, pos, blockEntity, entity, tool);
+            original.call(state, level, pos, blockEntity, breaker, tool);
         }
     }
 }

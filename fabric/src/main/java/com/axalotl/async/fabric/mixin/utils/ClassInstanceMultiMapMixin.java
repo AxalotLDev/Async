@@ -33,16 +33,16 @@ public abstract class ClassInstanceMultiMapMixin<T> extends AbstractCollection<T
     }
 
     @WrapMethod(method = "add")
-    private boolean add(Object e, Operation<Boolean> original) {
+    private boolean add(Object instance, Operation<Boolean> original) {
         synchronized (lock) {
-            return original.call(e);
+            return original.call(instance);
         }
     }
 
     @WrapMethod(method = "remove")
-    private boolean remove(Object o, Operation<Boolean> original) {
+    private boolean remove(Object object, Operation<Boolean> original) {
         synchronized (lock) {
-            return original.call(o);
+            return original.call(object);
         }
     }
 }

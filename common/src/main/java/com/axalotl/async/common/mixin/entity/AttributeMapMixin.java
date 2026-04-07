@@ -37,7 +37,7 @@ public class AttributeMapMixin {
             method = "<init>",
             at = @At("RETURN")
     )
-    private void initCollections(AttributeSupplier defaultAttributes, CallbackInfo ci) {
+    private void initCollections(final AttributeSupplier supplier, CallbackInfo ci) {
         this.attributesToUpdate = ConcurrentCollections.newHashSet();
         this.attributesToSync = ConcurrentCollections.newHashSet();
     }

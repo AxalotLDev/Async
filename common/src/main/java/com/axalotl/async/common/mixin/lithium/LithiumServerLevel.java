@@ -41,10 +41,10 @@ public abstract class LithiumServerLevel extends Level implements WorldGenLevel,
                     target = "Ljava/util/Set;iterator()Ljava/util/Iterator;"
             )
     )
-    private void updateActiveListeners(BlockPos pos, BlockState oldState, BlockState newState, int arg3, CallbackInfo ci, @Local(name = "navigationsToUpdate") List<PathNavigation> list) {
+    private void updateActiveListeners(BlockPos pos, BlockState old, BlockState current, int updateFlags, CallbackInfo ci, @Local(name = "navigationsToUpdate") List<PathNavigation> navigationsToUpdate) {
         for (PathNavigation nav : activeNavigationsOver) {
             if (nav.shouldRecomputePath(pos)) {
-                list.add(nav);
+                navigationsToUpdate.add(nav);
             }
         }
     }

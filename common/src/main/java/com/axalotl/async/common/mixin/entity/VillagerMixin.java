@@ -24,9 +24,9 @@ public class VillagerMixin {
     }
 
     @WrapMethod(method = "spawnGolemIfNeeded")
-    private void spawnGolemIfNeeded(ServerLevel world, long time, int requiredCount, Operation<Void> original) {
+    private void spawnGolemIfNeeded(ServerLevel level, long timestamp, int villagersNeededToAgree, Operation<Void> original) {
         synchronized (lock) {
-            original.call(world, time, requiredCount);
+            original.call(level, timestamp, villagersNeededToAgree);
         }
     }
 }

@@ -42,19 +42,19 @@ public abstract class LivingEntityMixin extends Entity {
     }
 
     @WrapMethod(method = "die")
-    private synchronized void die(DamageSource damageSource, Operation<Void> original) {
-        original.call(damageSource);
+    private synchronized void die(DamageSource source, Operation<Void> original) {
+        original.call(source);
     }
 
     @WrapMethod(method = "dropFromLootTable(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/world/damagesource/DamageSource;Z)V")
-    private synchronized void dropFromLootTable(ServerLevel level, DamageSource damageSource, boolean playerKill, Operation<Void> original) {
-        original.call(level, damageSource, playerKill);
+    private synchronized void dropFromLootTable(ServerLevel level, DamageSource source, boolean playerKilled, Operation<Void> original) {
+        original.call(level, source, playerKilled);
     }
 
     @WrapMethod(method = "knockback")
-    private void knockback(double strength, double x, double z, Operation<Void> original) {
+    private void knockback(double power, double xd, double zd, Operation<Void> original) {
         synchronized (lock) {
-            original.call(strength, x, z);
+            original.call(power, xd, zd);
         }
     }
 
@@ -72,8 +72,8 @@ public abstract class LivingEntityMixin extends Entity {
                     target = "Lnet/minecraft/world/effect/MobEffectInstance;tickServer(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/world/entity/LivingEntity;Ljava/lang/Runnable;)Z"
             )
     )
-    private boolean wrapTickEffect(MobEffectInstance instance, ServerLevel level, LivingEntity entity, Runnable onEffectUpdated, Operation<Boolean> original) {
-        return instance != null ? original.call(instance, level, entity, onEffectUpdated) : false;
+    private boolean wrapTickEffect(MobEffectInstance instance, ServerLevel serverLevel, LivingEntity target, Runnable onEffectUpdate, Operation<Boolean> original) {
+        return instance != null ? original.call(instance, serverLevel, target, onEffectUpdate) : false;
     }
 
     @WrapOperation(
@@ -83,14 +83,14 @@ public abstract class LivingEntityMixin extends Entity {
                     target = "Ljava/util/List;of(Ljava/lang/Object;)Ljava/util/List;"
             )
     )
-    private List<?> wrapListOf(Object element, Operation<List<?>> original) {
-        return element != null ? original.call(element) : Collections.emptyList();
+    private List<?> wrapListOf(Object e1, Operation<List<?>> original) {
+        return e1 != null ? original.call(e1) : Collections.emptyList();
     }
 
     @WrapMethod(method = "addEffect(Lnet/minecraft/world/effect/MobEffectInstance;Lnet/minecraft/world/entity/Entity;)Z")
-    private boolean addEffect(MobEffectInstance effect, Entity source, Operation<Boolean> original) {
+    private boolean addEffect(MobEffectInstance newEffect, Entity source, Operation<Boolean> original) {
         synchronized (lock) {
-            return effect != null ? original.call(effect, source) : false;
+            return newEffect != null ? original.call(newEffect, source) : false;
         }
     }
 
@@ -114,7 +114,7 @@ public abstract class LivingEntityMixin extends Entity {
     }
 
     @Inject(method = "causeFallDamage", at = @At("HEAD"), cancellable = true)
-    private void causeFallDamage(double fallDistance, float multiplier, DamageSource source, CallbackInfoReturnable<Boolean> cir) {
+    private void causeFallDamage(double fallDistance, float damageModifier, DamageSource damageSource, CallbackInfoReturnable<Boolean> cir) {
         BlockPos pos = new BlockPos(Mth.floor(this.getX()), Mth.floor(this.getY()), Mth.floor(this.getZ()));
         BlockState currentBlock = this.level().getBlockState(pos);
 

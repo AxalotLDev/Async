@@ -17,9 +17,9 @@ public class MobMixin {
     private static final Object lock = new Object();
 
     @WrapMethod(method = "equipItemIfPossible")
-    private ItemStack tryEquip(ServerLevel level, ItemStack stack, Operation<ItemStack> original) {
+    private ItemStack tryEquip(ServerLevel level, ItemStack itemStack, Operation<ItemStack> original) {
         synchronized (lock) {
-            return original.call(level, stack);
+            return original.call(level, itemStack);
         }
     }
 
@@ -31,16 +31,16 @@ public class MobMixin {
     }
 
     @WrapMethod(method = "setItemSlotAndDropWhenKilled")
-    private void equipLootStack(EquipmentSlot slot, ItemStack stack, Operation<Void> original) {
+    private void equipLootStack(EquipmentSlot slot, ItemStack itemStack, Operation<Void> original) {
         synchronized (lock) {
-            original.call(slot, stack);
+            original.call(slot, itemStack);
         }
     }
 
     @WrapMethod(method = "setBodyArmorItem")
-    private void equipLootStack(ItemStack stack, Operation<Void> original) {
+    private void equipLootStack(ItemStack item, Operation<Void> original) {
         synchronized (lock) {
-            original.call(stack);
+            original.call(item);
         }
     }
 }

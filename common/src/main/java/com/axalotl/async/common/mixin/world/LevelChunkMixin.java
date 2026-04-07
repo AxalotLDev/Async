@@ -28,7 +28,7 @@ public abstract class LevelChunkMixin {
     }
 
     @WrapMethod(method = "getListenerRegistry")
-    private synchronized GameEventListenerRegistry getListenerRegistry(int ySectionCoord, Operation<GameEventListenerRegistry> original) {
-        return original.call(ySectionCoord);
+    private synchronized GameEventListenerRegistry getListenerRegistry(int section, Operation<GameEventListenerRegistry> original) {
+        return original.call(section);
     }
 }

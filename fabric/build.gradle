@@ -69,8 +69,8 @@ loom {
             ideConfigGenerated(true)
             runDir('runs/server')
             vmArgs(
-                    "-Xms12G",
-                    "-Xmx12G",
+                    "-Xms4G",
+                    "-Xmx4G",
                     "-XX:+UnlockExperimentalVMOptions",
                     "-XX:+UseZGC",
                     "-XX:+AlwaysPreTouch",

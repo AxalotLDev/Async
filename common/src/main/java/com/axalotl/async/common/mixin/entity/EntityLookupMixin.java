@@ -80,8 +80,8 @@ public abstract class EntityLookupMixin<T extends EntityAccess> {
     }
 
     @WrapMethod(method = "getEntity(Ljava/util/UUID;)Lnet/minecraft/world/level/entity/EntityAccess;")
-    private T getEntity(UUID uuid, Operation<T> original) {
-        return uuid == null ? null : original.call(uuid);
+    private T getEntity(UUID id, Operation<T> original) {
+        return id == null ? null : original.call(id);
     }
 
     @WrapMethod(method = "getEntity(I)Lnet/minecraft/world/level/entity/EntityAccess;")

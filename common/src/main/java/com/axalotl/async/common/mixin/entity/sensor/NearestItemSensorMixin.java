@@ -20,22 +20,22 @@ public class NearestItemSensorMixin {
     private static final FastBitRadixSort itemSorter = new FastBitRadixSort();
 
     @WrapMethod(method = "doTick(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/world/entity/Mob;)V")
-    private void doTick(ServerLevel level, Mob entity, Operation<Void> original) {
-        Brain<?> brain = entity.getBrain();
+    private void doTick(ServerLevel level, Mob body, Operation<Void> original) {
+        Brain<?> brain = body.getBrain();
         List<ItemEntity> list = level.getEntitiesOfClass(
                 ItemEntity.class,
-                entity.getBoundingBox().inflate(32.0F, 16.0F, 32.0F),
+                body.getBoundingBox().inflate(32.0F, 16.0F, 32.0F),
                 _ -> true
         );
 
         Object[] arr = list.toArray();
-        itemSorter.sort(arr, arr.length, entity.position());
+        itemSorter.sort(arr, arr.length, body.position());
 
         Optional<ItemEntity> optional = Arrays.stream(arr)
                 .map(o -> (ItemEntity) o)
-                .filter(e -> entity.wantsToPickUp(level, e.getItem()))
-                .filter(e -> e.closerThan(entity, 32.0F))
-                .filter(entity::hasLineOfSight)
+                .filter(e -> body.wantsToPickUp(level, e.getItem()))
+                .filter(e -> e.closerThan(body, 32.0F))
+                .filter(body::hasLineOfSight)
                 .findFirst();
 
         brain.setMemory(MemoryModuleType.NEAREST_VISIBLE_WANTED_ITEM, optional);

@@ -84,8 +84,8 @@ public abstract class ChunkMapMixin extends SimpleRegionStorage implements Chunk
     }
 
     @WrapMethod(method = "releaseGeneration")
-    private synchronized void releaseGeneration(GenerationChunkHolder chunk, Operation<Void> original) {
-        original.call(chunk);
+    private synchronized void releaseGeneration(GenerationChunkHolder chunkHolder, Operation<Void> original) {
+        original.call(chunkHolder);
     }
 
     @Inject(method = "addEntity", at = @At(value = "INVOKE", target = "Lnet/minecraft/util/Util;pauseInIde(Ljava/lang/Throwable;)Ljava/lang/Throwable;"), cancellable = true)
@@ -94,7 +94,7 @@ public abstract class ChunkMapMixin extends SimpleRegionStorage implements Chunk
     }
 
     @WrapMethod(method = "forEachBlockTickingChunk")
-    private void forEachBlockTickingChunk(Consumer<LevelChunk> action, Operation<Void> original) {
+    private void forEachBlockTickingChunk(Consumer<LevelChunk> tickingChunkConsumer, Operation<Void> original) {
         if (!AsyncConfig.disabled && AsyncConfig.enableAsyncRandomTicks) {
             CompletableFuture.runAsync(() -> {
                 List<Long> keys = new ArrayList<>();
@@ -104,17 +104,17 @@ public abstract class ChunkMapMixin extends SimpleRegionStorage implements Chunk
                     ChunkHolder holder = visibleChunkMap.get(chunkPos);
                     if (holder != null) {
                         LevelChunk chunk = holder.getTickingChunk();
-                        if (chunk != null) action.accept(chunk);
+                        if (chunk != null) tickingChunkConsumer.accept(chunk);
                     }
                 }
             }, ParallelProcessor.executor).whenComplete((_, e) -> {
                 if (e != null) {
                     LOGGER.error("Error in async random tick, switching to synchronous", e);
-                    original.call(action);
+                    original.call(tickingChunkConsumer);
                 }
             });
         } else {
-            original.call(action);
+            original.call(tickingChunkConsumer);
         }
     }
 }

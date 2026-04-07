@@ -21,7 +21,7 @@ public abstract class TurtleMixin extends BreedGoal {
     }
 
     @Redirect(method = "breed()V", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/animal/turtle/Turtle;setHasEgg(Z)V"))
-    private void redirectSetHasEgg(Turtle instance, boolean value) {
+    private void redirectSetHasEgg(Turtle instance, boolean onOff) {
         if (this.partner != null && !this.turtle.hasEgg() && !((Turtle) this.partner).hasEgg()) {
             if (this.turtle.getRandom().nextBoolean()) {
                 this.turtle.setHasEgg(true);

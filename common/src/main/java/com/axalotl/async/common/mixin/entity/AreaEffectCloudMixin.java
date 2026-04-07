@@ -23,7 +23,7 @@ public class AreaEffectCloudMixin {
     private Map<Entity, Integer> victims;
 
     @Inject(method = "<init>(Lnet/minecraft/world/entity/EntityType;Lnet/minecraft/world/level/Level;)V", at = @At("RETURN"))
-    private void makeCollectionsThreadSafe(EntityType<? extends AreaEffectCloud> entityType, Level level, CallbackInfo ci) {
+    private void makeCollectionsThreadSafe(EntityType<? extends AreaEffectCloud> type, Level level, CallbackInfo ci) {
         this.victims = ConcurrentCollections.newHashMap();
     }
 }

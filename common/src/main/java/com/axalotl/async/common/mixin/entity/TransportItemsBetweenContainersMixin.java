@@ -23,16 +23,16 @@ public class TransportItemsBetweenContainersMixin {
     private static final Map<BlockPos, AtomicBoolean> containerFlags = new ConcurrentHashMap<>();
 
     @WrapMethod(method = "pickUpItems")
-    private void pickUpItems(PathfinderMob mob, Container counter, Operation<Void> original) {
+    private void pickUpItems(PathfinderMob body, Container container, Operation<Void> original) {
         synchronized (lock) {
-            original.call(mob, counter);
+            original.call(body, container);
         }
     }
 
     @WrapMethod(method = "putDownItem")
-    private void putDownItem(PathfinderMob mob, Container counter, Operation<Void> original) {
+    private void putDownItem(PathfinderMob body, Container container, Operation<Void> original) {
         synchronized (lock) {
-            original.call(mob, counter);
+            original.call(body, container);
         }
     }
 

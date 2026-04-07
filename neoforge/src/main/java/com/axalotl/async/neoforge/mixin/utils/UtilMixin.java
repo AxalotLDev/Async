@@ -15,7 +15,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 @Mixin(Util.class)
 public abstract class UtilMixin {
 
-    @Inject(method = {"lambda$makeExecutor$0", "m_303912_"}, at = @At(value = "INVOKE", target = "Ljava/util/concurrent/ForkJoinWorkerThread;setName(Ljava/lang/String;)V"))
+    @Inject(method = {"lambda$makeExecutor$0"}, at = @At(value = "INVOKE", target = "Ljava/util/concurrent/ForkJoinWorkerThread;setName(Ljava/lang/String;)V"))
     private static void registerThread(String serviceName, AtomicInteger atomicinteger, ForkJoinPool p_314383_, CallbackInfoReturnable<ForkJoinWorkerThread> cir, @Local ForkJoinWorkerThread forkJoinWorkerThread) {
         ParallelProcessor.registerThread(serviceName, forkJoinWorkerThread);
     }
