@@ -1,28 +1,35 @@
 package com.axalotl.async.common.mixin.entity.sensor;
 
+import com.axalotl.async.api.utils.SensorUtils;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.ai.Brain;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.ai.memory.MemoryModuleType;
+import net.minecraft.world.entity.ai.memory.NearestVisibleLivingEntities;
 import net.minecraft.world.entity.ai.sensing.NearestLivingEntitySensor;
+import net.minecraft.world.entity.ai.sensing.Sensor;
+import net.minecraft.world.phys.AABB;
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Redirect;
+import org.spongepowered.asm.mixin.Overwrite;
 
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.function.ToDoubleFunction;
+import java.util.List;
 
 @Mixin(value = NearestLivingEntitySensor.class, priority = 1500)
-public class NearestLivingEntitiesSensorMixin {
+public abstract class NearestLivingEntitiesSensorMixin<T extends LivingEntity> extends Sensor<T> {
 
-    @Redirect(method = "doTick",
-            at = @At(value = "INVOKE", target = "Ljava/util/Comparator;comparingDouble(Ljava/util/function/ToDoubleFunction;)Ljava/util/Comparator;"))
-    private Comparator<LivingEntity> doTick(ToDoubleFunction<? super LivingEntity> keyExtractor, ServerLevel level, LivingEntity body) {
-        Map<LivingEntity, Double> distanceCache = new HashMap<>();
-        return (e1, e2) -> {
-            double d1 = distanceCache.computeIfAbsent(e1, entity -> entity.distanceToSqr(body));
-            double d2 = distanceCache.computeIfAbsent(e2, entity -> entity.distanceToSqr(body));
-            return Double.compare(d1, d2);
-        };
+    /**
+     * @author _Axa_lotL_
+     * @reason async distance cache
+     */
+    @Overwrite
+    protected void doTick(final ServerLevel level, final T body) {
+        double followRange = body.getAttributeValue(Attributes.FOLLOW_RANGE);
+        AABB boundingBox = body.getBoundingBox().inflate(followRange, followRange, followRange);
+        List<LivingEntity> livingEntities = level.getEntitiesOfClass(LivingEntity.class, boundingBox, mob -> mob != body && mob.isAlive());
+        livingEntities.sort(SensorUtils.distanceComparator(body));
+        Brain<?> brain = body.getBrain();
+        brain.setMemory(MemoryModuleType.NEAREST_LIVING_ENTITIES, livingEntities);
+        brain.setMemory(MemoryModuleType.NEAREST_VISIBLE_LIVING_ENTITIES, new NearestVisibleLivingEntities(level, body, livingEntities));
     }
 }

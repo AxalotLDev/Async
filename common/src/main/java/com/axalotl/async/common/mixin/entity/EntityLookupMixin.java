@@ -1,7 +1,7 @@
 package com.axalotl.async.common.mixin.entity;
 
-import com.axalotl.async.common.utils.ConcurrentCollections;
-import com.axalotl.async.common.fastutil.Int2ObjectConcurrentHashMap;
+import com.axalotl.async.api.fastutil.Int2ObjectConcurrentHashMap;
+import com.axalotl.async.api.utils.ConcurrentCollections;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;

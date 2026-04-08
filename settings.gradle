@@ -14,3 +14,4 @@ rootProject.name = 'Async'
 include('common')
 include('fabric')
 include('neoforge')
+include('api')

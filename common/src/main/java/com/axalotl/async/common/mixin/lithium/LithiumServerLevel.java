@@ -1,6 +1,6 @@
 package com.axalotl.async.common.mixin.lithium;
 
-import com.axalotl.async.common.utils.ConcurrentCollections;
+import com.axalotl.async.api.utils.ConcurrentCollections;
 import com.llamalad7.mixinextras.sugar.Local;
 import net.caffeinemc.mods.lithium.common.entity.NavigatingEntity;
 import net.caffeinemc.mods.lithium.common.world.ServerWorldExtended;

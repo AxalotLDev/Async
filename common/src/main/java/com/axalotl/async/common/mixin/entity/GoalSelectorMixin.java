@@ -1,6 +1,6 @@
 package com.axalotl.async.common.mixin.entity;
 
-import com.axalotl.async.common.utils.ConcurrentCollections;
+import com.axalotl.async.api.utils.ConcurrentCollections;
 import net.minecraft.world.entity.ai.goal.GoalSelector;
 import net.minecraft.world.entity.ai.goal.WrappedGoal;
 import org.spongepowered.asm.mixin.Mixin;

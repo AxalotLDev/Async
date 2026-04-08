@@ -1,4 +1,4 @@
-package com.axalotl.async.common.fastutil;
+package com.axalotl.async.api.fastutil;
 
 import it.unimi.dsi.fastutil.longs.*;
 import org.jetbrains.annotations.NotNull;

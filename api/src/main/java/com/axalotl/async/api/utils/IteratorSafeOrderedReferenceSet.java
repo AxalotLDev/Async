@@ -1,4 +1,4 @@
-package com.axalotl.async.common.utils;
+package com.axalotl.async.api.utils;
 
 import it.unimi.dsi.fastutil.objects.Reference2IntLinkedOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Reference2IntMap;
@@ -185,7 +185,7 @@ public final class IteratorSafeOrderedReferenceSet<E> {
         void finishedIterating();
     }
 
-    private static final class BaseIterator<E> implements IteratorSafeOrderedReferenceSet.Iterator<E> {
+    private static final class BaseIterator<E> implements Iterator<E> {
 
         private final IteratorSafeOrderedReferenceSet<E> set;
         private final boolean canFinish;

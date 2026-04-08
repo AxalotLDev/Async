@@ -1,4 +1,4 @@
-package com.axalotl.async.common.fastutil;
+package com.axalotl.async.api.fastutil;
 
 import java.util.*;
 import java.util.function.Function;

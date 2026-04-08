@@ -1,0 +1,51 @@
+plugins {
+    id 'java'
+    id 'maven-publish'
+    id 'idea'
+    id 'net.fabricmc.fabric-loom'
+}
+
+group = 'com.axalotl.async'
+version = '1.0.0'
+
+base {
+    archivesName = "${mod_id}-${project.name}"
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(project.java_version)
+    }
+
+    withSourcesJar()
+    withJavadocJar()
+}
+
+repositories {
+    mavenCentral()
+    maven { url = "https://maven.fabricmc.net/" }
+    maven { url = "https://libraries.minecraft.net/" }
+    maven { url = "https://maven.neoforged.net/releases/" }
+}
+
+dependencies {
+    minecraft("com.mojang:minecraft:${minecraft_version}")
+    compileOnly("net.fabricmc:fabric-loader:$fabric_loader_version")
+    compileOnly "net.fabricmc.fabric-api:fabric-api:${fabric_version}"
+    compileOnly(annotationProcessor'org.projectlombok:lombok:1.18.44')
+}
+
+publishing {
+    publications {
+        create("mavenJava", MavenPublication) {
+            groupId = group
+            artifactId = project.name
+            version = version
+
+            from components.java
+        }
+    }
+    repositories {
+        mavenLocal()
+    }
+}

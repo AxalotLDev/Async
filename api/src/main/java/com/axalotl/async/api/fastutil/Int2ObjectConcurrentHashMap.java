@@ -1,4 +1,4 @@
-package com.axalotl.async.common.fastutil;
+package com.axalotl.async.api.fastutil;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.IntSet;
@@ -22,6 +22,9 @@ public final class Int2ObjectConcurrentHashMap<V> implements Int2ObjectMap<V> {
     private final ConcurrentHashMap<Integer, V> backing;
     private V defaultReturnValue;
 
+    /**
+     * Constructor
+     */
     public Int2ObjectConcurrentHashMap() {
         this.backing = new ConcurrentHashMap<>(16, 0.9f, 1);
     }
