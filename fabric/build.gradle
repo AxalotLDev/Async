@@ -18,7 +18,7 @@ modrinth {
     versionType = "alpha"
     def libsDir = layout.buildDirectory.dir("libs").get().asFile
     uploadFile = libsDir.listFiles().find { it.name.endsWith(".jar") }
-    gameVersions = ["1.21.11"]
+    gameVersions = ["26.1", "26.1.1"]
     loaders = ["fabric", "quilt"]
     dependencies {
         required.project "fabric-api"
@@ -38,8 +38,8 @@ dependencies {
 
     include(implementation(annotationProcessor("com.github.bawnorton.mixinsquared:mixinsquared-fabric:${mixinsquared_version}")))
     implementation 'com.electronwill.night-config:toml:3.8.1'
-    include group: 'com.electronwill.night-config', name: 'toml', version: '3.8.1'
-    include group: 'com.electronwill.night-config', name: 'core', version: '3.8.1'
+    include "com.electronwill.night-config:toml:3.8.1"
+    include "com.electronwill.night-config:core:3.8.1"
     compileOnly 'org.projectlombok:lombok:1.18.44'
     annotationProcessor 'org.projectlombok:lombok:1.18.44'
 
