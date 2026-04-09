@@ -18,7 +18,7 @@ modrinth {
     versionType = "alpha"
     def libsDir = layout.buildDirectory.dir("libs").get().asFile
     uploadFile = libsDir.listFiles().find { it.name.endsWith(".jar") }
-    gameVersions = ["26.1", "26.1.1"]
+    gameVersions = ["26.1", "26.1.1", "26.1.2"]
     loaders = ["neoforge"]
     dependencies {
         optional.project "lithium"

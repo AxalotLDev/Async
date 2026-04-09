@@ -1,1 +1,3 @@
-- add API
+- Add Async API entity support check (WIP make all other mods entity sync)
+- Remove ModCompatible all unsupported mobs already sync
+- Fix compatibility with carpet /log mobcap
