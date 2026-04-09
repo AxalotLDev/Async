@@ -1,5 +1,6 @@
 package com.axalotl.async.common;
 
+import com.axalotl.async.api.utils.AsyncCompatible;
 import com.axalotl.async.common.config.AsyncConfig;
 import lombok.Getter;
 import lombok.Setter;
@@ -168,11 +169,17 @@ public class ParallelProcessor {
         UUID entityId = entity.getUUID();
 
         return AsyncConfig.disabled
+                || entitySupportsAsyncApi(entity)
                 || entity instanceof Projectile
                 || entity instanceof ServerPlayer
                 || BLOCKED_ENTITIES.contains(entity.getClass())
                 || BLACKLISTED_ENTITIES.contains(entityId)
                 || AsyncConfig.isEntitySynchronized(EntityType.getKey(entity.getType()));
+    }
+
+    public static boolean entitySupportsAsyncApi(Entity entity) {
+        return !"minecraft".equals(EntityType.getKey(entity.getType()).getNamespace())
+                && !entity.getClass().isAnnotationPresent(AsyncCompatible.class);
     }
 
     private static void tickEntity(ServerLevel world, Entity entity, boolean async) {
