@@ -170,9 +170,6 @@ public class ParallelProcessor {
         }
 
         UUID entityId = entity.getUUID();
-        if (entityId == null) {
-            return true;
-        }
 
         return AsyncConfig.disabled
                 || entity instanceof Projectile
@@ -213,10 +210,14 @@ public class ParallelProcessor {
             LOGGER.info("Waiting for Async poll to shutdown...");
             executor.shutdown();
             try {
-                executor.awaitTermination(60L, TimeUnit.SECONDS);
+                if (!executor.awaitTermination(60L, TimeUnit.SECONDS)) {
+                    LOGGER.warn("Async pool did not terminate within 60 seconds, forcing shutdown");
+                    executor.shutdownNow();
+                }
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 LOGGER.warn("Interrupted while waiting for thread pool shutdown", e);
+                executor.shutdownNow();
             }
         }
 
