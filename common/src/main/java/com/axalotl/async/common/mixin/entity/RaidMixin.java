@@ -20,28 +20,28 @@ import java.util.function.Function;
 public class RaidMixin {
 
     @Unique
-    private static final Object async$lock = new Object();
+    private static final Object lock = new Object();
 
     @Shadow
     private final Map<Integer, Set<Raider>> groupRaiderMap = ConcurrentCollections.newHashMap();
 
     @WrapMethod(method = "addWaveMob(Lnet/minecraft/server/level/ServerLevel;ILnet/minecraft/world/entity/raid/Raider;Z)Z")
-    private boolean addWaveMob(ServerLevel level, int wave, Raider p_raider, boolean isRecruited, Operation<Boolean> original) {
-        synchronized (async$lock) {
-            return original.call(level, wave, p_raider, isRecruited);
+    private boolean addWaveMob(ServerLevel level, int wave, Raider raider, boolean updateHealth, Operation<Boolean> original) {
+        synchronized (lock) {
+            return original.call(level, wave, raider, updateHealth);
         }
     }
 
     @WrapMethod(method = "addWaveMob(Lnet/minecraft/server/level/ServerLevel;ILnet/minecraft/world/entity/raid/Raider;)Z")
     private boolean addWaveMob(ServerLevel level, int wave, Raider raider, Operation<Boolean> original) {
-        synchronized (async$lock) {
+        synchronized (lock) {
             return original.call(level, wave, raider);
         }
     }
 
     @Redirect(method = "addWaveMob(Lnet/minecraft/server/level/ServerLevel;ILnet/minecraft/world/entity/raid/Raider;Z)Z", at =
     @At(value = "INVOKE", target = "Ljava/util/Map;computeIfAbsent(Ljava/lang/Object;Ljava/util/function/Function;)Ljava/lang/Object;"))
-    private Object redirectComputeIfAbsent(Map<Integer, Set<Raider>> instance, Object k, Function<?, ?> key) {
-        return instance.computeIfAbsent((Integer) k, wave -> ConcurrentCollections.newHashSet());
+    private Object redirectComputeIfAbsent(Map<Integer, Set<Raider>> instance, Object key, Function<?, ?> mappingFunction) {
+        return instance.computeIfAbsent((Integer) key, _ -> ConcurrentCollections.newHashSet());
     }
 }

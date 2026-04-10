@@ -20,7 +20,7 @@ import java.util.Set;
 public class ChunkMapTrackedEntityMixin {
 
     @Shadow
-    final Set<ServerGamePacketListenerImpl> seenBy = ConcurrentCollections.newHashSet();
+    private final Set<ServerGamePacketListenerImpl> seenBy = ConcurrentCollections.newHashSet();
 
     @Shadow
     @Final

@@ -17,14 +17,11 @@ public abstract class EntityMixin {
     public abstract Level level();
 
     @Unique
-    private static final Object async$lock = new Object();
-
-    @Unique
-    private final Object async$movementLock = new Object();
+    private static final Object lock = new Object();
 
     @WrapMethod(method = "setRemoved")
     private void setRemoved(Entity.RemovalReason reason, Operation<Void> original) {
-        synchronized (async$lock) {
+        synchronized (lock) {
             original.call(reason);
         }
     }
@@ -35,65 +32,38 @@ public abstract class EntityMixin {
         return blockState != null ? blockState : Blocks.AIR.defaultBlockState();
     }
 
+
     @WrapMethod(method = "addPassenger")
     private void addPassenger(Entity passenger, Operation<Void> original) {
-        synchronized (async$lock) {
+        synchronized (lock) {
             original.call(passenger);
         }
     }
 
     @WrapMethod(method = "removePassenger")
     private void removePassenger(Entity passenger, Operation<Void> original) {
-        synchronized (async$lock) {
+        synchronized (lock) {
             original.call(passenger);
         }
     }
 
     @WrapMethod(method = "ejectPassengers")
     private void ejectPassengers(Operation<Void> original) {
-        synchronized (async$lock) {
+        synchronized (lock) {
             original.call();
         }
     }
 
     @WrapMethod(method = "startRiding(Lnet/minecraft/world/entity/Entity;ZZ)Z")
-    private boolean startRiding(Entity vehicle, boolean force, boolean emitEvent, Operation<Boolean> original) {
+    private boolean startRiding(Entity entityToRide, boolean force, boolean sendEventAndTriggers, Operation<Boolean> original) {
         synchronized (this) {
-            return original.call(vehicle, force, emitEvent);
+            return original.call(entityToRide, force, sendEventAndTriggers);
         }
     }
 
     @WrapMethod(method = "removeVehicle")
     private void removeVehicle(Operation<Void> original) {
         synchronized (this) {
-            original.call();
-        }
-    }
-
-    @WrapMethod(method = "addMovementThisTick")
-    private void async$addMovementThisTick(Entity.Movement movement, Operation<Void> original) {
-        synchronized (async$movementLock) {
-            original.call(movement);
-        }
-    }
-
-    @WrapMethod(method = "removeLatestMovementRecording")
-    private void async$removeLatestMovementRecording(Operation<Void> original) {
-        synchronized (async$movementLock) {
-            original.call();
-        }
-    }
-
-    @WrapMethod(method = "clearMovementThisTick")
-    private void async$clearMovementThisTick(Operation<Void> original) {
-        synchronized (async$movementLock) {
-            original.call();
-        }
-    }
-
-    @WrapMethod(method = "applyEffectsFromBlocks()V")
-    private void async$applyEffectsFromBlocks(Operation<Void> original) {
-        synchronized (async$movementLock) {
             original.call();
         }
     }

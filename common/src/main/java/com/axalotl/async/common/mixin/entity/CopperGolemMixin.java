@@ -11,25 +11,25 @@ import org.spongepowered.asm.mixin.Unique;
 @Mixin(CopperGolem.class)
 public class CopperGolemMixin {
     @Unique
-    private static final Object async$lock = new Object();
+    private static final Object lock = new Object();
 
     @WrapMethod(method = "hasContainerOpen")
-    private boolean hasContainerOpen(ContainerOpenersCounter counter, BlockPos pos, Operation<Boolean> original) {
-        synchronized (async$lock) {
-            return original.call(counter, pos);
+    private boolean hasContainerOpen(ContainerOpenersCounter container, BlockPos blockPos, Operation<Boolean> original) {
+        synchronized (lock) {
+            return original.call(container, blockPos);
         }
     }
 
     @WrapMethod(method = "setOpenedChestPos")
-    private void setOpenedChestPos(BlockPos pos, Operation<Void> original) {
-        synchronized (async$lock) {
-            original.call(pos);
+    private void setOpenedChestPos(BlockPos openedChestPos, Operation<Void> original) {
+        synchronized (lock) {
+            original.call(openedChestPos);
         }
     }
 
     @WrapMethod(method = "clearOpenedChestPos")
     private void clearOpenedChestPos(Operation<Void> original) {
-        synchronized (async$lock) {
+        synchronized (lock) {
             original.call();
         }
     }

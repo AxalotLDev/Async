@@ -13,12 +13,12 @@ import java.util.function.Consumer;
 @Mixin(Projectile.class)
 public class ProjectileEntityMixin {
     @Unique
-    private static final Object async$lock = new Object();
+    private static final Object lock = new Object();
 
     @WrapMethod(method = "spawnProjectile(Lnet/minecraft/world/entity/projectile/Projectile;Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/world/item/ItemStack;Ljava/util/function/Consumer;)Lnet/minecraft/world/entity/projectile/Projectile;")
-    private static <T extends Projectile> T spawn(T projectile, ServerLevel level, ItemStack stack, Consumer<T> adapter, Operation<T> original) {
-        synchronized (async$lock) {
-            return original.call(projectile, level, stack, adapter);
+    private static <T extends Projectile> T spawn(T projectile, ServerLevel serverLevel, ItemStack itemStack, Consumer<T> shootFunction, Operation<T> original) {
+        synchronized (lock) {
+            return original.call(projectile, serverLevel, itemStack, shootFunction);
         }
     }
 }

@@ -41,7 +41,7 @@ public class AsyncNeoForge extends AsyncCommon {
         this.initialize();
         loadConfig();
         ParallelProcessor.setServer(event.getServer());
-        ParallelProcessor.setupThreadPool(getParallelism(), this.getClass());
+        ParallelProcessor.setupThreadPool(getParallelism());
     }
 
     @SubscribeEvent

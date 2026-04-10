@@ -13,26 +13,26 @@ import org.spongepowered.asm.mixin.Unique;
 public class ChunkHolderMixin {
 
     @Unique
-    private static final Object async$lock = new Object();
+    private static final Object lock = new Object();
 
     @WrapMethod(method = "broadcastChanges")
     private void wrapBroadcastChanges(LevelChunk chunk, Operation<Void> original) {
-        synchronized (async$lock) {
+        synchronized (lock) {
             original.call(chunk);
         }
     }
 
     @WrapMethod(method = "blockChanged")
     private boolean wrapBlockChanged(BlockPos pos, Operation<Boolean> original) {
-        synchronized (async$lock) {
+        synchronized (lock) {
             return original.call(pos);
         }
     }
 
     @WrapMethod(method = "sectionLightChanged")
-    private boolean wrapSectionLightChanged(LightLayer lightLayer, int y, Operation<Boolean> original) {
-        synchronized (async$lock) {
-            return original.call(lightLayer, y);
+    private boolean wrapSectionLightChanged(LightLayer layer, int chunkY, Operation<Boolean> original) {
+        synchronized (lock) {
+            return original.call(layer, chunkY);
         }
     }
 }

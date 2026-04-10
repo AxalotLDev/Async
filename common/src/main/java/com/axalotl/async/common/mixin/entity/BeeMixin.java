@@ -9,11 +9,11 @@ import org.spongepowered.asm.mixin.Unique;
 @Mixin(Bee.class)
 public class BeeMixin {
     @Unique
-    private static final Object async$lock = new Object();
+    private static final Object lock = new Object();
 
     @WrapMethod(method = "wantsToEnterHive")
     private boolean loot(Operation<Boolean> original) {
-        synchronized (async$lock) {
+        synchronized (lock) {
             return original.call();
         }
     }

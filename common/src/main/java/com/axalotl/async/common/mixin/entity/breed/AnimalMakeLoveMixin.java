@@ -16,30 +16,30 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public abstract class AnimalMakeLoveMixin {
 
     @Unique
-    private static final Object async$lock = new Object();
+    private static final Object lock = new Object();
 
     @Shadow
-    protected abstract Animal getBreedTarget(Animal animal);
+    protected abstract Animal getBreedTarget(Animal body);
 
     @Inject(method = "tick(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/world/entity/animal/Animal;J)V", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/ai/behavior/AnimalMakeLove;getBreedTarget(Lnet/minecraft/world/entity/animal/Animal;)Lnet/minecraft/world/entity/animal/Animal;"), cancellable = true)
-    private void tick(ServerLevel level, Animal owner, long gameTime, CallbackInfo ci) {
-        if (this.getBreedTarget(owner) == null) {
+    private void tick(ServerLevel level, Animal body, long timestamp, CallbackInfo ci) {
+        if (this.getBreedTarget(body) == null) {
             ci.cancel();
         }
     }
 
     @Inject(method = "canStillUse(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/world/entity/animal/Animal;J)Z", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/ai/behavior/AnimalMakeLove;getBreedTarget(Lnet/minecraft/world/entity/animal/Animal;)Lnet/minecraft/world/entity/animal/Animal;"), cancellable = true)
-    private void canStillUse(ServerLevel level, Animal entity, long gameTime, CallbackInfoReturnable<Boolean> cir) {
-        if (this.getBreedTarget(entity) == null) {
+    private void canStillUse(ServerLevel level, Animal body, long timestamp, CallbackInfoReturnable<Boolean> cir) {
+        if (this.getBreedTarget(body) == null) {
             cir.cancel();
         }
     }
 
 
     @Inject(method = "getBreedTarget", at = @At("HEAD"), cancellable = true)
-    private void syncBreedTarget(Animal animal, CallbackInfoReturnable<Animal> cir) {
-        synchronized (async$lock) {
-            cir.setReturnValue((Animal) animal.getBrain().getMemory(MemoryModuleType.BREED_TARGET).orElse(null));
+    private void syncBreedTarget(Animal body, CallbackInfoReturnable<Animal> cir) {
+        synchronized (lock) {
+            cir.setReturnValue((Animal) body.getBrain().getMemory(MemoryModuleType.BREED_TARGET).orElse(null));
         }
     }
 }

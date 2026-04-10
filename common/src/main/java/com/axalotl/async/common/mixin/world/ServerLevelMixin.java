@@ -121,7 +121,7 @@ public abstract class ServerLevelMixin extends Level implements WorldGenLevel {
             List<Future<Void>> despawnFutures = new ArrayList<>();
             for (int i = 0; i < toDespawnCheck.size(); i += chunkSize) {
                 List<Entity> chunk = toDespawnCheck.subList(i, Math.min(i + chunkSize, toDespawnCheck.size()));
-                despawnFutures.add(ParallelProcessor.tickPool.submit(() -> {
+                despawnFutures.add(ParallelProcessor.executor.submit(() -> {
                     for (Entity e : chunk) e.checkDespawn();
                     return (Void) null;
                 }));
@@ -172,7 +172,7 @@ public abstract class ServerLevelMixin extends Level implements WorldGenLevel {
         for (int i = 0; i < positions.length; i += chunkSize) {
             final int start = i;
             final int end = Math.min(i + chunkSize, positions.length);
-            futures.add(ParallelProcessor.tickPool.submit(() -> {
+            futures.add(ParallelProcessor.executor.submit(() -> {
                 for (int j = start; j < end; j++) {
                     results[j] = self.getFluidState(BlockPos.of(positions[j]));
                 }

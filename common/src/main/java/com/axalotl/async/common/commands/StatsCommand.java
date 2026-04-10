@@ -2,8 +2,8 @@ package com.axalotl.async.common.commands;
 
 import com.axalotl.async.common.ParallelProcessor;
 import com.axalotl.async.common.config.AsyncConfig;
-import com.axalotl.async.common.parallelised.utils.TickStats;
 import com.axalotl.async.common.platform.PlatformPermission;
+import com.axalotl.async.common.utils.TickStats;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import net.minecraft.ChatFormatting;
@@ -21,7 +21,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.axalotl.async.common.ParallelProcessor.getPoolSize;
 import static com.axalotl.async.common.commands.AsyncCommand.prefix;
-import static com.axalotl.async.common.parallelised.utils.TickStats.resetEntityTickStats;
+import static com.axalotl.async.common.utils.TickStats.resetEntityTickStats;
 import static net.minecraft.commands.Commands.argument;
 import static net.minecraft.commands.Commands.literal;
 

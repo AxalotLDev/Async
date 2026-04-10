@@ -14,19 +14,19 @@ import java.util.function.Predicate;
 @Mixin(CopperGolemAi.class)
 public class CopperGolemAiMixin {
     @Unique
-    private static final Object async$lock = new Object();
+    private static final Object lock = new Object();
 
     @WrapMethod(method = "shouldQueueForTarget")
     private static Predicate<TransportItemsBetweenContainers.TransportItemTarget> shouldQueueForTarget(Operation<Predicate<TransportItemsBetweenContainers.TransportItemTarget>> original) {
-        synchronized (async$lock) {
+        synchronized (lock) {
             return original.call();
         }
     }
 
     @WrapMethod(method = "onReachedTargetInteraction")
-    private static TransportItemsBetweenContainers.OnTargetReachedInteraction onReachedTargetInteraction(CopperGolemState p_479346_, SoundEvent p_480078_, Operation<TransportItemsBetweenContainers.OnTargetReachedInteraction> original) {
-        synchronized (async$lock) {
-            return original.call(p_479346_, p_480078_);
+    private static TransportItemsBetweenContainers.OnTargetReachedInteraction onReachedTargetInteraction(CopperGolemState state, SoundEvent sound, Operation<TransportItemsBetweenContainers.OnTargetReachedInteraction> original) {
+        synchronized (lock) {
+            return original.call(state, sound);
         }
     }
 }

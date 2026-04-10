@@ -8,6 +8,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -19,23 +20,23 @@ public abstract class FoxBreedGoalMixin extends BreedGoal {
     }
 
     @Unique
-    private static final ConcurrentHashMap<String, Boolean> async$breedingPairs = new ConcurrentHashMap<>();
+    private static final Map<String, Boolean> breedingPairs = new ConcurrentHashMap<>();
 
     @Inject(method = "start", at = @At("HEAD"))
     private void resetBreedingFlag(CallbackInfo ci) {
-        async$breedingPairs.remove(async$getPairKey());
+        breedingPairs.remove(getPairKey());
     }
 
     @Inject(method = "breed", at = @At("HEAD"), cancellable = true)
     private void preventDoubleBreed(CallbackInfo ci) {
-        String pairKey = async$getPairKey();
-        if (async$breedingPairs.putIfAbsent(pairKey, Boolean.TRUE) != null) {
+        String pairKey = getPairKey();
+        if (breedingPairs.putIfAbsent(pairKey, Boolean.TRUE) != null) {
             ci.cancel();
         }
     }
 
     @Unique
-    private String async$getPairKey() {
+    private String getPairKey() {
         UUID id1 = this.animal.getUUID();
         UUID id2 = null;
         if (this.partner != null) {

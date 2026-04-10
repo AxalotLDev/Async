@@ -9,11 +9,11 @@ import org.spongepowered.asm.mixin.Unique;
 @Mixin(MinecartHopper.class)
 public class MinecartHopperMixin {
     @Unique
-    private static final Object async$lock = new Object();
+    private static final Object lock = new Object();
 
     @WrapMethod(method = "suckInItems")
     private boolean suckInItems(Operation<Boolean> original) {
-        synchronized (async$lock) {
+        synchronized (lock) {
             return original.call();
         }
     }

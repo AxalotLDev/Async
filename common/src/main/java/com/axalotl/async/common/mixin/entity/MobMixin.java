@@ -14,33 +14,33 @@ import org.spongepowered.asm.mixin.Unique;
 public class MobMixin {
 
     @Unique
-    private static final Object async$lock = new Object();
+    private static final Object lock = new Object();
 
     @WrapMethod(method = "equipItemIfPossible")
-    private ItemStack tryEquip(ServerLevel level, ItemStack stack, Operation<ItemStack> original) {
-        synchronized (async$lock) {
-            return original.call(level, stack);
+    private ItemStack tryEquip(ServerLevel level, ItemStack itemStack, Operation<ItemStack> original) {
+        synchronized (lock) {
+            return original.call(level, itemStack);
         }
     }
 
     @WrapMethod(method = "pickUpItem")
     private void pickUpItem(ServerLevel level, ItemEntity entity, Operation<Void> original) {
-        synchronized (async$lock) {
+        synchronized (lock) {
             original.call(level, entity);
         }
     }
 
     @WrapMethod(method = "setItemSlotAndDropWhenKilled")
-    private void equipLootStack(EquipmentSlot slot, ItemStack stack, Operation<Void> original) {
-        synchronized (async$lock) {
-            original.call(slot, stack);
+    private void equipLootStack(EquipmentSlot slot, ItemStack itemStack, Operation<Void> original) {
+        synchronized (lock) {
+            original.call(slot, itemStack);
         }
     }
 
     @WrapMethod(method = "setBodyArmorItem")
-    private void equipLootStack(ItemStack stack, Operation<Void> original) {
-        synchronized (async$lock) {
-            original.call(stack);
+    private void equipLootStack(ItemStack item, Operation<Void> original) {
+        synchronized (lock) {
+            original.call(item);
         }
     }
 }

@@ -15,7 +15,7 @@ import org.spongepowered.asm.mixin.Unique;
 public abstract class DolphinMixin extends AgeableWaterCreature {
 
     @Unique
-    private static final Object async$lock = new Object();
+    private static final Object lock = new Object();
 
     protected DolphinMixin(EntityType<? extends AgeableWaterCreature> entityType, Level level) {
         super(entityType, level);
@@ -23,7 +23,7 @@ public abstract class DolphinMixin extends AgeableWaterCreature {
 
     @WrapMethod(method = "pickUpItem")
     private void pickUpItem(ServerLevel level, ItemEntity entity, Operation<Void> original) {
-        synchronized (async$lock) {
+        synchronized (lock) {
             if (!entity.isRemoved()) {
                 original.call(level, entity);
             }

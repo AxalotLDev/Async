@@ -14,6 +14,7 @@ import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 import org.spongepowered.asm.mixin.Mixin;
@@ -21,70 +22,81 @@ import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
-@Mixin(value = LivingEntity.class, priority = 1001)
+@Mixin(value = LivingEntity.class)
 public abstract class LivingEntityMixin extends Entity {
 
     @Shadow
     final private Map<Holder<MobEffect>, MobEffectInstance> activeEffects = new ConcurrentHashMap<>();
 
     @Unique
-    private static final Object async$lock = new Object();
+    private static final Object lock = new Object();
 
     public LivingEntityMixin(EntityType<?> type, Level world) {
         super(type, world);
     }
 
     @WrapMethod(method = "die")
-    private synchronized void die(DamageSource damageSource, Operation<Void> original) {
-        original.call(damageSource);
+    private synchronized void die(DamageSource source, Operation<Void> original) {
+        original.call(source);
     }
 
     @WrapMethod(method = "dropFromLootTable(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/world/damagesource/DamageSource;Z)V")
-    private synchronized void dropFromLootTable(ServerLevel level, DamageSource damageSource, boolean playerKill, Operation<Void> original) {
-        original.call(level, damageSource, playerKill);
+    private synchronized void dropFromLootTable(ServerLevel level, DamageSource source, boolean playerKilled, Operation<Void> original) {
+        original.call(level, source, playerKilled);
     }
 
     @WrapMethod(method = "knockback")
-    private void knockback(double strength, double x, double z, Operation<Void> original) {
-        synchronized (async$lock) {
-            original.call(strength, x, z);
+    private void knockback(double power, double xd, double zd, Operation<Void> original) {
+        synchronized (lock) {
+            original.call(power, xd, zd);
         }
     }
 
     @WrapMethod(method = "tickEffects")
     private void tickStatusEffects(Operation<Void> original) {
-        synchronized (async$lock) {
+        synchronized (lock) {
             original.call();
         }
     }
 
-    @WrapOperation(method = "tickEffects", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/effect/MobEffectInstance;tickServer(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/world/entity/LivingEntity;Ljava/lang/Runnable;)Z"))
-    private boolean wrapTickEffect(MobEffectInstance instance, ServerLevel level, LivingEntity entity, Runnable onEffectUpdated, Operation<Boolean> original) {
-        return instance != null ? original.call(instance, level, entity, onEffectUpdated) : false;
+    @WrapOperation(
+            method = "tickEffects",
+            at = @At(
+                    value = "INVOKE",
+                    target = "Lnet/minecraft/world/effect/MobEffectInstance;tickServer(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/world/entity/LivingEntity;Ljava/lang/Runnable;)Z"
+            )
+    )
+    private boolean wrapTickEffect(MobEffectInstance instance, ServerLevel serverLevel, LivingEntity target, Runnable onEffectUpdate, Operation<Boolean> original) {
+        return instance != null ? original.call(instance, serverLevel, target, onEffectUpdate) : false;
     }
 
-    @WrapOperation(method = "tickEffects", at = @At(value = "INVOKE", target = "Ljava/util/List;of(Ljava/lang/Object;)Ljava/util/List;"))
-    private List<?> wrapListOf(Object element, Operation<List<?>> original) {
-        return element != null ? original.call(element) : Collections.emptyList();
+    @WrapOperation(
+            method = "tickEffects",
+            at = @At(
+                    value = "INVOKE",
+                    target = "Ljava/util/List;of(Ljava/lang/Object;)Ljava/util/List;"
+            )
+    )
+    private List<?> wrapListOf(Object e1, Operation<List<?>> original) {
+        return e1 != null ? original.call(e1) : Collections.emptyList();
     }
 
     @WrapMethod(method = "addEffect(Lnet/minecraft/world/effect/MobEffectInstance;Lnet/minecraft/world/entity/Entity;)Z")
-    private boolean addEffect(MobEffectInstance effect, Entity source, Operation<Boolean> original) {
-        synchronized (async$lock) {
-            return effect != null ? original.call(effect, source) : false;
+    private boolean addEffect(MobEffectInstance newEffect, Entity source, Operation<Boolean> original) {
+        synchronized (lock) {
+            return newEffect != null ? original.call(newEffect, source) : false;
         }
     }
 
     @WrapMethod(method = "removeEffect")
     private boolean removeEffect(Holder<MobEffect> effect, Operation<Boolean> original) {
-        synchronized (async$lock) {
+        synchronized (lock) {
             return effect != null ? original.call(effect) : false;
         }
     }
@@ -96,18 +108,28 @@ public abstract class LivingEntityMixin extends Entity {
 
     @WrapMethod(method = "removeAllEffects")
     private boolean removeAllEffects(Operation<Boolean> original) {
-        synchronized (async$lock) {
+        synchronized (lock) {
             return original.call();
         }
     }
 
     @Inject(method = "causeFallDamage", at = @At("HEAD"), cancellable = true)
-    private void causeFallDamage(double fallDistance, float multiplier, DamageSource source, CallbackInfoReturnable<Boolean> cir) {
+    private void causeFallDamage(double fallDistance, float damageModifier, DamageSource damageSource, CallbackInfoReturnable<Boolean> cir) {
         BlockPos pos = new BlockPos(Mth.floor(this.getX()), Mth.floor(this.getY()), Mth.floor(this.getZ()));
         BlockState currentBlock = this.level().getBlockState(pos);
 
         if (currentBlock.is(BlockTags.CLIMBABLE)) {
             cir.setReturnValue(false);
         }
+    }
+
+    @Redirect(method = "refreshDirtyAttributes", at = @At(value = "INVOKE", target = "Ljava/util/Set;iterator()Ljava/util/Iterator;"))
+    private Iterator<AttributeInstance> snapshotIterator(Set<AttributeInstance> set) {
+        Set<AttributeInstance> snapshot;
+        synchronized (lock) {
+            snapshot = new HashSet<>(set);
+            set.clear();
+        }
+        return snapshot.iterator();
     }
 }

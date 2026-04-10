@@ -1,7 +1,7 @@
 package com.axalotl.async.common.mixin.entity;
 
-import com.axalotl.async.common.parallelised.ConcurrentCollections;
 import com.axalotl.async.common.parallelised.fastutil.Int2ObjectConcurrentHashMap;
+import com.axalotl.async.common.parallelised.ConcurrentCollections;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
@@ -49,7 +49,7 @@ public abstract class EntityLookupMixin<T extends EntityAccess> {
         UUID uuid = entity.getUUID();
         int id = entity.getId();
 
-        byUuid.compute(uuid, (k, existing) -> {
+        byUuid.compute(uuid, (_, existing) -> {
             if (existing == null) {
                 byId.put(id, entity);
                 return entity;
@@ -70,7 +70,7 @@ public abstract class EntityLookupMixin<T extends EntityAccess> {
         UUID uuid = entity.getUUID();
         int id = entity.getId();
 
-        byUuid.computeIfPresent(uuid, (k, existing) -> {
+        byUuid.computeIfPresent(uuid, (_, existing) -> {
             if (existing.getId() == id) {
                 byId.remove(id);
                 return null;
@@ -80,8 +80,8 @@ public abstract class EntityLookupMixin<T extends EntityAccess> {
     }
 
     @WrapMethod(method = "getEntity(Ljava/util/UUID;)Lnet/minecraft/world/level/entity/EntityAccess;")
-    private T getEntity(UUID uuid, Operation<T> original) {
-        return uuid == null ? null : original.call(uuid);
+    private T getEntity(UUID id, Operation<T> original) {
+        return id == null ? null : original.call(id);
     }
 
     @WrapMethod(method = "getEntity(I)Lnet/minecraft/world/level/entity/EntityAccess;")

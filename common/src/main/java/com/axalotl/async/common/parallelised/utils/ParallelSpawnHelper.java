@@ -41,7 +41,7 @@ public final class ParallelSpawnHelper {
     public static SpawnResult collectSpawnData(Entity[] entities, NaturalSpawner.ChunkGetter chunkGetter) {
         int length = entities.length;
 
-        if (length <= SPAWN_GRAIN || ParallelProcessor.tickPool == null) {
+        if (length <= SPAWN_GRAIN || ParallelProcessor.executor == null) {
             return computeRange(entities, chunkGetter, 0, length);
         }
 
@@ -52,7 +52,7 @@ public final class ParallelSpawnHelper {
         for (int i = 0; i < length; i += chunkSize) {
             int from = i;
             int to = Math.min(i + chunkSize, length);
-            futures.add(CompletableFuture.supplyAsync(() -> computeRange(entities, chunkGetter, from, to), ParallelProcessor.tickPool));
+            futures.add(CompletableFuture.supplyAsync(() -> computeRange(entities, chunkGetter, from, to), ParallelProcessor.executor));
         }
 
         SpawnResult merged = new SpawnResult();

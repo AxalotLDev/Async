@@ -16,7 +16,7 @@ public abstract class ServerPlayerMixin extends Player {
     }
 
     @WrapMethod(method = "die")
-    private synchronized void die(DamageSource damageSource, Operation<Void> original) {
-        original.call(damageSource);
+    private synchronized void die(DamageSource source, Operation<Void> original) {
+        original.call(source);
     }
 }

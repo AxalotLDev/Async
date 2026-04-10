@@ -306,7 +306,7 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
                     c.incrementInhabitedTime(timeDiff);
                     NaturalSpawner.spawnForChunk(lvl, c, state, categories);
                 }
-            }, ParallelProcessor.tickPool);
+            }, ParallelProcessor.executor);
         }
 
         async$spawnFuture = CompletableFuture.allOf(futures);
@@ -351,7 +351,7 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
                 for (int j = start; j < end; j++) {
                     consumer.accept(tickChunks.get(j));
                 }
-            }, ParallelProcessor.tickPool);
+            }, ParallelProcessor.executor);
         }
 
         async$pumpUntilDone(CompletableFuture.allOf(futures));
