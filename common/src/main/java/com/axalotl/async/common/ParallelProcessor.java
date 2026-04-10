@@ -206,7 +206,7 @@ public class ParallelProcessor {
         }
     }
 
-    public static void stopThreadPool() {
+    public static void stop() {
         isShuttingDown = true;
 
         if (executor != null) {
