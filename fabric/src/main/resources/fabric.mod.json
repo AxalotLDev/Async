@@ -11,7 +11,7 @@
     "homepage": "https://fabricmc.net/",
     "sources": "https://github.com/FabricMC/fabric-example-mod"
   },
-  "license": "${license}",
+  "license": "GPL-3.0",
   "icon": "async/icon.png",
   "environment": "*",
   "entrypoints": {
@@ -19,7 +19,7 @@
       "com.axalotl.async.fabric.AsyncFabric"
     ],
     "mixinsquared": [
-      "com.axalotl.async.common.mixin.utils.AsyncModMixinCanceller"
+      "com.axalotl.async.common.mixin.utils.MixinCanceller"
     ]
   },
   "mixins": [
@@ -30,8 +30,8 @@
   "depends": {
     "fabricloader": "*",
     "fabric-api": "*",
-    "minecraft": ">=1.21.6",
-    "java": ">=21"
+    "minecraft": ">=26.1",
+    "java": ">=25"
   },
   "breaks": {
     "moonrise": "*",
@@ -39,8 +39,7 @@
   },
   "custom": {
     "lithium:options": {
-      "mixin.alloc.chunk_random": false,
-      "mixin.ai.task.memory_change_counting": false
+      "mixin.alloc.chunk_random": false
     }
   }
 }

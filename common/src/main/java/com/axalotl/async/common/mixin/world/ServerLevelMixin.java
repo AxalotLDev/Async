@@ -104,7 +104,7 @@ public abstract class ServerLevelMixin extends Level implements WorldGenLevel {
             }
 
             if (!this.chunkSource.chunkMap.getDistanceManager()
-                    .inEntityTickingRange(entity.chunkPosition().toLong())) return;
+                    .inEntityTickingRange(entity.chunkPosition().pack())) return;
 
             Entity vehicle = entity.getVehicle();
             if (vehicle != null) {
@@ -217,7 +217,7 @@ public abstract class ServerLevelMixin extends Level implements WorldGenLevel {
     private void async$canSpawnEntitiesInChunk(ChunkPos pos, CallbackInfoReturnable<Boolean> cir) {
         it.unimi.dsi.fastutil.longs.LongOpenHashSet set = ParallelProcessor.spawnableChunkPositions;
         if (set != null && ParallelProcessor.isServerExecutionThread()) {
-            cir.setReturnValue(set.contains(pos.toLong()));
+            cir.setReturnValue(set.contains(pos.pack()));
         }
     }
 

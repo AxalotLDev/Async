@@ -15,7 +15,7 @@ public class AsyncConfig {
 
     public static boolean disabled = false;
     public static int maxThreads = -1;
-    public static boolean enableAsyncSpawn = true;
+    public static boolean enableAsyncSpawn = false;
     public static boolean enableAsyncRandomTicks = false;
     public static Set<String> synchronizedEntities = getDefaultSynchronizedEntities();
 
@@ -36,7 +36,7 @@ public class AsyncConfig {
 
     public static int getParallelism() {
         if (maxThreads <= 0) return Runtime.getRuntime().availableProcessors();
-        return Math.max(1, Math.min(Runtime.getRuntime().availableProcessors(), maxThreads));
+        return Math.clamp(Runtime.getRuntime().availableProcessors(), 1, maxThreads);
     }
 
     public static boolean isNamespaceWildcard(String input) {

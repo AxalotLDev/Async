@@ -34,7 +34,7 @@ public class SpawnStateMixin {
     @Shadow @Final private Object2IntOpenHashMap<MobCategory> mobCategoryCounts;
 
     @Unique
-    private final AtomicIntegerArray async$atomicMobCounts = new AtomicIntegerArray(MobCategory.values().length);
+    private AtomicIntegerArray async$atomicMobCounts;
 
     @Unique
     private static final ThreadLocal<long[]> async$chargeCache = ThreadLocal.withInitial(() -> new long[3]);
@@ -46,8 +46,9 @@ public class SpawnStateMixin {
             PotentialCalculator spawnPotential,
             LocalMobCapCalculator localMobCapCalculator,
             CallbackInfo ci) {
+        this.async$atomicMobCounts = new AtomicIntegerArray(MobCategory.values().length);
         for (MobCategory cat : MobCategory.values()) {
-            async$atomicMobCounts.set(cat.ordinal(), this.mobCategoryCounts.getInt(cat));
+            this.async$atomicMobCounts.set(cat.ordinal(), this.mobCategoryCounts.getInt(cat));
         }
     }
 
@@ -90,22 +91,22 @@ public class SpawnStateMixin {
         }
         this.spawnPotential.addCharge(pos, charge);
         MobCategory category = type.getCategory();
-        async$atomicMobCounts.incrementAndGet(category.ordinal());
-        this.localMobCapCalculator.addMob(new ChunkPos(pos), category);
+        this.async$atomicMobCounts.incrementAndGet(category.ordinal());
+        this.localMobCapCalculator.addMob(new ChunkPos(pos.getX() >> 4, pos.getZ() >> 4), category);
     }
 
     @WrapMethod(method = "canSpawnForCategoryGlobal")
     private boolean async$canSpawnForCategoryGlobal(MobCategory mobCategory, Operation<Boolean> original) {
         int magicNumber = (2 * NaturalSpawner.SPAWN_DISTANCE_CHUNK + 1) * (2 * NaturalSpawner.SPAWN_DISTANCE_CHUNK + 1);
         int maxMobCount = mobCategory.getMaxInstancesPerChunk() * this.spawnableChunkCount / magicNumber;
-        return async$atomicMobCounts.get(mobCategory.ordinal()) < maxMobCount;
+        return this.async$atomicMobCounts.get(mobCategory.ordinal()) < maxMobCount;
     }
 
     @WrapMethod(method = "getMobCategoryCounts")
     private Object2IntMap<MobCategory> async$getMobCategoryCounts(Operation<Object2IntMap<MobCategory>> original) {
         Object2IntOpenHashMap<MobCategory> result = new Object2IntOpenHashMap<>();
         for (MobCategory cat : MobCategory.values()) {
-            int count = async$atomicMobCounts.get(cat.ordinal());
+            int count = this.async$atomicMobCounts.get(cat.ordinal());
             if (count > 0) {
                 result.put(cat, count);
             }

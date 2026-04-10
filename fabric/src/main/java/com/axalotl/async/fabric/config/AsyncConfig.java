@@ -128,7 +128,7 @@ public class AsyncConfig {
     private static void setDefaultValues() {
         disabled = false;
         maxThreads = -1;
-        enableAsyncSpawn = true;
+        enableAsyncSpawn = false;
         enableAsyncRandomTicks = false;
         synchronizedEntities = getDefaultSynchronizedEntities();
     }

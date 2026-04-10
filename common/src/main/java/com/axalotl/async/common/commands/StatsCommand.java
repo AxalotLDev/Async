@@ -2,7 +2,8 @@ package com.axalotl.async.common.commands;
 
 import com.axalotl.async.common.ParallelProcessor;
 import com.axalotl.async.common.config.AsyncConfig;
-import com.axalotl.async.common.platform.Permission;
+import com.axalotl.async.common.parallelised.utils.TickStats;
+import com.axalotl.async.common.platform.PlatformPermission;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import net.minecraft.ChatFormatting;
@@ -20,28 +21,52 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.axalotl.async.common.ParallelProcessor.getPoolSize;
 import static com.axalotl.async.common.commands.AsyncCommand.prefix;
+import static com.axalotl.async.common.parallelised.utils.TickStats.resetEntityTickStats;
 import static net.minecraft.commands.Commands.argument;
 import static net.minecraft.commands.Commands.literal;
 
 public class StatsCommand {
 
     public static LiteralArgumentBuilder<CommandSourceStack> registerStatus(LiteralArgumentBuilder<CommandSourceStack> root) {
-        return root.then(literal("stats").requires(Permission.require("command.statistics", 0))
+        return root.then(literal("stats").requires(PlatformPermission.require("command.statistics", 0))
                 .executes(cmdCtx -> {
                     showGeneralStats(cmdCtx.getSource());
                     return 1;
                 })
                 .then(literal("entity")
                         .executes(cmdCtx -> {
-                            showEntityStats(cmdCtx.getSource(), 0);
+                            showEntityStats(cmdCtx.getSource(), 0, false, 0);
                             return 1;
                         })
                         .then(argument("count", IntegerArgumentType.integer(1, 100))
                                 .executes(cmdCtx -> {
                                     int count = IntegerArgumentType.getInteger(cmdCtx, "count");
-                                    showEntityStats(cmdCtx.getSource(), count);
+                                    showEntityStats(cmdCtx.getSource(), count, false, 0);
                                     return 1;
-                                }))));
+                                })
+                                .then(argument("ticks", IntegerArgumentType.integer())
+                                        .executes(cmdCtx -> {
+                                            int count = IntegerArgumentType.getInteger(cmdCtx, "count");
+                                            int ticks = IntegerArgumentType.getInteger(cmdCtx, "ticks");
+                                            startRecordingAndShow(cmdCtx.getSource(), count, ticks);
+                                            return 1;
+                                        })))));
+    }
+
+    private static void startRecordingAndShow(CommandSourceStack source, int topCount, int ticks) {
+        TickStats.startRecording(ticks);
+        source.sendSuccess(() -> prefix.copy().append(Component.literal("Recording entity ticks for " + ticks + " ticks...").withStyle(ChatFormatting.YELLOW)), false);
+        pollUntilDone(source, topCount, ticks);
+    }
+
+    private static void pollUntilDone(CommandSourceStack source, int topCount, int ticks) {
+        source.getServer().execute(() -> {
+            if (TickStats.isRecording()) {
+                pollUntilDone(source, topCount, ticks);
+            } else {
+                showEntityStats(source, topCount, true, ticks);
+            }
+        });
     }
 
     private static void showGeneralStats(CommandSourceStack source) {
@@ -86,7 +111,7 @@ public class StatsCommand {
         source.sendSuccess(() -> message, false);
     }
 
-    private static void showEntityStats(CommandSourceStack source, int topCount) {
+    private static void showEntityStats(CommandSourceStack source, int topCount, boolean showTickStats, int ticks) {
         MinecraftServer server = source.getServer();
         server.execute(() -> {
             Map<EntityType<?>, Integer> entityTypeCounts = new HashMap<>();
@@ -156,10 +181,16 @@ public class StatsCommand {
                                             .withStyle(isAsync ? ChatFormatting.AQUA : ChatFormatting.RED))
                                     .append(Component.literal("]").withStyle(ChatFormatting.DARK_GRAY));
 
+                            if (showTickStats && ticks > 0) {
+                                double mspt = TickStats.getMSPTForType(type, ticks);
+                                message.append(Component.literal(" "))
+                                        .append(Component.literal(String.format("%.3fms avg", mspt)).withStyle(ChatFormatting.GREEN));
+                            }
+
                             rank[0]++;
                         });
             }
-
+            resetEntityTickStats();
             source.sendSuccess(() -> message, false);
         });
     }

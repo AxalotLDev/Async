@@ -1,7 +1,7 @@
 package com.axalotl.async.common.commands;
 
 import com.axalotl.async.common.config.AsyncConfig;
-import com.axalotl.async.common.platform.Permission;
+import com.axalotl.async.common.platform.PlatformPermission;
 import com.axalotl.async.common.platform.PlatformUtils;
 import com.mojang.brigadier.arguments.BoolArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
@@ -25,7 +25,7 @@ public class ConfigCommand {
 
     public static LiteralArgumentBuilder<CommandSourceStack> registerConfig(LiteralArgumentBuilder<CommandSourceStack> root) {
         return root.then(literal("config")
-                .requires(Permission.require("command.config", 4))
+                .requires(PlatformPermission.require("command.config", 4))
                 .then(buildToggleCommand())
                 .then(buildReloadCommand())
                 .then(buildSynchronizedEntitiesCommand())
@@ -80,7 +80,7 @@ public class ConfigCommand {
     private static LiteralArgumentBuilder<CommandSourceStack> buildAddEntityCommand() {
         return literal("add")
                 .then(Commands.argument("entity", IdentifierArgument.id())
-                        .suggests((context, builder) -> {
+                        .suggests((_, builder) -> {
                             BuiltInRegistries.ENTITY_TYPE.keySet().forEach(
                                     id -> builder.suggest(id.toString())
                             );
@@ -100,7 +100,7 @@ public class ConfigCommand {
     private static LiteralArgumentBuilder<CommandSourceStack> buildRemoveEntityCommand() {
         return literal("remove")
                 .then(Commands.argument("entity", IdentifierArgument.id())
-                        .suggests((context, builder) -> {
+                        .suggests((_, builder) -> {
                             AsyncConfig.synchronizedEntities.forEach(builder::suggest);
                             return builder.buildFuture();
                         })

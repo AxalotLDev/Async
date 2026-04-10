@@ -1,202 +1,140 @@
 package com.axalotl.async.common.mixin.entity;
 
 import com.axalotl.async.common.config.AsyncConfig;
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Maps;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.Brain;
-import net.minecraft.world.entity.ai.behavior.BehaviorControl;
-import net.minecraft.world.entity.ai.memory.ExpirableValue;
 import net.minecraft.world.entity.ai.memory.MemoryModuleType;
+import net.minecraft.world.entity.ai.memory.MemorySlot;
 import net.minecraft.world.entity.ai.memory.MemoryStatus;
-import net.minecraft.world.entity.schedule.Activity;
-import org.spongepowered.asm.mixin.Final;
+import org.jspecify.annotations.Nullable;
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Mutable;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-import java.util.Collection;
-import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentSkipListMap;
-import java.util.function.Supplier;
 
 @Mixin(value = Brain.class, priority = 1500)
 public class BrainMixin<E extends LivingEntity> {
 
     @Shadow
-    @Final
-    private Map<MemoryModuleType<?>, Optional<? extends ExpirableValue<?>>> memories;
-
-    @Shadow
-    @Final
-    @Mutable
-    private Map<Integer, Map<Activity, Set<BehaviorControl<? super E>>>> availableBehaviorsByPriority;
-
-    @Shadow
-    @Final
-    @Mutable
-    private Set<Activity> activeActivities;
-
-    @Mutable
-    @Shadow
-    private Set<Activity> coreActivities;
+    private final Map<MemoryModuleType<?>, MemorySlot<?>> memories = Maps.newHashMap();
 
     @Unique
-    private volatile Map<MemoryModuleType<?>, Optional<? extends ExpirableValue<?>>> async$snapshot;
+    private volatile Map<MemoryModuleType<?>, MemorySlot<?>> snapshot;
 
     @Unique
-    private volatile boolean async$needsRebuild = true;
+    private volatile boolean needsRebuild = true;
 
     @Unique
-    private volatile boolean async$inTick;
+    private volatile boolean inTick;
 
     @Unique
-    private final Object async$writeLock = new Object();
-
-    @Inject(method = "<init>", at = @At("RETURN"))
-    private void async$makeConcurrent(Collection<?> memoryModuleTypes, Collection<?> sensorTypes,
-                                      ImmutableList<?> memoryValues, Supplier<?> codec, CallbackInfo ci) {
-        if (AsyncConfig.disabled) return;
-
-        this.availableBehaviorsByPriority = new ConcurrentSkipListMap<>(this.availableBehaviorsByPriority);
-
-        Set<Activity> newActive = Collections.newSetFromMap(new ConcurrentHashMap<>());
-        newActive.addAll(this.activeActivities);
-        this.activeActivities = newActive;
-
-        Set<Activity> newCore = Collections.newSetFromMap(new ConcurrentHashMap<>());
-        newCore.addAll(this.coreActivities);
-        this.coreActivities = newCore;
-    }
-
-    @Redirect(method = "addActivityAndRemoveMemoriesWhenStopped", at = @At(value = "INVOKE", target = "Ljava/util/Map;computeIfAbsent(Ljava/lang/Object;Ljava/util/function/Function;)Ljava/lang/Object;", ordinal = 0))
-    private Object async$concurrentInnerMap(Map<Object, Object> map, Object key, java.util.function.Function<Object, Object> mappingFunction) {
-        if (AsyncConfig.disabled) return map.computeIfAbsent(key, mappingFunction);
-        return map.computeIfAbsent(key, k -> new ConcurrentHashMap<>());
-    }
-
-    @Redirect(method = "addActivityAndRemoveMemoriesWhenStopped", at = @At(value = "INVOKE", target = "Ljava/util/Map;computeIfAbsent(Ljava/lang/Object;Ljava/util/function/Function;)Ljava/lang/Object;", ordinal = 1)
-    )
-    private Object async$concurrentInnerSet(Map<Object, Object> map, Object key, java.util.function.Function<Object, Object> mappingFunction) {
-        if (AsyncConfig.disabled) return map.computeIfAbsent(key, mappingFunction);
-        return map.computeIfAbsent(key, k -> ConcurrentHashMap.newKeySet());
-    }
-
-    @WrapMethod(method = "setCoreActivities")
-    private void async$setCoreActivities(Set<Activity> newActivities, Operation<Void> original) {
-        if (AsyncConfig.disabled) {
-            original.call(newActivities);
-            return;
-        }
-        Set<Activity> concurrent = Collections.newSetFromMap(new ConcurrentHashMap<>());
-        concurrent.addAll(newActivities);
-        this.coreActivities = concurrent;
-    }
+    private final Object writeLock = new Object();
 
     @Inject(method = "tick", at = @At("HEAD"))
-    private void async$buildSnapshot(ServerLevel level, E entity, CallbackInfo ci) {
+    private void buildSnapshot(ServerLevel level, E entity, CallbackInfo ci) {
         if (AsyncConfig.disabled) return;
 
-        if (async$needsRebuild || async$snapshot == null) {
-            synchronized (async$writeLock) {
-                if (async$needsRebuild || async$snapshot == null) {
-                    async$snapshot = new ConcurrentHashMap<>(this.memories);
-                    async$needsRebuild = false;
+        if (needsRebuild || snapshot == null) {
+            synchronized (writeLock) {
+                if (needsRebuild || snapshot == null) {
+                    snapshot = new ConcurrentHashMap<>(this.memories);
+                    needsRebuild = false;
                 }
             }
         }
 
-        async$inTick = true;
+        inTick = true;
     }
 
     @Inject(method = "tick", at = @At("RETURN"))
-    private void async$endTick(ServerLevel level, E entity, CallbackInfo ci) {
-        async$inTick = false;
+    private void endTick(ServerLevel level, E entity, CallbackInfo ci) {
+        inTick = false;
     }
 
     @Inject(method = "getMemory", at = @At("HEAD"), cancellable = true)
-    private <U> void async$getMemory(MemoryModuleType<U> type, CallbackInfoReturnable<Optional<U>> cir) {
+    private <U> void getMemory(MemoryModuleType<U> type, CallbackInfoReturnable<Optional<U>> cir) {
         if (AsyncConfig.disabled) return;
 
-        Map<MemoryModuleType<?>, Optional<? extends ExpirableValue<?>>> snapshot = async$snapshot;
-        if (async$inTick && snapshot != null) {
-            Optional<? extends ExpirableValue<?>> value = snapshot.get(type);
-            if (value == null) {
-                cir.setReturnValue(Optional.empty());
-                return;
-            }
+        Map<MemoryModuleType<?>, MemorySlot<?>> snapshot = this.snapshot;
+        if (inTick && snapshot != null) {
             @SuppressWarnings("unchecked")
-            Optional<U> result = (Optional<U>) value.map(ExpirableValue::getValue);
+            MemorySlot<U> slot = (MemorySlot<U>) snapshot.get(type);
+            Optional<U> result = (slot != null && slot.hasValue() && !slot.hasExpired())
+                    ? Optional.ofNullable(slot.value())
+                    : Optional.empty();
             cir.setReturnValue(result);
         }
     }
 
     @Inject(method = "hasMemoryValue", at = @At("HEAD"), cancellable = true)
-    private void async$hasMemoryValue(MemoryModuleType<?> type, CallbackInfoReturnable<Boolean> cir) {
+    private void hasMemoryValue(MemoryModuleType<?> type, CallbackInfoReturnable<Boolean> cir) {
         if (AsyncConfig.disabled) return;
 
-        Map<MemoryModuleType<?>, Optional<? extends ExpirableValue<?>>> snapshot = async$snapshot;
-        if (async$inTick && snapshot != null) {
-            Optional<? extends ExpirableValue<?>> value = snapshot.get(type);
-            cir.setReturnValue(value != null && value.isPresent());
+        Map<MemoryModuleType<?>, MemorySlot<?>> snapshot = this.snapshot;
+        if (inTick && snapshot != null) {
+            MemorySlot<?> slot = snapshot.get(type);
+            cir.setReturnValue(slot != null && slot.hasValue() && !slot.hasExpired());
         }
     }
 
     @Inject(method = "checkMemory", at = @At("HEAD"), cancellable = true)
-    private void async$checkMemory(MemoryModuleType<?> type, MemoryStatus status, CallbackInfoReturnable<Boolean> cir) {
+    private void checkMemory(MemoryModuleType<?> type, MemoryStatus status, CallbackInfoReturnable<Boolean> cir) {
         if (AsyncConfig.disabled) return;
 
-        Map<MemoryModuleType<?>, Optional<? extends ExpirableValue<?>>> snapshot = async$snapshot;
-        if (async$inTick && snapshot != null) {
-            Optional<? extends ExpirableValue<?>> value = snapshot.get(type);
+        Map<MemoryModuleType<?>, MemorySlot<?>> snapshot = this.snapshot;
+        if (inTick && snapshot != null) {
+            MemorySlot<?> slot = snapshot.get(type);
 
             boolean result = switch (status) {
                 case REGISTERED -> true;
-                case VALUE_PRESENT -> value != null && value.isPresent();
-                case VALUE_ABSENT -> value == null || value.isEmpty();
+                case VALUE_PRESENT -> slot != null && slot.hasValue() && !slot.hasExpired();
+                case VALUE_ABSENT -> slot == null || !slot.hasValue() || slot.hasExpired();
             };
 
             cir.setReturnValue(result);
         }
     }
 
-    @WrapMethod(method = "setMemoryInternal")
-    private <U> void async$setMemory(MemoryModuleType<U> memoryType, Optional<? extends ExpirableValue<?>> memory, Operation<Void> original) {
+    @WrapMethod(method = "setMemoryInternal(Lnet/minecraft/world/entity/ai/memory/MemoryModuleType;Ljava/lang/Object;)V")
+    private <U> void setMemory(MemoryModuleType<U> type, @Nullable U value, Operation<Void> original) {
         if (AsyncConfig.disabled) {
-            original.call(memoryType, memory);
+            original.call(type, value);
             return;
         }
 
-        synchronized (async$writeLock) {
-            original.call(memoryType, memory);
-            if (async$snapshot != null && async$snapshot.containsKey(memoryType)) {
-                async$snapshot.put(memoryType, memory);
+        synchronized (writeLock) {
+            original.call(type, value);
+            if (snapshot != null && snapshot.containsKey(type)) {
+                @SuppressWarnings("unchecked")
+                MemorySlot<U> slot = (MemorySlot<U>) snapshot.get(type);
+                if (slot != null && value != null) {
+                    slot.set(value);
+                }
             }
         }
     }
 
     @WrapMethod(method = "clearMemories")
-    private void async$clearMemories(Operation<Void> original) {
+    private void clearMemories(Operation<Void> original) {
         if (AsyncConfig.disabled) {
             original.call();
             return;
         }
 
-        synchronized (async$writeLock) {
+        synchronized (writeLock) {
             original.call();
-            async$needsRebuild = true;
+            needsRebuild = true;
         }
     }
 }

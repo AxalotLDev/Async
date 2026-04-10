@@ -1,10 +1,8 @@
 package com.axalotl.async.common.mixin.utils;
 
-import com.bawnorton.mixinsquared.api.MixinCanceller;
-
 import java.util.List;
 
-public class AsyncModMixinCanceller implements MixinCanceller {
+public class MixinCanceller implements com.bawnorton.mixinsquared.api.MixinCanceller {
     private boolean LITHIUM = false;
     private boolean VMP = false;
     private boolean C2ME = false;

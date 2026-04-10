@@ -25,9 +25,9 @@ public class AsyncFabric extends AsyncCommon implements ModInitializer {
             ParallelProcessor.setupThreadPool(AsyncConfig.getParallelism(), this.getClass());
         });
 
-        CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> AsyncCommand.register(dispatcher));
+        CommandRegistrationCallback.EVENT.register((dispatcher, _, _) -> AsyncCommand.register(dispatcher));
 
-        ServerLifecycleEvents.SERVER_STOPPING.register(server -> ParallelProcessor.stop());
+        ServerLifecycleEvents.SERVER_STOPPING.register(_ -> ParallelProcessor.stop());
 
         LOGGER.info("Async Initialized Successfully!");
     }

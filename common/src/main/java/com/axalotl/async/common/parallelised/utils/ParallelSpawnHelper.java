@@ -81,7 +81,7 @@ public final class ParallelSpawnHelper {
         }
 
         BlockPos blockPos = entity.blockPosition();
-        chunkGetter.query(ChunkPos.asLong(blockPos), chunk -> {
+        chunkGetter.query(ChunkPos.pack(blockPos), chunk -> {
             MobSpawnSettings.MobSpawnCost cost = NaturalSpawner.getRoughBiome(blockPos, chunk).getMobSettings().getMobSpawnCost(entity.getType());
             if (cost != null) {
                 result.charges.add(new ChargeEntry(blockPos, cost.charge()));

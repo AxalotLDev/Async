@@ -78,7 +78,7 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
     private void async$getChunk(int x, int z, ChunkStatus leastStatus, boolean create, CallbackInfoReturnable<ChunkAccess> cir) {
         if (Thread.currentThread() == this.mainThread) return;
 
-        long pos = ChunkPos.asLong(x, z);
+        long pos = ChunkPos.pack(x, z);
         ChunkHolder holder = this.getVisibleChunkIfPresent(pos);
 
         if (holder != null) {
@@ -107,7 +107,7 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
     private void async$getChunkNow(int chunkX, int chunkZ, CallbackInfoReturnable<LevelChunk> cir) {
         if (Thread.currentThread() == this.mainThread) return;
 
-        ChunkHolder holder = this.getVisibleChunkIfPresent(ChunkPos.asLong(chunkX, chunkZ));
+        ChunkHolder holder = this.getVisibleChunkIfPresent(ChunkPos.pack(chunkX, chunkZ));
         if (holder == null) {
             cir.setReturnValue(null);
             return;
@@ -269,7 +269,7 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
         LevelChunk[] chunks = list.toArray(new LevelChunk[0]);
 
         for (int i = chunks.length - 1; i > 0; i--) {
-            int j = this.level.random.nextInt(i + 1);
+            int j = this.level.getRandom().nextInt(i + 1);
             LevelChunk tmp = chunks[i];
             chunks[i] = chunks[j];
             chunks[j] = tmp;
@@ -283,7 +283,7 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
             ChunkPos cp = c.getPos();
             for (int dx = -1; dx <= 1; dx++) {
                 for (int dz = -1; dz <= 1; dz++) {
-                    set.add(ChunkPos.asLong(cp.x + dx, cp.z + dz));
+                    set.add(ChunkPos.pack(cp.x() + dx, cp.z() + dz));
                 }
             }
         }
