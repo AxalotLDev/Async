@@ -2,7 +2,6 @@ package com.axalotl.async.common;
 
 import com.axalotl.async.common.config.AsyncConfig;
 import com.axalotl.async.common.parallelised.utils.PortalTeleportationManager;
-import lombok.Getter;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -26,8 +25,11 @@ public class ParallelProcessor {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ParallelProcessor.class);
 
-    @Getter
     private static MinecraftServer server;
+
+    public static MinecraftServer getServer() {
+        return server;
+    }
 
     //Thread pool
     public static ExecutorService executor;
@@ -103,7 +105,7 @@ public class ParallelProcessor {
         return ENTITY_ADD_LOCK;
     }
 
-    public static void callEntityTickBatch(List<Entity> entities, ServerLevel world) {
+    public static void callEntityTickBatch(ServerLevel world, List<Entity> entities) {
         if (entities.isEmpty()) return;
 
         if (AsyncConfig.disabled) {
