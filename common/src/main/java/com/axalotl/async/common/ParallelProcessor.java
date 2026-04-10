@@ -117,11 +117,11 @@ public class ParallelProcessor {
         final int poolSize = getPoolSize();
         final int chunkSize = (entities.size() + poolSize - 1) / poolSize;
 
-        final List<Future<Void>> futures = new ArrayList<>();
+        final List<Future<?>> futures = new ArrayList<>();
 
         for (int i = 0; i < entities.size(); i += chunkSize) {
             final List<Entity> chunk = entities.subList(i, Math.min(i + chunkSize, entities.size()));
-            Future<Void> future = (Future<Void>) executor.submit(() -> {
+            Future<?> future = executor.submit(() -> {
                 for (Entity entity : chunk) {
                     if (!shouldTickSynchronously(entity)) {
                         tickEntity(world, entity, true);
@@ -139,7 +139,7 @@ public class ParallelProcessor {
         RECORDING_TICKS_LEFT.decrementAndGet();
     }
 
-    private static void waitForFutures(List<Future<Void>> futures) {
+    private static void waitForFutures(List<Future<?>> futures) {
         boolean allDone = false;
         while (!allDone) {
             allDone = futures.stream().allMatch(Future::isDone);
@@ -152,7 +152,7 @@ public class ParallelProcessor {
                 if (!pumped) Thread.onSpinWait();
             }
         }
-        for (Future<Void> future : futures) {
+        for (Future<?> future : futures) {
             try {
                 future.get();
             } catch (ExecutionException e) {
