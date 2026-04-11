@@ -1,12 +1,14 @@
 plugins {
     id 'java'
     id 'maven-publish'
+    id 'com.gradleup.nmcp' version '1.4.4'
+    id 'signing'
     id 'idea'
     id 'net.fabricmc.fabric-loom'
 }
 
-group = 'com.axalotl.async'
-version = '1.0.1'
+group = 'io.github.axalotldev'
+version = "1.0.2"
 
 base {
     archivesName = "${mod_id}-${project.name}"
@@ -39,13 +41,44 @@ publishing {
     publications {
         create("mavenJava", MavenPublication) {
             groupId = group
-            artifactId = project.name
+            artifactId = "${mod_id}-${project.name}"
             version = version
-
             from components.java
+            pom {
+                name = mod_id
+                description = "Async API"
+                url = "https://github.com/axalotldev/${mod_id}"
+                licenses {
+                    license {
+                        name = "MIT License"
+                        url = "https://opensource.org/license/mit/"
+                    }
+                }
+                developers {
+                    developer {
+                        id = "axalotldev"
+                        name = "AxalotlDev"
+                    }
+                }
+                scm {
+                    connection = "scm:git:git://github.com/axalotldev/${mod_id}.git"
+                    developerConnection = "scm:git:ssh://github.com/axalotldev/${mod_id}.git"
+                    url = "https://github.com/axalotldev/${mod_id}"
+                }
+            }
         }
     }
-    repositories {
-        mavenLocal()
+}
+
+nmcp {
+    publishAllPublicationsToCentralPortal {
+        username = findProperty("mavenCentralUsername")
+        password = findProperty("mavenCentralPassword")
+        publishingType = "USER_MANAGED"
     }
+}
+
+signing {
+    useGpgCmd()
+    sign publishing.publications.mavenJava
 }
