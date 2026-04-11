@@ -89,10 +89,19 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
     private boolean firstRunSpawnCounts = true;
 
     @Unique
-    private final AtomicBoolean spawnCountsReady = new AtomicBoolean(false);
+    private AtomicBoolean spawnCountsReady;
 
     @Unique
-    List<Runnable> batch = Collections.synchronizedList(new ArrayList<>());
+    private List<Runnable> batch;
+
+    @Unique
+    private final Object lock = new Object();
+
+    @Inject(method = "<init>", at = @At("RETURN"))
+    private void init(CallbackInfo ci) {
+        this.spawnCountsReady = new AtomicBoolean(false);
+        this.batch = Collections.synchronizedList(new ArrayList<>());
+    }
 
     @Inject(method = "getChunk(IILnet/minecraft/world/level/chunk/status/ChunkStatus;Z)Lnet/minecraft/world/level/chunk/ChunkAccess;", at = @At("HEAD"), cancellable = true)
     private void getChunk(int x, int z, ChunkStatus targetStatus, boolean loadOrGenerate, CallbackInfoReturnable<ChunkAccess> cir) {
@@ -183,7 +192,7 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
     private NaturalSpawner.SpawnState redirectCreateSpawnState(
             int spawnableChunkCount, Iterable<Entity> entities, NaturalSpawner.ChunkGetter chunkGetter, LocalMobCapCalculator localMobCapCalculator
     ) {
-        if (AsyncConfig.disabled || !AsyncConfig.enableAsyncSpawn || firstRunSpawnCounts) {
+        if (AsyncConfig.disabled || !AsyncConfig.enableAsyncSpawn || firstRunSpawnCounts || lastSpawnState == null) {
             return NaturalSpawner.createState(
                     spawnableChunkCount,
                     entities,
@@ -194,37 +203,34 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
         return lastSpawnState;
     }
 
-    @Redirect(method = "tickChunks(Lnet/minecraft/util/profiling/ProfilerFiller;J)V", at = @At(value = "INVOKE", target = "Lnet/minecraft/server/level/ChunkMap;collectSpawningChunks(Ljava/util/List;)V"))
-    private void redirectCollectSpawningChunks(ChunkMap instance, List<LevelChunk> output) {
-        if (AsyncConfig.disabled || !AsyncConfig.enableAsyncSpawn) {
-            this.chunkMap.collectSpawningChunks(output);
-        } else {
-            CompletableFuture.runAsync(() -> this.chunkMap.collectSpawningChunks(output), ParallelProcessor.executor).whenComplete((_, e) -> {
-                if (e != null) {
-                    LOGGER.error("Error in async entity collectSpawningChunks, switching to synchronous", e);
-                    this.chunkMap.collectSpawningChunks(output);
-                }
-            });
-        }
-    }
-
     @WrapMethod(method = "tickSpawningChunk")
     private void redirectTickSpawningChunk(LevelChunk chunk, long timeDiff, List<MobCategory> spawningCategories, NaturalSpawner.SpawnState spawnCookie, Operation<Void> original) {
         if (AsyncConfig.disabled || !AsyncConfig.enableAsyncSpawn) {
             original.call(chunk, timeDiff, spawningCategories, lastSpawnState);
+        } else {
+            synchronized (lock) {
+                batch.add(() -> original.call(chunk, timeDiff, spawningCategories, lastSpawnState));
+            }
         }
-        batch.add(() -> original.call(chunk, timeDiff, spawningCategories, lastSpawnState));
     }
 
     @Inject(method = "tickChunks(Lnet/minecraft/util/profiling/ProfilerFiller;J)V", at = @At(value = "TAIL", target = "Ljava/util/List;iterator()Ljava/util/Iterator;"))
     private void redirectFinaleTickSpawningChunk(CallbackInfo ci) {
         if (AsyncConfig.disabled || !AsyncConfig.enableAsyncSpawn) return;
+
+        List<Runnable> currentBatch;
+        synchronized (lock) {
+            currentBatch = new ArrayList<>(batch);
+            batch.clear();
+        }
+
+        if (currentBatch.isEmpty()) return;
+
         CompletableFuture.runAsync(() -> {
-            for (Runnable task : batch) {
+            for (Runnable task : currentBatch) {
                 task.run();
             }
         }, ParallelProcessor.executor).whenComplete((_, e) -> {
-            batch.clear();
             if (e != null) {
                 LOGGER.error("Error in async entity spawning, switching to synchronous", e);
             }
