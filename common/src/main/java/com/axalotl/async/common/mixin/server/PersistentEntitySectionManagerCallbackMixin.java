@@ -36,8 +36,8 @@ public abstract class PersistentEntitySectionManagerCallbackMixin {
     private volatile boolean async$pendingRemoval = false;
 
     @Inject(method = "<init>", at = @At("TAIL"))
-    private void async$captureOuter(PersistentEntitySectionManager<?> outer, EntityAccess entity, long sectionKey, EntitySection<?> section, CallbackInfo ci) {
-        this.async$outerManager = outer;
+    private void async$captureOuter(PersistentEntitySectionManager<?> entity, EntityAccess currentSectionKey, long currentSection, EntitySection<?> section, CallbackInfo ci) {
+        this.async$outerManager = entity;
     }
 
     @SuppressWarnings("unchecked")

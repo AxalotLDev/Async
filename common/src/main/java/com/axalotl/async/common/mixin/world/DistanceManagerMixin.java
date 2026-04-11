@@ -23,5 +23,5 @@ public abstract class DistanceManagerMixin {
     @Shadow
     @Final
     @Mutable
-    LongSet ticketsToRelease = new ConcurrentLongLinkedOpenHashSet();
+    private LongSet ticketsToRelease = new ConcurrentLongLinkedOpenHashSet();
 }

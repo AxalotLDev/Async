@@ -28,7 +28,7 @@ public abstract class SectionStorageMixin<R, P> implements AutoCloseable {
     @Shadow final private LongSet loadedChunks = new ConcurrentLongLinkedOpenHashSet();
 
     @WrapMethod(method = "unpackChunk(Lnet/minecraft/world/level/ChunkPos;)V")
-    private synchronized void release(ChunkPos pos, Operation<Void> original) {
-        original.call(pos);
+    private synchronized void release(ChunkPos chunkPos, Operation<Void> original) {
+        original.call(chunkPos);
     }
 }

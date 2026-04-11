@@ -22,7 +22,7 @@ public abstract class CollectingNeighborUpdaterMixin implements NeighborUpdater 
     private List<CollectingNeighborUpdater.NeighborUpdates> addedThisLayer = new ConcurrentList<>();
 
     @WrapMethod(method = "addAndRun")
-    private synchronized void syncAddAndRun(BlockPos pos, CollectingNeighborUpdater.NeighborUpdates entry, Operation<Void> original) {
-        original.call(pos, entry);
+    private synchronized void syncAddAndRun(BlockPos pos, CollectingNeighborUpdater.NeighborUpdates update, Operation<Void> original) {
+        original.call(pos, update);
     }
 }

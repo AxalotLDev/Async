@@ -37,7 +37,7 @@ public abstract class EntitySectionStorageMixin<T extends EntityAccess> {
     private LongSortedSet sectionIds;
 
     @Shadow
-    public abstract LongStream getExistingSectionPositionsInChunk(long pos);
+    public abstract LongStream getExistingSectionPositionsInChunk(long chunkKey);
 
     @Unique
     private final StampedLock async$sectionGuard = new StampedLock();
@@ -54,23 +54,23 @@ public abstract class EntitySectionStorageMixin<T extends EntityAccess> {
     }
 
     @WrapMethod(method = "getOrCreateSection")
-    private EntitySection<T> async$guardGetOrCreate(long sectionPos, Operation<EntitySection<T>> original) {
+    private EntitySection<T> async$guardGetOrCreate(long key, Operation<EntitySection<T>> original) {
         long stamp = async$sectionGuard.writeLock();
-        EntitySection<T> result = original.call(sectionPos);
+        EntitySection<T> result = original.call(key);
         async$sectionGuard.unlockWrite(stamp);
         return result;
     }
 
     @WrapMethod(method = "remove")
-    private void async$guardRemove(long sectionId, Operation<Void> original) {
+    private void async$guardRemove(long sectionKey, Operation<Void> original) {
         long stamp = async$sectionGuard.writeLock();
-        original.call(sectionId);
+        original.call(sectionKey);
         async$sectionGuard.unlockWrite(stamp);
     }
 
     @WrapMethod(method = "getExistingSectionsInChunk")
-    private Stream<EntitySection<T>> getExistingSections(long pos, Operation<Stream<EntitySection<T>>> original) {
-        return this.getExistingSectionPositionsInChunk(pos)
+    private Stream<EntitySection<T>> getExistingSections(long chunkKey, Operation<Stream<EntitySection<T>>> original) {
+        return this.getExistingSectionPositionsInChunk(chunkKey)
                 .mapToObj(this.sections::get)
                 .filter(Objects::nonNull)
                 .toList()

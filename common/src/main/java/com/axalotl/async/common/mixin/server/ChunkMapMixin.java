@@ -69,8 +69,8 @@ public abstract class ChunkMapMixin extends SimpleRegionStorage implements Chunk
     }
 
     @WrapMethod(method = "releaseGeneration")
-    private synchronized void releaseGeneration(GenerationChunkHolder chunk, Operation<Void> original) {
-        original.call(chunk);
+    private synchronized void releaseGeneration(GenerationChunkHolder chunkHolder, Operation<Void> original) {
+        original.call(chunkHolder);
     }
 
     @Inject(method = "addEntity", at = @At(value = "INVOKE", target = "Lnet/minecraft/util/Util;pauseInIde(Ljava/lang/Throwable;)Ljava/lang/Throwable;"), cancellable = true)

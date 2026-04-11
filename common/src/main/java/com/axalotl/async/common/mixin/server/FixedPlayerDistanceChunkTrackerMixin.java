@@ -20,7 +20,7 @@ public class FixedPlayerDistanceChunkTrackerMixin {
     protected Long2ByteMap chunks;
 
     @Inject(method = "<init>", at = @At("TAIL"))
-    private void async$replaceConcurrentChunks(DistanceManager this$0, int maxDistance, CallbackInfo ci) {
+    private void async$replaceConcurrentChunks(DistanceManager maxDistance, int par2, CallbackInfo ci) {
         byte defaultVal = this.chunks.defaultReturnValue();
         this.chunks = new Long2ByteConcurrentHashMap();
         this.chunks.defaultReturnValue(defaultVal);

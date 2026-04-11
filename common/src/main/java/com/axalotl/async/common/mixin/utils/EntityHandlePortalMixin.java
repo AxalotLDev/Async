@@ -31,7 +31,7 @@ public abstract class EntityHandlePortalMixin {
     public abstract void setPortalCooldown();
 
     @Shadow
-    public abstract boolean canTeleport(Level from, Level to);
+    public abstract boolean canTeleport(Level from, Level _to);
 
     @Shadow
     public abstract Entity teleport(TeleportTransition transition);

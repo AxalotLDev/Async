@@ -7,8 +7,11 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.item.FallingBlockEntity;
+import net.minecraft.world.entity.monster.Shulker;
 import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.entity.vehicle.boat.AbstractBoat;
+import net.minecraft.world.entity.vehicle.boat.Boat;
 import net.minecraft.world.entity.vehicle.minecart.AbstractMinecart;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,8 +43,13 @@ public class ParallelProcessor {
     //Blacklist
     private static final Set<UUID> BLACKLISTED_ENTITIES = ConcurrentHashMap.newKeySet();
     private static final Set<Class<?>> BLOCKED_ENTITIES = Set.of(
+            AbstractBoat.class,
+            FallingBlockEntity.class,
+            Shulker.class,
+            Boat.class,
+            Projectile.class,
             ServerPlayer.class,
-            AbstractBoat.class
+            AbstractMinecart.class
     );
 
     //Threads
@@ -172,9 +180,6 @@ public class ParallelProcessor {
         UUID entityId = entity.getUUID();
 
         return AsyncConfig.disabled
-                || entity instanceof Projectile
-                || entity instanceof AbstractMinecart
-                || entity instanceof ServerPlayer
                 || BLOCKED_ENTITIES.contains(entity.getClass())
                 || BLACKLISTED_ENTITIES.contains(entityId)
                 || AsyncConfig.isEntitySynchronized(EntityType.getKey(entity.getType()));

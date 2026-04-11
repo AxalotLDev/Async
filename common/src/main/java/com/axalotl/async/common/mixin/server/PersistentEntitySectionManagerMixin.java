@@ -41,7 +41,7 @@ public abstract class PersistentEntitySectionManagerMixin<T extends EntityAccess
     @Mutable
     @Shadow
     @Final
-    Set<UUID> knownUuids;
+    private Set<UUID> knownUuids;
 
     @Mutable
     @Shadow
@@ -74,8 +74,8 @@ public abstract class PersistentEntitySectionManagerMixin<T extends EntityAccess
     }
 
     @WrapMethod(method = "getEffectiveStatus")
-    private static <T extends EntityAccess> Visibility getEffectiveStatus(T entity, Visibility visibility, Operation<Visibility> original) {
-        Visibility result = original.call(entity, visibility);
+    private static <T extends EntityAccess> Visibility getEffectiveStatus(T entity, Visibility status, Operation<Visibility> original) {
+        Visibility result = original.call(entity, status);
         if (result == null) {
             return entity.isAlwaysTicking() ? Visibility.TICKING : Visibility.TRACKED;
         }

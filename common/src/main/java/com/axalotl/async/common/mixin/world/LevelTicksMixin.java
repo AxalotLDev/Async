@@ -25,9 +25,9 @@ public abstract class LevelTicksMixin<T> implements LevelTickAccess<T> {
     private final Object async$lock = new Object();
 
     @WrapMethod(method = "addContainer")
-    private void wrapAddContainer(net.minecraft.world.level.ChunkPos pos, LevelChunkTicks<@NotNull T> ticks, Operation<Void> original) {
+    private void wrapAddContainer(net.minecraft.world.level.ChunkPos pos, LevelChunkTicks<@NotNull T> container, Operation<Void> original) {
         synchronized (async$lock) {
-            original.call(pos, ticks);
+            original.call(pos, container);
         }
     }
 

@@ -28,13 +28,15 @@ import java.util.concurrent.atomic.AtomicIntegerArray;
 @Mixin(NaturalSpawner.SpawnState.class)
 public class SpawnStateMixin {
 
-    @Shadow @Final private int spawnableChunkCount;
     @Shadow @Final private PotentialCalculator spawnPotential;
     @Shadow @Final private LocalMobCapCalculator localMobCapCalculator;
     @Shadow @Final private Object2IntOpenHashMap<MobCategory> mobCategoryCounts;
 
     @Unique
     private AtomicIntegerArray async$atomicMobCounts;
+
+    @Unique
+    private int[] async$maxMobCounts;
 
     @Unique
     private static final ThreadLocal<long[]> async$chargeCache = ThreadLocal.withInitial(() -> new long[3]);
@@ -46,14 +48,24 @@ public class SpawnStateMixin {
             PotentialCalculator spawnPotential,
             LocalMobCapCalculator localMobCapCalculator,
             CallbackInfo ci) {
-        this.async$atomicMobCounts = new AtomicIntegerArray(MobCategory.values().length);
-        for (MobCategory cat : MobCategory.values()) {
-            this.async$atomicMobCounts.set(cat.ordinal(), this.mobCategoryCounts.getInt(cat));
+        MobCategory[] categories = MobCategory.values();
+        this.async$atomicMobCounts = new AtomicIntegerArray(categories.length);
+        this.async$maxMobCounts = new int[categories.length];
+        int magicNumber = (2 * NaturalSpawner.SPAWN_DISTANCE_CHUNK + 1) * (2 * NaturalSpawner.SPAWN_DISTANCE_CHUNK + 1);
+        for (MobCategory cat : categories) {
+            int ordinal = cat.ordinal();
+            this.async$atomicMobCounts.set(ordinal, this.mobCategoryCounts.getInt(cat));
+            this.async$maxMobCounts[ordinal] = cat.getMaxInstancesPerChunk() * spawnableChunkCount / magicNumber;
         }
     }
 
     @WrapMethod(method = "canSpawn")
     private boolean async$canSpawn(EntityType<?> type, BlockPos testPos, ChunkAccess chunk, Operation<Boolean> original) {
+        MobCategory category = type.getCategory();
+        if (this.async$atomicMobCounts.get(category.ordinal()) >= this.async$maxMobCounts[category.ordinal()]) {
+            return false;
+        }
+
         MobSpawnSettings.MobSpawnCost cost = NaturalSpawner.getRoughBiome(testPos, chunk).getMobSettings().getMobSpawnCost(type);
 
         double charge;
@@ -89,7 +101,9 @@ public class SpawnStateMixin {
                     .getMobSettings().getMobSpawnCost(type);
             charge = cost != null ? cost.charge() : 0.0;
         }
-        this.spawnPotential.addCharge(pos, charge);
+        if (charge != 0.0) {
+            this.spawnPotential.addCharge(pos, charge);
+        }
         MobCategory category = type.getCategory();
         this.async$atomicMobCounts.incrementAndGet(category.ordinal());
         this.localMobCapCalculator.addMob(new ChunkPos(pos.getX() >> 4, pos.getZ() >> 4), category);
@@ -97,9 +111,7 @@ public class SpawnStateMixin {
 
     @WrapMethod(method = "canSpawnForCategoryGlobal")
     private boolean async$canSpawnForCategoryGlobal(MobCategory mobCategory, Operation<Boolean> original) {
-        int magicNumber = (2 * NaturalSpawner.SPAWN_DISTANCE_CHUNK + 1) * (2 * NaturalSpawner.SPAWN_DISTANCE_CHUNK + 1);
-        int maxMobCount = mobCategory.getMaxInstancesPerChunk() * this.spawnableChunkCount / magicNumber;
-        return this.async$atomicMobCounts.get(mobCategory.ordinal()) < maxMobCount;
+        return this.async$atomicMobCounts.get(mobCategory.ordinal()) < this.async$maxMobCounts[mobCategory.ordinal()];
     }
 
     @WrapMethod(method = "getMobCategoryCounts")
