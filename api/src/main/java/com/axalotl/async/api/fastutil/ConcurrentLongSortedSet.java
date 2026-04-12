@@ -5,11 +5,23 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.Collection;
 import java.util.Objects;
+import java.util.SortedSet;
 import java.util.concurrent.ConcurrentSkipListSet;
 
 /**
  * A thread-safe implementation of LongSortedSet backed by ConcurrentSkipListSet.
  * Provides concurrent access and maintains elements in sorted order.
+ *
+ * <p>
+ * A type-specific {@link ConcurrentSkipListSet}; provides some additional methods that use polymorphism to
+ * avoid (un)boxing.
+ *
+ * <p>
+ * Additionally, this interface strengthens {@link #iterator()}, {@link #comparator()} (for
+ * primitive types), {@link ConcurrentSkipListSet#subSet(Object, Object)}, {@link ConcurrentSkipListSet#headSet(Object)} and
+ * {@link ConcurrentSkipListSet#tailSet(Object)}.
+ *
+ * @see SortedSet
  */
 public final class ConcurrentLongSortedSet implements LongSortedSet {
 
@@ -18,7 +30,8 @@ public final class ConcurrentLongSortedSet implements LongSortedSet {
     /**
      * Creates a new empty concurrent sorted set
      */
-    public ConcurrentLongSortedSet() {}
+    public ConcurrentLongSortedSet() {
+    }
 
     /**
      * Creates a new concurrent sorted set containing elements from the given collection
@@ -31,11 +44,51 @@ public final class ConcurrentLongSortedSet implements LongSortedSet {
         addAll(Objects.requireNonNull(collection, "Initial collection cannot be null"));
     }
 
+    /**
+     * Returns a type-specific {@link it.unimi.dsi.fastutil.BidirectionalIterator} on the elements in
+     * this set, starting from a given element of the domain (optional operation).
+     *
+     * <p>
+     * This method returns a type-specific bidirectional iterator with given starting point. The
+     * starting point is any element comparable to the elements of this set (even if it does not
+     * actually belong to the set). The next element of the returned iterator is the least element of
+     * the set that is greater than the starting point (if there are no elements greater than the
+     * starting point, {@link it.unimi.dsi.fastutil.BidirectionalIterator#hasNext() hasNext()} will
+     * return {@code false}). The previous element of the returned iterator is the greatest element of
+     * the set that is smaller than or equal to the starting point (if there are no elements smaller
+     * than or equal to the starting point,
+     * {@link it.unimi.dsi.fastutil.BidirectionalIterator#hasPrevious() hasPrevious()} will return
+     * {@code false}).
+     *
+     * <p>
+     * Note that passing the last element of the set as starting point and calling
+     * {@link it.unimi.dsi.fastutil.BidirectionalIterator#previous() previous()} you can traverse the
+     * entire set in reverse order.
+     *
+     * @param fromElement an element to start from.
+     * @return a bidirectional iterator on the element in this set, starting at the given element.
+     * @throws UnsupportedOperationException if this set does not support iterators with a starting
+     *             point.
+     */
     @Override
     public LongBidirectionalIterator iterator(long fromElement) {
         return FastUtilHackUtil.wrap(backing.tailSet(fromElement).iterator());
     }
 
+    /**
+     * Returns a type-specific {@link it.unimi.dsi.fastutil.BidirectionalIterator} on the elements in
+     * this set.
+     *
+     * <p>
+     * This method returns a parameterised bidirectional iterator. The iterator can be moreover safely
+     * cast to a type-specific iterator.
+     * <p>
+     *
+     * This specification strengthens the one given in the corresponding type-specific
+     *          {@link Collection}.
+     *
+     * @return a bidirectional iterator on the element in this set.
+     */
     @Override
     public @NotNull LongBidirectionalIterator iterator() {
         return FastUtilHackUtil.wrap(backing.iterator());
@@ -158,31 +211,67 @@ public final class ConcurrentLongSortedSet implements LongSortedSet {
         return backing.remove(k);
     }
 
+    /**
+     * Returns a view of the portion of this sorted set whose elements range from {@code fromElement},
+     * inclusive, to {@code toElement}, exclusive.
+     * <p>
+     * This specification strengthens the one given in {@link ConcurrentSkipListSet#subSet(Object,Object)}.
+     * @see ConcurrentSkipListSet#subSet(Object,Object)
+     */
     @Override
     public LongSortedSet subSet(long fromElement, long toElement) {
         return new ConcurrentLongSortedSet(backing.subSet(Math.min(fromElement, toElement), Math.max(fromElement, toElement)));
     }
 
+    /**
+     * Returns a view of the portion of this sorted set whose elements are strictly less than
+     * {@code toElement}.
+     * <p>
+     * This specification strengthens the one given in {@link ConcurrentSkipListSet#headSet(Object)}.
+     * @see ConcurrentSkipListSet#headSet(Object)
+     */
     @Override
     public LongSortedSet headSet(long toElement) {
         return new ConcurrentLongSortedSet(backing.headSet(toElement));
     }
 
+    /**
+     * Returns a view of the portion of this sorted set whose elements are greater than or equal to
+     * {@code fromElement}.
+     * <p>
+     * This specification strengthens the one given in {@link ConcurrentSkipListSet#headSet(Object)}.
+     * @see ConcurrentSkipListSet#tailSet(Object)
+     */
     @Override
     public LongSortedSet tailSet(long fromElement) {
         return new ConcurrentLongSortedSet(backing.tailSet(fromElement));
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * This specification strengthens the one given in {@link ConcurrentSkipListSet#comparator()}.
+     */
     @Override
     public LongComparator comparator() {
         return null;
     }
 
+    /**
+     * Returns the first (lowest) element currently in this set.
+     *
+     * @see ConcurrentSkipListSet#first()
+     */
     @Override
     public long firstLong() {
         return backing.first();
     }
 
+    /**
+     * Returns the last (highest) element currently in this set.
+     *
+     * @see ConcurrentSkipListSet#last()
+     */
     @Override
     public long lastLong() {
         return backing.last();

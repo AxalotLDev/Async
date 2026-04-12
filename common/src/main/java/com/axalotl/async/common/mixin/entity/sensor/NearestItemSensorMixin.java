@@ -23,7 +23,7 @@ public class NearestItemSensorMixin {
     protected void doTick(final ServerLevel level, final Mob body) {
         Brain<?> brain = body.getBrain();
         List<ItemEntity> items = level.getEntitiesOfClass(ItemEntity.class, body.getBoundingBox().inflate(32.0, 16.0, 32.0), _ -> true);
-        items.sort(SensorUtils.distanceComparator(body));
+        items.sort(SensorUtils.comparingDouble(body));
         Optional<ItemEntity> nearestVisibleLovedItem = items.stream()
                 .filter(itemEntity -> body.wantsToPickUp(level, itemEntity.getItem()))
                 .filter(itemEntity -> itemEntity.closerThan(body, 32.0))

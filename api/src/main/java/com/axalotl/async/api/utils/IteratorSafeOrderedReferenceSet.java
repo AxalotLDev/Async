@@ -9,6 +9,29 @@ import java.util.Arrays;
 import java.util.NoSuchElementException;
 import java.util.concurrent.atomic.AtomicInteger;
 
+/**
+ * A high-performance, insertion-ordered set backed by a primitive reference-to-index map
+ * and a dense array storage.
+ *
+ * <p>This structure provides:
+ * <ul>
+ *     <li>Fast O(1) add/contains/remove operations (amortized)</li>
+ *     <li>Stable insertion order iteration</li>
+ *     <li>Safe iteration with optional concurrent modifications tracking</li>
+ *     <li>Automatic defragmentation to reduce logical gaps</li>
+ * </ul>
+ *
+ * <p>Internally:
+ * <ul>
+ *     <li>{@link Reference2IntLinkedOpenHashMap} maps elements to array indices</li>
+ *     <li>{@code listElements[]} stores elements in insertion order</li>
+ *     <li>Removed elements are nulled, creating fragmentation</li>
+ * </ul>
+ *
+ * <p>Defragmentation is triggered when fragmentation exceeds {@code maxFragFactor}.
+ *
+ * @param <E> element type (reference-based, identity-sensitive depending on map behavior)
+ */
 public final class IteratorSafeOrderedReferenceSet<E> {
 
     public static final int ITERATOR_FLAG_SEE_ADDITIONS = 1;
@@ -18,19 +41,54 @@ public final class IteratorSafeOrderedReferenceSet<E> {
     private final AtomicInteger firstInvalidIndex = new AtomicInteger(-1);
 
     private E[] listElements;
+
+    /**
+     * Current number of slots ever used in {@code listElements}.
+     * Not necessarily equal to {@link #size()} due to removals.
+     */
     @Getter
     private int listSize;
 
+    /**
+     * Maximum allowed fragmentation ratio before triggering defragmentation.
+     */
     private final double maxFragFactor;
 
+    /**
+     * Number of active iterators that require safe iteration tracking.
+     */
     private int iteratorCount;
 
+    /**
+     * If true, iteration safety features (defragmentation during iteration) are disabled.
+     */
     private final boolean threadRestricted;
 
+    /**
+     * Creates a default set with:
+     * <ul>
+     *     <li>Initial capacity: 16</li>
+     *     <li>Load factor: 0.75</li>
+     *     <li>Array capacity: 16</li>
+     *     <li>Max fragmentation factor: 0.2</li>
+     *     <li>Component type: Object</li>
+     *     <li>Thread restriction: false</li>
+     * </ul>
+     */
     public IteratorSafeOrderedReferenceSet() {
         this(16, 0.75f, 16, 0.2, Object.class, false);
     }
 
+    /**
+     * Full constructor.
+     *
+     * @param setCapacity initial capacity for backing map
+     * @param setLoadFactor load factor for backing map
+     * @param arrayCapacity initial size of element array
+     * @param maxFragFactor threshold for triggering defragmentation (0.0–1.0)
+     * @param arrComponent component type of internal array
+     * @param threadRestricted if true, disables safe iteration optimizations
+     */
     @SuppressWarnings("unchecked")
     public IteratorSafeOrderedReferenceSet(final int setCapacity, final float setLoadFactor, final int arrayCapacity,
                                            final double maxFragFactor, final Class<? super E> arrComponent,
@@ -58,6 +116,17 @@ public final class IteratorSafeOrderedReferenceSet<E> {
         }
     }
 
+    /**
+     * Removes an element from the set.
+     *
+     * <p>If removal creates fragmentation beyond threshold, defragmentation
+     * may be triggered (depending on iterator state and configuration).
+     *
+     * @param element element to remove
+     * @return true if element was present and removed
+     *
+     * @throws IllegalStateException if internal array consistency is violated
+     */
     public boolean remove(final E element) {
         final int index = this.indexMap.removeInt(element);
         if (index >= 0) {
@@ -83,10 +152,23 @@ public final class IteratorSafeOrderedReferenceSet<E> {
         return false;
     }
 
+    /**
+     * Checks whether the set contains the given element.
+     *
+     * @param element element to check
+     * @return true if present
+     */
     public boolean contains(final E element) {
         return this.indexMap.containsKey(element);
     }
 
+    /**
+     * Adds an element to the set if it is not already present.
+     *
+     * @param element element to add
+     * @return true if added, false if already present
+     *
+     */
     public boolean add(final E element) {
         final int listSize = this.listSize;
 
@@ -161,14 +243,35 @@ public final class IteratorSafeOrderedReferenceSet<E> {
         this.firstInvalidIndex.set(-1);
     }
 
+    /**
+     * Returns the number of elements currently in the set.
+     *
+     * @return logical size of the set
+     */
     public int size() {
         return this.indexMap.size();
     }
 
+    /**
+     * Returns an iterator over the set in insertion order.
+     *
+     * <p>Iteration is safe against removals and may optionally allow
+     * seeing additions depending on flags.
+     *
+     * @return iterator instance
+     */
     public Iterator<E> iterator() {
         return this.iterator(0);
     }
 
+    /**
+     * Returns an iterator with behavior flags.
+     *
+     * @param flags iterator behavior flags
+     * @return iterator instance
+     *
+     * @see #ITERATOR_FLAG_SEE_ADDITIONS
+     */
     public Iterator<E> iterator(final int flags) {
         if (this.allowSafeIteration()) {
             ++this.iteratorCount;
@@ -181,10 +284,24 @@ public final class IteratorSafeOrderedReferenceSet<E> {
         );
     }
 
+    /**
+     * Extended iterator that supports explicit completion signaling.
+     */
     public interface Iterator<E> extends java.util.Iterator<E> {
+        /**
+         * Signals that iteration is complete.
+         *
+         * <p>May trigger internal cleanup or defragmentation.
+         */
         void finishedIterating();
     }
 
+    /**
+     * Internal iterator implementation.
+     *
+     * <p>Iterates over dense array, skipping nulls.
+     * Supports optional visibility of newly added elements.
+     */
     private static final class BaseIterator<E> implements Iterator<E> {
 
         private final IteratorSafeOrderedReferenceSet<E> set;
@@ -202,6 +319,11 @@ public final class IteratorSafeOrderedReferenceSet<E> {
             this.maxIndex = maxIndex;
         }
 
+        /**
+         * Checks if more non-null elements exist in range.
+         *
+         * @return true if next element exists
+         */
         @Override
         public boolean hasNext() {
             if (this.finished) {
@@ -230,6 +352,12 @@ public final class IteratorSafeOrderedReferenceSet<E> {
             return false;
         }
 
+        /**
+         * Returns next available element.
+         *
+         * @return next element
+         * @throws NoSuchElementException if no elements remain
+         */
         @Override
         public E next() {
             if (!this.hasNext()) {
@@ -244,6 +372,11 @@ public final class IteratorSafeOrderedReferenceSet<E> {
             return ret;
         }
 
+        /**
+         * Removes last returned element from the underlying set.
+         *
+         * @throws IllegalStateException if next() was not called or element already removed
+         */
         @Override
         public void remove() {
             final E lastReturned = this.lastReturned;
@@ -256,6 +389,13 @@ public final class IteratorSafeOrderedReferenceSet<E> {
             this.set.remove(lastReturned);
         }
 
+        /**
+         * Marks iteration as complete and releases iterator tracking.
+         *
+         * <p>May trigger defragmentation if enabled.
+         *
+         * @throws IllegalStateException if already finished or not allowed
+         */
         @Override
         public void finishedIterating() {
             if (this.finished || !this.canFinish) {

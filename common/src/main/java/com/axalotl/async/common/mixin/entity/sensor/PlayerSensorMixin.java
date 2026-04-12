@@ -34,7 +34,7 @@ public abstract class PlayerSensorMixin {
                 .stream()
                 .filter(EntitySelector.NO_SPECTATORS)
                 .filter(player -> body.closerThan(player, this.getFollowDistance(body)))
-                .sorted(SensorUtils.distanceComparator(body))
+                .sorted(SensorUtils.comparingDouble(body))
                 .collect(Collectors.toList());
         Brain<?> brain = body.getBrain();
         brain.setMemory(MemoryModuleType.NEAREST_PLAYERS, players);

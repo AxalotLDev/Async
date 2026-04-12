@@ -27,7 +27,7 @@ public abstract class NearestLivingEntitiesSensorMixin<T extends LivingEntity> e
         double followRange = body.getAttributeValue(Attributes.FOLLOW_RANGE);
         AABB boundingBox = body.getBoundingBox().inflate(followRange, followRange, followRange);
         List<LivingEntity> livingEntities = level.getEntitiesOfClass(LivingEntity.class, boundingBox, mob -> mob != body && mob.isAlive());
-        livingEntities.sort(SensorUtils.distanceComparator(body));
+        livingEntities.sort(SensorUtils.comparingDouble(body));
         Brain<?> brain = body.getBrain();
         brain.setMemory(MemoryModuleType.NEAREST_LIVING_ENTITIES, livingEntities);
         brain.setMemory(MemoryModuleType.NEAREST_VISIBLE_LIVING_ENTITIES, new NearestVisibleLivingEntities(level, body, livingEntities));
