@@ -47,6 +47,10 @@ Concurrent Chunk Management Engine, Fabric API, FerriteCore, Lithium, ScalableLu
 - `/async stats entity` — Shows the number of entities processed by Async in various worlds.
 - `/async stats entity [number] [ticks]` — Shows the top [number] entity types by count in descending order. For example, `/async stats entity 10` displays the top 10 most numerous entity types. /async stats entity 5 20 displays the top 5 most numerous entity types with their average mspt usage.
 
+## 📚 API for Mod Developers
+Making your custom entities or AI compatible with Async? See the full API reference:
+**[docs/API.md](docs/API.md)** — annotations, concurrent collections, sensor helpers, and fastutil concurrent wrappers, with usage examples.
+
 ## 📥 Download
 The mod is available on [Modrinth](https://modrinth.com/mod/async)
 

@@ -10,8 +10,11 @@ import org.slf4j.LoggerFactory;
 import org.spongepowered.asm.mixin.extensibility.IMixinConfigPlugin;
 import org.spongepowered.asm.mixin.extensibility.IMixinInfo;
 
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 
@@ -24,11 +27,44 @@ public class SynchronisePlugin implements IMixinConfigPlugin {
     private final Multimap<String, String> mixin2MethodsExcludeMap = ArrayListMultimap.create();
     private final TreeSet<String> syncAllSet = new TreeSet<>();
 
+    /** FQNs of dynamically-generated stub mixins for 3rd-party {@code @SyncItemPickup} targets. */
+    private final List<String> generatedStubMixins = new ArrayList<>();
+
     @Override
     public void onLoad(String mixinPackage) {
         mixin2MethodsExcludeMap.put("com.axalotl.async.common.mixin.utils.SyncAllMixin", "net.minecraft.world.level.chunk.ChunkStatus.isOrAfter");
         syncAllSet.add("com.axalotl.async.common.mixin.utils.FastUtilSynchronizeMixin");
         syncAllSet.add("com.axalotl.async.common.mixin.utils.SyncAllMixin");
+
+        bootstrapGeneratedStubs();
+    }
+
+    /**
+     * Discover 3rd-party classes carrying {@code @SyncItemPickup}, generate one stub mixin per
+     * target class, and publish them on the active classloader so Mixin can resolve them when
+     * {@link #getMixins()} returns their names.
+     */
+    private void bootstrapGeneratedStubs() {
+        try {
+            Set<String> targets = SyncAnnotationScanner.scan();
+            if (targets.isEmpty()) return;
+
+            Map<String, byte[]> stubs = new LinkedHashMap<>();
+            for (String internalName : targets) {
+                String fqn = SyncStubMixinGenerator.stubClassName(internalName);
+                stubs.put(fqn, SyncStubMixinGenerator.generate(internalName));
+                generatedStubMixins.add(fqn);
+            }
+
+            if (!GeneratedMixinClasspath.publish(stubs)) {
+                generatedStubMixins.clear();
+                return;
+            }
+            LOGGER.info("Async: registered {} @SyncItemPickup target(s) via auto-generated mixins", generatedStubMixins.size());
+        } catch (Throwable t) {
+            LOGGER.error("Async: @SyncItemPickup auto-discovery failed; in-tree mixins still work", t);
+            generatedStubMixins.clear();
+        }
     }
 
     @Override
@@ -47,7 +83,7 @@ public class SynchronisePlugin implements IMixinConfigPlugin {
 
     @Override
     public List<String> getMixins() {
-        return null;
+        return generatedStubMixins.isEmpty() ? null : generatedStubMixins;
     }
 
     @Override
@@ -58,6 +94,9 @@ public class SynchronisePlugin implements IMixinConfigPlugin {
     public void postApply(String targetClassName, ClassNode targetClass, String mixinClassName, IMixinInfo mixinInfo) {
         Collection<String> targetMethods = mixin2MethodsMap.get(mixinClassName);
         Collection<String> excludedMethods = mixin2MethodsExcludeMap.get(mixinClassName);
+
+        // Always scan for @SyncItemPickup — the annotation is preserved by Mixin on woven methods.
+        SyncItemPickupTransformer.apply(targetClass);
 
         if (!targetMethods.isEmpty()) {
             applySynchronizeBit(targetClass, targetMethods, targetClassName);
