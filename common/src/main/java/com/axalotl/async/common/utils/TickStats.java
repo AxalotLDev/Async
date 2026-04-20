@@ -28,7 +28,7 @@ public class TickStats {
     }
 
     public static boolean isRecording() {
-        return RECORDING_TICKS_LEFT.get() > 0;
+        return RECORDING_TICKS_LEFT.updateAndGet(v -> Math.max(0, v - 1)) > 0;
     }
 
     public static double getMSPTForType(EntityType<?> type, int recordedTicks) {

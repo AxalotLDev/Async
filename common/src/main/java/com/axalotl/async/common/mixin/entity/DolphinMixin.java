@@ -1,5 +1,6 @@
 package com.axalotl.async.common.mixin.entity;
 
+import com.axalotl.async.api.utils.SyncItemPickup;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import net.minecraft.server.level.ServerLevel;
@@ -9,13 +10,9 @@ import net.minecraft.world.entity.animal.dolphin.Dolphin;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.level.Level;
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Unique;
 
 @Mixin(Dolphin.class)
 public abstract class DolphinMixin extends AgeableWaterCreature {
-
-    @Unique
-    private static final Object lock = new Object();
 
     protected DolphinMixin(EntityType<? extends AgeableWaterCreature> entityType, Level level) {
         super(entityType, level);
@@ -23,10 +20,6 @@ public abstract class DolphinMixin extends AgeableWaterCreature {
 
     @WrapMethod(method = "pickUpItem")
     private void pickUpItem(ServerLevel level, ItemEntity entity, Operation<Void> original) {
-        synchronized (lock) {
-            if (!entity.isRemoved()) {
-                original.call(level, entity);
-            }
-        }
+        SyncItemPickup.wrap(level, entity, () -> original.call(level, entity));
     }
 }

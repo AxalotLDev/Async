@@ -60,13 +60,11 @@ public class StatsCommand {
     }
 
     private static void pollUntilDone(CommandSourceStack source, int topCount, int ticks) {
-        source.getServer().execute(() -> {
-            if (TickStats.isRecording()) {
-                pollUntilDone(source, topCount, ticks);
-            } else {
-                showEntityStats(source, topCount, true, ticks);
-            }
-        });
+        if (TickStats.isRecording()) {
+            pollUntilDone(source, topCount, ticks);
+        } else {
+            showEntityStats(source, topCount, true, ticks);
+        }
     }
 
     private static void showGeneralStats(CommandSourceStack source) {
