@@ -1,5 +1,6 @@
 package com.axalotl.async.common;
 
+import com.axalotl.async.common.parallelised.utils.VectorOpsBootstrap;
 import com.axalotl.async.common.platform.PlatformUtils;
 
 public abstract class AsyncCommon {
@@ -7,5 +8,6 @@ public abstract class AsyncCommon {
 
     public final void initialize() {
         PlatformUtils.initialize();
+        VectorOpsBootstrap.logStatus();
     }
 }
