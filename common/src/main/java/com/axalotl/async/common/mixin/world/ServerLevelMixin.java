@@ -4,8 +4,8 @@ import com.axalotl.async.common.ParallelProcessor;
 import com.axalotl.async.common.config.AsyncConfig;
 import com.axalotl.async.common.mixin.lithium.LithiumServerLevel;
 import com.axalotl.async.common.parallelised.utils.ItemFluidPrecompute;
-import com.axalotl.async.common.parallelised.ConcurrentCollections;
-import com.axalotl.async.common.parallelised.ConcurrentList;
+import com.axalotl.async.api.utils.ConcurrentCollections;
+import com.axalotl.async.api.utils.ConcurrentList;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
@@ -45,7 +45,6 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -67,7 +66,7 @@ public abstract class ServerLevelMixin extends Level implements WorldGenLevel {
     @Shadow public abstract @NotNull ServerLevel getLevel();
 
     @Unique
-    private static final Object lock = new Object();
+    private final Object async$explosionLock = new Object();
 
     @Unique
     ConcurrentLinkedQueue<BlockEventData> async$syncedBlockEventQueue;
@@ -89,19 +88,14 @@ public abstract class ServerLevelMixin extends Level implements WorldGenLevel {
         ProfilerFiller profilerfiller = Profiler.get();
 
         List<Entity> toTick = new ArrayList<>();
-        List<Entity> toDespawnCheck = new ArrayList<>();
 
         this.entityTickList.forEach(entity -> {
             if (entity == null || entity.isRemoved()) return;
             if (this.tickRateManager().isEntityFrozen(entity)) return;
 
-            if (!AsyncConfig.disabled && AsyncConfig.enableAsyncSpawn) {
-                toDespawnCheck.add(entity);
-            } else {
-                profilerfiller.push("checkDespawn");
-                entity.checkDespawn();
-                profilerfiller.pop();
-            }
+            profilerfiller.push("checkDespawn");
+            entity.checkDespawn();
+            profilerfiller.pop();
 
             if (!this.chunkSource.chunkMap.getDistanceManager()
                     .inEntityTickingRange(entity.chunkPosition().pack())) return;
@@ -114,33 +108,6 @@ public abstract class ServerLevelMixin extends Level implements WorldGenLevel {
 
             toTick.add(entity);
         });
-
-        if (!toDespawnCheck.isEmpty()) {
-            int poolSize = ParallelProcessor.getPoolSize();
-            int chunkSize = Math.max(1, (toDespawnCheck.size() + poolSize - 1) / poolSize);
-            List<Future<Void>> despawnFutures = new ArrayList<>();
-            for (int i = 0; i < toDespawnCheck.size(); i += chunkSize) {
-                List<Entity> chunk = toDespawnCheck.subList(i, Math.min(i + chunkSize, toDespawnCheck.size()));
-                despawnFutures.add(ParallelProcessor.executor.submit(() -> {
-                    for (Entity e : chunk) e.checkDespawn();
-                    return (Void) null;
-                }));
-            }
-            boolean allDone;
-            do {
-                allDone = true;
-                for (Future<Void> f : despawnFutures) {
-                    if (!f.isDone()) { allDone = false; break; }
-                }
-                if (!allDone) {
-                    boolean pumped = false;
-                    for (ServerLevel lvl : ParallelProcessor.getServer().getAllLevels()) {
-                        pumped |= lvl.getChunkSource().pollTask();
-                    }
-                    if (!pumped) Thread.onSpinWait();
-                }
-            } while (!allDone);
-        }
 
         async$precomputeItemFluidStates(toTick);
 
@@ -202,25 +169,6 @@ public abstract class ServerLevelMixin extends Level implements WorldGenLevel {
         ItemFluidPrecompute.activate(fluidMap);
     }
 
-    @WrapMethod(method = "addFreshEntity")
-    private boolean wrapAddFreshEntity(Entity entity, Operation<Boolean> original) {
-        if (AsyncConfig.disabled || !AsyncConfig.enableAsyncSpawn) {
-            return original.call(entity);
-        }
-
-        synchronized (ParallelProcessor.getEntityAddLock()) {
-            return original.call(entity);
-        }
-    }
-
-    @Inject(method = "canSpawnEntitiesInChunk", at = @At("HEAD"), cancellable = true)
-    private void async$canSpawnEntitiesInChunk(ChunkPos pos, CallbackInfoReturnable<Boolean> cir) {
-        it.unimi.dsi.fastutil.longs.LongOpenHashSet set = ParallelProcessor.spawnableChunkPositions;
-        if (set != null && ParallelProcessor.isServerExecutionThread()) {
-            cir.setReturnValue(set.contains(pos.pack()));
-        }
-    }
-
     @Redirect(method = "blockEvent", at = @At(value = "INVOKE", target = "Lit/unimi/dsi/fastutil/objects/ObjectLinkedOpenHashSet;add(Ljava/lang/Object;)Z", remap = false))
     private boolean overwriteQueueAdd(ObjectLinkedOpenHashSet<BlockEventData> objectLinkedOpenHashSet, Object object) {
         return async$syncedBlockEventQueue.add((BlockEventData) object);
@@ -265,7 +213,7 @@ public abstract class ServerLevelMixin extends Level implements WorldGenLevel {
             Holder<SoundEvent> explosionSound,
             Operation<Void> original
     ) {
-        synchronized (lock) {
+        synchronized (this.async$explosionLock) {
             ((LithiumServerLevel) (Object) this).async$setSuppress(true);
             original.call(
                     source, damageSource, damageCalculator,

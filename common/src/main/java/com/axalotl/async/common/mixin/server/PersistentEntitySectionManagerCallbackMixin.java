@@ -4,6 +4,7 @@ import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import net.minecraft.core.SectionPos;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.entity.EntityAccess;
 import net.minecraft.world.level.entity.EntitySection;
 import net.minecraft.world.level.entity.EntitySectionStorage;
@@ -15,6 +16,8 @@ import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+import java.util.concurrent.atomic.AtomicBoolean;
 
 @Mixin(PersistentEntitySectionManager.Callback.class)
 public abstract class PersistentEntitySectionManagerCallbackMixin {
@@ -35,9 +38,19 @@ public abstract class PersistentEntitySectionManagerCallbackMixin {
     @Unique
     private volatile boolean async$pendingRemoval = false;
 
+    @Unique
+    private final AtomicBoolean async$onRemoveFired = new AtomicBoolean();
+
     @Inject(method = "<init>", at = @At("TAIL"))
     private void async$captureOuter(PersistentEntitySectionManager<?> entity, EntityAccess currentSectionKey, long currentSection, EntitySection<?> section, CallbackInfo ci) {
         this.async$outerManager = entity;
+    }
+
+    @Inject(method = "onRemove", at = @At("HEAD"), cancellable = true)
+    private void async$onRemoveIdempotent(Entity.RemovalReason reason, CallbackInfo ci) {
+        if (!async$onRemoveFired.compareAndSet(false, true)) {
+            ci.cancel();
+        }
     }
 
     @SuppressWarnings("unchecked")
