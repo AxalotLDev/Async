@@ -1,4 +1,4 @@
-package com.axalotl.async.common.parallelised.utils;
+package com.axalotl.async.api.utils;
 
 import it.unimi.dsi.fastutil.objects.Reference2IntLinkedOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Reference2IntMap;
@@ -167,6 +167,21 @@ public final class IteratorSafeOrderedReferenceSet<E> {
 
     public Iterator<E> iterator() {
         return this.iterator(0);
+    }
+
+    public void forEach(java.util.function.Consumer<? super E> action) {
+        boolean tracked = this.allowSafeIteration();
+        if (tracked) ++this.iteratorCount;
+        try {
+            final E[] arr = this.listElements;
+            final int size = this.listSize;
+            for (int i = 0; i < size; i++) {
+                E e = arr[i];
+                if (e != null) action.accept(e);
+            }
+        } finally {
+            if (tracked) finishRawIterator();
+        }
     }
 
     public Iterator<E> iterator(final int flags) {

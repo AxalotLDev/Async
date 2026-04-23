@@ -1,4 +1,4 @@
-package com.axalotl.async.common.parallelised.fastutil;
+package com.axalotl.async.api.fastutil;
 
 import it.unimi.dsi.fastutil.HashCommon;
 import it.unimi.dsi.fastutil.longs.*;

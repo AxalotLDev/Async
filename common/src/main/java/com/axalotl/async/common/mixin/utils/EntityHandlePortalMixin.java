@@ -56,12 +56,10 @@ public abstract class EntityHandlePortalMixin {
 
             if (portal instanceof NetherPortalBlock) {
                 this.setPortalCooldown();
-                PortalTeleportationManager.submitAndAwait(
-                        self, portal,
-                        process.getEntryPosition(),
-                        serverLevel
-                );
-                this.portalProcess = null;
+                boolean executedNow = PortalTeleportationManager.submit(self, portal, process.getEntryPosition(), serverLevel);
+                if (executedNow) {
+                    this.portalProcess = null;
+                }
             } else {
                 ProfilerFiller profiler = Profiler.get();
                 profiler.push("portal");

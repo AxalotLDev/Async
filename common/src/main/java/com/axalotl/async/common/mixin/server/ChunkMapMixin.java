@@ -1,7 +1,7 @@
 package com.axalotl.async.common.mixin.server;
 
-import com.axalotl.async.common.parallelised.ConcurrentList;
-import com.axalotl.async.common.parallelised.fastutil.Int2ObjectConcurrentHashMap;
+import com.axalotl.async.api.utils.ConcurrentList;
+import com.axalotl.async.api.fastutil.Int2ObjectConcurrentHashMap;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.mojang.datafixers.DataFixer;

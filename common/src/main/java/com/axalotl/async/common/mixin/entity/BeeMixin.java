@@ -12,7 +12,7 @@ public class BeeMixin {
     private static final Object lock = new Object();
 
     @WrapMethod(method = "wantsToEnterHive")
-    private boolean loot(Operation<Boolean> original) {
+    private boolean wantsToEnterHive(Operation<Boolean> original) {
         synchronized (lock) {
             return original.call();
         }

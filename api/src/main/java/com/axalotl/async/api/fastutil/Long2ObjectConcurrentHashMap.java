@@ -1,4 +1,4 @@
-package com.axalotl.async.common.parallelised.fastutil;
+package com.axalotl.async.api.fastutil;
 
 import it.unimi.dsi.fastutil.longs.*;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
@@ -16,6 +16,16 @@ import java.util.function.LongFunction;
  * High-performance striped concurrent Long2ObjectMap.
  * Uses StampedLock with optimistic reads for maximum read throughput.
  * Primitive long keys — zero autoboxing.
+ * <p>
+ * Intentionally {@code implements Long2ObjectMap<V>} rather than
+ * {@code extends Long2ObjectOpenHashMap<V>}: a previous attempt to make
+ * this a drop-in via {@code extends} caused mob-cap miscalculation
+ * (trillion-mob runaway spawn). Parent's inherited primitive-specialized
+ * {@code computeIfAbsent(long, Long2ObjectFunction)} is not overridden
+ * here, and when it fires it reads the parent's unused internal arrays
+ * and writes the computed value there — our stripe-backed {@code get}
+ * never sees it, so the caller thinks the key is absent every time and
+ * re-applies the computing function, producing duplicates.
  *
  * @param <V> value type
  */
@@ -53,7 +63,7 @@ public final class Long2ObjectConcurrentHashMap<V> implements Long2ObjectMap<V> 
     public Long2ObjectConcurrentHashMap(int initialCapacity, float loadFactor, int concurrencyLevel) { this(initialCapacity, concurrencyLevel); }
 
     static int defaultSegmentCount() {
-        return nextPowerOf2(Math.max(32, Runtime.getRuntime().availableProcessors() * 4));
+        return nextPowerOf2(Math.max(16, Runtime.getRuntime().availableProcessors()));
     }
 
     private static int nextPowerOf2(int v) {

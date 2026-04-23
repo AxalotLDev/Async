@@ -4,28 +4,57 @@ import net.minecraft.world.entity.Entity;
 
 public final class FastBitRadixSort {
     private static final int SMALL_ARRAY_THRESHOLD = 6;
-    private static final ThreadLocal<long[]> BITS_BUFFER = ThreadLocal.withInitial(() -> new long[0]);
+
+    private static final ThreadLocal<long[]>   BITS_BUFFER = ThreadLocal.withInitial(() -> new long[0]);
+    private static final ThreadLocal<double[]> X_BUFFER    = ThreadLocal.withInitial(() -> new double[0]);
+    private static final ThreadLocal<double[]> Y_BUFFER    = ThreadLocal.withInitial(() -> new double[0]);
+    private static final ThreadLocal<double[]> Z_BUFFER    = ThreadLocal.withInitial(() -> new double[0]);
 
     public void sort(Object[] entities, int size, net.minecraft.core.Position target) {
         if (size <= 1) {
             return;
         }
 
-        long[] bits = BITS_BUFFER.get();
-        if (bits.length < size) {
-            bits = new long[size];
-            BITS_BUFFER.set(bits);
+        long[]   bits = ensure(BITS_BUFFER, size);
+        double[] ex   = ensureD(X_BUFFER,   size);
+        double[] ey   = ensureD(Y_BUFFER,   size);
+        double[] ez   = ensureD(Z_BUFFER,   size);
+
+        for (int i = 0; i < size; i++) {
+            Entity e = (Entity) entities[i];
+            ex[i] = e.getX();
+            ey[i] = e.getY();
+            ez[i] = e.getZ();
         }
 
         double tx = target.x();
         double ty = target.y();
         double tz = target.z();
 
-        for (int i = 0; i < size; i++) {
-            bits[i] = Double.doubleToRawLongBits(((Entity) entities[i]).distanceToSqr(tx, ty, tz));
+        if (VectorOpsBootstrap.AVAILABLE) {
+            VectorOps.batchDistanceSquaredBits(ex, ey, ez, tx, ty, tz, bits, size);
+        } else {
+            for (int i = 0; i < size; i++) {
+                double dx = ex[i] - tx;
+                double dy = ey[i] - ty;
+                double dz = ez[i] - tz;
+                bits[i] = Double.doubleToRawLongBits(dx * dx + dy * dy + dz * dz);
+            }
         }
 
         fastRadixSort(entities, bits, 0, size - 1, 62);
+    }
+
+    private static long[] ensure(ThreadLocal<long[]> tl, int size) {
+        long[] b = tl.get();
+        if (b.length < size) { b = new long[size]; tl.set(b); }
+        return b;
+    }
+
+    private static double[] ensureD(ThreadLocal<double[]> tl, int size) {
+        double[] b = tl.get();
+        if (b.length < size) { b = new double[size]; tl.set(b); }
+        return b;
     }
 
     private static void fastRadixSort(Object[] ents, long[] bits, int low, int high, int bit) {

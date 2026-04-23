@@ -1,6 +1,6 @@
 package com.axalotl.async.common.mixin.server;
 
-import com.axalotl.async.common.parallelised.fastutil.Long2ObjectConcurrentHashMap;
+import com.axalotl.async.api.fastutil.Long2ObjectConcurrentHashMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import it.unimi.dsi.fastutil.longs.LongSet;

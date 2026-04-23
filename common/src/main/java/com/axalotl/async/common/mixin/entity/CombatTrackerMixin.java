@@ -1,6 +1,6 @@
 package com.axalotl.async.common.mixin.entity;
 
-import com.axalotl.async.common.parallelised.ConcurrentList;
+import com.axalotl.async.api.utils.ConcurrentList;
 import net.minecraft.world.damagesource.CombatEntry;
 import net.minecraft.world.damagesource.CombatTracker;
 import org.spongepowered.asm.mixin.Final;

@@ -1,6 +1,6 @@
 package com.axalotl.async.common.mixin.c2me;
 
-import com.axalotl.async.common.parallelised.fastutil.Long2IntConcurrentHashMap;
+import com.axalotl.async.api.fastutil.Long2IntConcurrentHashMap;
 import it.unimi.dsi.fastutil.longs.Long2IntMap;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Mutable;

@@ -5,6 +5,10 @@ plugins {
     id "com.modrinth.minotaur" version "2.+"
 }
 
+tasks.withType(JavaCompile).configureEach {
+    options.compilerArgs += ['--add-modules', 'jdk.incubator.vector']
+}
+
 repositories {
     maven { url 'https://api.modrinth.com/maven' }
 }
@@ -57,6 +61,7 @@ dependencies {
     implementation "maven.modrinth:lithium:${lithium_version}-neoforge"
     compileOnly 'org.projectlombok:lombok:1.18.44'
     annotationProcessor 'org.projectlombok:lombok:1.18.44'
+    implementation(jarJar(project(':api')))
 }
 
 sourceSets.main.resources { srcDir 'src/generated/resources' }

@@ -1,4 +1,4 @@
-package com.axalotl.async.common.parallelised.fastutil;
+package com.axalotl.async.api.fastutil;
 
 import it.unimi.dsi.fastutil.HashCommon;
 import it.unimi.dsi.fastutil.longs.*;
@@ -46,7 +46,7 @@ public final class Long2LongConcurrentHashMap extends AbstractLong2LongMap {
     }
 
     static int defaultSegmentCount() {
-        return nextPowerOf2(Math.max(32, Runtime.getRuntime().availableProcessors() * 4));
+        return nextPowerOf2(Math.max(16, Runtime.getRuntime().availableProcessors()));
     }
 
     private static int nextPowerOf2(int v) {

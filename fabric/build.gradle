@@ -5,6 +5,10 @@ plugins {
     id 'idea'
 }
 
+tasks.withType(JavaCompile).configureEach {
+    options.compilerArgs += ['--add-modules', 'jdk.incubator.vector']
+}
+
 repositories {
     maven { url 'https://api.modrinth.com/maven' }
 }
@@ -45,6 +49,7 @@ dependencies {
 
     implementation "maven.modrinth:lithium:${lithium_version}-neoforge"
     implementation(include("me.lucko:fabric-permissions-api:${project.permission_api}"))
+    implementation include(project(":api"))
 }
 
 loom {
@@ -71,6 +76,7 @@ loom {
             vmArgs(
                     "-Xms12G",
                     "-Xmx12G",
+                    "--add-modules=jdk.incubator.vector",
                     "-XX:+UnlockExperimentalVMOptions",
                     "-XX:+UseZGC",
                     "-XX:+AlwaysPreTouch",

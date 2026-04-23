@@ -1,7 +1,7 @@
 package com.axalotl.async.common.mixin.world;
 
-import com.axalotl.async.common.parallelised.fastutil.Long2LongConcurrentHashMap;
-import com.axalotl.async.common.parallelised.fastutil.Long2ObjectConcurrentHashMap;
+import com.axalotl.async.api.fastutil.Long2LongConcurrentHashMap;
+import com.axalotl.async.api.fastutil.Long2ObjectConcurrentHashMap;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import it.unimi.dsi.fastutil.longs.Long2LongMap;

@@ -1,4 +1,4 @@
-package com.axalotl.async.common.parallelised;
+package com.axalotl.async.api.utils;
 
 import java.util.AbstractList;
 import java.util.Arrays;

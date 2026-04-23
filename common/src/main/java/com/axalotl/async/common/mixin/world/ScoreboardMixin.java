@@ -1,6 +1,6 @@
 package com.axalotl.async.common.mixin.world;
 
-import com.axalotl.async.common.parallelised.ConcurrentCollections;
+import com.axalotl.async.api.utils.ConcurrentCollections;
 import net.minecraft.world.scores.Objective;
 import net.minecraft.world.scores.Score;
 import net.minecraft.world.scores.Scoreboard;

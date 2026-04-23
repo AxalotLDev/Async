@@ -1,6 +1,6 @@
 package com.axalotl.async.common.mixin.server;
 
-import com.axalotl.async.common.parallelised.fastutil.Long2ByteConcurrentHashMap;
+import com.axalotl.async.api.fastutil.Long2ByteConcurrentHashMap;
 import it.unimi.dsi.fastutil.longs.Long2ByteMap;
 import net.minecraft.server.level.DistanceManager;
 import org.spongepowered.asm.mixin.Final;

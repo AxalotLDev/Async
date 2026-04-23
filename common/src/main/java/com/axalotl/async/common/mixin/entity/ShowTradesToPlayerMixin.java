@@ -1,6 +1,6 @@
 package com.axalotl.async.common.mixin.entity;
 
-import com.axalotl.async.common.parallelised.ConcurrentList;
+import com.axalotl.async.api.utils.ConcurrentList;
 import net.minecraft.world.entity.ai.behavior.ShowTradesToPlayer;
 import net.minecraft.world.item.ItemStack;
 import org.spongepowered.asm.mixin.Mixin;

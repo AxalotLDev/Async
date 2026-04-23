@@ -1,6 +1,6 @@
 package com.axalotl.async.common.mixin.world;
 
-import com.axalotl.async.common.parallelised.ConcurrentList;
+import com.axalotl.async.api.utils.ConcurrentList;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import net.minecraft.core.BlockPos;

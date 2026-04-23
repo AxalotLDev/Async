@@ -1,6 +1,6 @@
 package com.axalotl.async.common.mixin.utils;
 
-import com.axalotl.async.common.parallelised.ConcurrentList;
+import com.axalotl.async.api.utils.ConcurrentList;
 import net.minecraft.world.entity.ai.behavior.ShufflingList;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
