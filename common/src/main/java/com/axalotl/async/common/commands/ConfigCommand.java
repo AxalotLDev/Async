@@ -24,14 +24,17 @@ import static net.minecraft.commands.Commands.literal;
 public class ConfigCommand {
 
     public static LiteralArgumentBuilder<CommandSourceStack> registerConfig(LiteralArgumentBuilder<CommandSourceStack> root) {
-        return root.then(literal("config")
+        LiteralArgumentBuilder<CommandSourceStack> config = literal("config")
                 .requires(PlatformPermission.require("command.config", 4))
                 .then(buildToggleCommand())
                 .then(buildReloadCommand())
                 .then(buildSynchronizedEntitiesCommand())
                 .then(buildAsyncEntitySpawnCommand())
-                .then(buildAsyncRandomTicksCommand())
-        );
+                .then(buildAsyncRandomTicksCommand());
+        if (PlatformUtils.isModLoaded("vmp")) {
+            config = config.then(buildAsyncVmpTrackingCommand());
+        }
+        return root.then(config);
     }
 
     private static LiteralArgumentBuilder<CommandSourceStack> buildReloadCommand() {
@@ -148,6 +151,28 @@ public class ConfigCommand {
                             PlatformUtils.saveConfig();
 
                             sendMessage(ctx, "Async Random Ticks set to ",
+                                    String.valueOf(value),
+                                    true);
+                            return 1;
+                        })
+                );
+    }
+
+    private static LiteralArgumentBuilder<CommandSourceStack> buildAsyncVmpTrackingCommand() {
+        return literal("setAsyncVmpTracking")
+                .executes(ctx -> {
+                    sendMessage(ctx, "Current value of async VMP tracking: ",
+                            String.valueOf(AsyncConfig.enableAsyncVmpTracking),
+                            false);
+                    return 1;
+                })
+                .then(Commands.argument("value", BoolArgumentType.bool())
+                        .executes(ctx -> {
+                            boolean value = BoolArgumentType.getBool(ctx, "value");
+                            AsyncConfig.enableAsyncVmpTracking = value;
+                            PlatformUtils.saveConfig();
+
+                            sendMessage(ctx, "Async VMP Tracking set to ",
                                     String.valueOf(value),
                                     true);
                             return 1;

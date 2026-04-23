@@ -15,9 +15,11 @@ public class AsyncConfig {
 
     private static final ModConfigSpec.BooleanValue disabled;
     private static final ModConfigSpec.IntValue maxThreads;
+    private static final ModConfigSpec.IntValue threadPriority;
     private static final ModConfigSpec.ConfigValue<List<? extends String>> synchronizedEntities;
     private static final ModConfigSpec.BooleanValue enableAsyncSpawn;
     private static final ModConfigSpec.BooleanValue enableAsyncRandomTicks;
+    private static final ModConfigSpec.BooleanValue enableAsyncVmpTracking;
 
     static {
         BUILDER.push("Async Config");
@@ -25,8 +27,11 @@ public class AsyncConfig {
         disabled = BUILDER.comment("Enables parallel processing of entities.")
                 .define("disabled", com.axalotl.async.common.config.AsyncConfig.disabled);
 
-        maxThreads = BUILDER.comment("Maximum worker threads. -1 = auto.")
+        maxThreads = BUILDER.comment("Maximum worker threads. -1 = auto (uses all cores).")
                 .defineInRange("maxThreads", com.axalotl.async.common.config.AsyncConfig.maxThreads, -1, Integer.MAX_VALUE);
+
+        threadPriority = BUILDER.comment("Worker-thread OS priority (1..10). Default 4 is below server/render thread (5) so they keep responsiveness on saturated CPUs.")
+                .defineInRange("threadPriority", com.axalotl.async.common.config.AsyncConfig.threadPriority, Thread.MIN_PRIORITY, Thread.MAX_PRIORITY);
 
         synchronizedEntities = BUILDER.comment("""
                         List of entity IDs or namespaces (*):
@@ -39,11 +44,14 @@ public class AsyncConfig {
                         obj -> obj instanceof String
                 );
 
-        enableAsyncSpawn = BUILDER.comment("Enables async entity spawning. WARNING: incompatible with Carpet's lagFreeSpawning.")
+        enableAsyncSpawn = BUILDER.comment("Reserved flag. No-op currently — parallel spawn was removed after profiling showed it was a net regression.")
                 .define("enableAsyncSpawn", com.axalotl.async.common.config.AsyncConfig.enableAsyncSpawn);
 
         enableAsyncRandomTicks = BUILDER.comment("Experimental! Enables async random ticks.")
                 .define("enableAsyncRandomTicks", com.axalotl.async.common.config.AsyncConfig.enableAsyncRandomTicks);
+
+        enableAsyncVmpTracking = BUILDER.comment("Experimental! Offloads VMP's NearbyEntityTracking tryTick calls to the async pool. No effect without VMP installed.")
+                .define("enableAsyncVmpTracking", com.axalotl.async.common.config.AsyncConfig.enableAsyncVmpTracking);
 
         BUILDER.pop();
         SPEC = BUILDER.build();
@@ -53,8 +61,10 @@ public class AsyncConfig {
     public static void loadConfig() {
         com.axalotl.async.common.config.AsyncConfig.disabled = disabled.get();
         com.axalotl.async.common.config.AsyncConfig.maxThreads = maxThreads.get();
+        com.axalotl.async.common.config.AsyncConfig.threadPriority = threadPriority.get();
         com.axalotl.async.common.config.AsyncConfig.enableAsyncSpawn = enableAsyncSpawn.get();
         com.axalotl.async.common.config.AsyncConfig.enableAsyncRandomTicks = enableAsyncRandomTicks.get();
+        com.axalotl.async.common.config.AsyncConfig.enableAsyncVmpTracking = enableAsyncVmpTracking.get();
 
         List<? extends String> entries = synchronizedEntities.get();
         Set<String> entities = new HashSet<>();
@@ -70,8 +80,10 @@ public class AsyncConfig {
     public static void saveConfig() {
         disabled.set(com.axalotl.async.common.config.AsyncConfig.disabled);
         maxThreads.set(com.axalotl.async.common.config.AsyncConfig.maxThreads);
+        threadPriority.set(com.axalotl.async.common.config.AsyncConfig.threadPriority);
         enableAsyncSpawn.set(com.axalotl.async.common.config.AsyncConfig.enableAsyncSpawn);
         enableAsyncRandomTicks.set(com.axalotl.async.common.config.AsyncConfig.enableAsyncRandomTicks);
+        enableAsyncVmpTracking.set(com.axalotl.async.common.config.AsyncConfig.enableAsyncVmpTracking);
         synchronizedEntities.set(new ArrayList<>(com.axalotl.async.common.config.AsyncConfig.synchronizedEntities));
         SPEC.save();
         com.axalotl.async.common.config.AsyncConfig.onConfigLoaded();

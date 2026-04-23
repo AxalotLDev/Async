@@ -1,6 +1,5 @@
 package com.axalotl.async.common.config;
 
-import com.axalotl.async.common.parallelised.utils.ModCompatible;
 import com.axalotl.async.common.platform.PlatformUtils;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
@@ -15,8 +14,10 @@ public class AsyncConfig {
 
     public static boolean disabled = false;
     public static int maxThreads = -1;
+    public static int threadPriority = Thread.NORM_PRIORITY - 1;
     public static boolean enableAsyncSpawn = false;
     public static boolean enableAsyncRandomTicks = false;
+    public static boolean enableAsyncVmpTracking = false;
     public static Set<String> synchronizedEntities = getDefaultSynchronizedEntities();
 
     // Caches
@@ -25,18 +26,21 @@ public class AsyncConfig {
     private static final Set<String> namespaceWildcards = new HashSet<>();
 
     public static Set<String> getDefaultSynchronizedEntities() {
-        final Set<String> defaultSynchronizedEntities = new HashSet<>(ModCompatible.addUnsupportedMods());
-        defaultSynchronizedEntities.addAll(Set.of(
+        return new HashSet<>(Set.of(
                 "minecraft:tnt",
                 "minecraft:item",
                 "minecraft:experience_orb"
         ));
-        return defaultSynchronizedEntities;
     }
 
     public static int getParallelism() {
-        if (maxThreads <= 0) return Runtime.getRuntime().availableProcessors();
-        return Math.clamp(Runtime.getRuntime().availableProcessors(), 1, maxThreads);
+        int cores = Runtime.getRuntime().availableProcessors();
+        if (maxThreads <= 0) return cores;
+        return Math.min(cores, maxThreads);
+    }
+
+    public static int getThreadPriority() {
+        return Math.clamp(threadPriority, Thread.MIN_PRIORITY, Thread.MAX_PRIORITY);
     }
 
     public static boolean isNamespaceWildcard(String input) {

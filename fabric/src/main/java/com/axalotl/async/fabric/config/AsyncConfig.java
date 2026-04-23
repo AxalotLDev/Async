@@ -26,9 +26,11 @@ public class AsyncConfig {
     private static final Set<String> VALID_KEYS = Set.of(
             "disabled",
             "maxThreads",
+            "threadPriority",
             "synchronizedEntities",
             "enableAsyncSpawn",
-            "enableAsyncRandomTicks"
+            "enableAsyncRandomTicks",
+            "enableAsyncVmpTracking"
     );
 
     public static void init() {
@@ -40,6 +42,7 @@ public class AsyncConfig {
                 LOGGER.warn("Configuration not found. Creating defaults...");
                 setDefaultValues();
                 saveConfig();
+                com.axalotl.async.common.config.AsyncConfig.onConfigLoaded();
             } else {
                 CONFIG.load();
                 loadConfigValues();
@@ -50,21 +53,25 @@ public class AsyncConfig {
             LOGGER.error("Error loading configuration. Resetting to defaults.", t);
             setDefaultValues();
             saveConfig();
+            com.axalotl.async.common.config.AsyncConfig.onConfigLoaded();
         }
     }
 
     public static void saveConfig() {
         setWithComment("disabled", disabled, "Enables parallel processing of entities.");
-        setWithComment("maxThreads", maxThreads, "Maximum worker threads. -1 = auto.");
+        setWithComment("maxThreads", maxThreads, "Maximum worker threads. -1 = auto (uses all cores).");
+        setWithComment("threadPriority", threadPriority, "Worker-thread OS priority (1..10). Default 4 is below server/render thread (5) so they keep responsiveness on saturated CPUs.");
         setWithComment("synchronizedEntities", new ArrayList<>(synchronizedEntities),
                 """
                         List of entity IDs or namespaces (*):
                           - 'minecraft:zombie' = specific entity
                           - 'minecraft:*'      = all entities in namespace""");
         setWithComment("enableAsyncSpawn", enableAsyncSpawn,
-                "Enables async entity spawning. WARNING: incompatible with Carpet's lagFreeSpawning.");
+                "Reserved flag. No-op currently — parallel spawn was removed after profiling showed it was a net regression.");
         setWithComment("enableAsyncRandomTicks", enableAsyncRandomTicks,
                 "Experimental! Enables async random ticks.");
+        setWithComment("enableAsyncVmpTracking", enableAsyncVmpTracking,
+                "Experimental! Offloads VMP's NearbyEntityTracking tryTick calls to the async pool. No effect without VMP installed.");
 
         CONFIG.save();
         LOGGER.info("Configuration saved.");
@@ -80,8 +87,10 @@ public class AsyncConfig {
 
         disabled = CONFIG.getOrElse("disabled", disabled);
         maxThreads = CONFIG.getOrElse("maxThreads", maxThreads);
+        threadPriority = CONFIG.getOrElse("threadPriority", threadPriority);
         enableAsyncSpawn = CONFIG.getOrElse("enableAsyncSpawn", enableAsyncSpawn);
         enableAsyncRandomTicks = CONFIG.getOrElse("enableAsyncRandomTicks", enableAsyncRandomTicks);
+        enableAsyncVmpTracking = CONFIG.getOrElse("enableAsyncVmpTracking", enableAsyncVmpTracking);
 
         List<String> entries = CONFIG.get("synchronizedEntities");
         if (entries != null) {
@@ -94,13 +103,15 @@ public class AsyncConfig {
 
     private static void restoreComments() {
         setCommentIfExists("disabled", "Enables parallel processing of entities.");
-        setCommentIfExists("maxThreads", "Maximum worker threads. -1 = auto.");
+        setCommentIfExists("maxThreads", "Maximum worker threads. -1 = auto (uses all cores).");
+        setCommentIfExists("threadPriority", "Worker-thread OS priority (1..10). Default 4 is below server/render thread (5) so they keep responsiveness on saturated CPUs.");
         setCommentIfExists("synchronizedEntities", """
                 List of entity IDs or namespaces (*):
                   - 'minecraft:zombie' = specific entity
                   - 'minecraft:*'      = all entities in namespace""");
-        setCommentIfExists("enableAsyncSpawn", "Enables async entity spawning. WARNING: incompatible with Carpet's lagFreeSpawning.");
+        setCommentIfExists("enableAsyncSpawn", "Reserved flag. No-op currently — parallel spawn was removed after profiling showed it was a net regression.");
         setCommentIfExists("enableAsyncRandomTicks", "Experimental! Enables async random ticks.");
+        setCommentIfExists("enableAsyncVmpTracking", "Experimental! Offloads VMP's NearbyEntityTracking tryTick calls to the async pool. No effect without VMP installed.");
     }
 
     private static void setCommentIfExists(String key, String comment) {
@@ -128,8 +139,10 @@ public class AsyncConfig {
     private static void setDefaultValues() {
         disabled = false;
         maxThreads = -1;
+        threadPriority = Thread.NORM_PRIORITY - 1;
         enableAsyncSpawn = false;
         enableAsyncRandomTicks = false;
+        enableAsyncVmpTracking = false;
         synchronizedEntities = getDefaultSynchronizedEntities();
     }
 }

@@ -3,6 +3,7 @@ package com.axalotl.async.common.commands;
 import com.axalotl.async.common.ParallelProcessor;
 import com.axalotl.async.common.config.AsyncConfig;
 import com.axalotl.async.common.platform.PlatformPermission;
+import com.axalotl.async.common.platform.PlatformUtils;
 import com.axalotl.async.common.utils.TickStats;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
@@ -86,6 +87,8 @@ public class StatsCommand {
         boolean enabled = !AsyncConfig.disabled;
         boolean asyncSpawn = AsyncConfig.enableAsyncSpawn;
         boolean asyncRandomTicks = AsyncConfig.enableAsyncRandomTicks;
+        boolean vmpLoaded = PlatformUtils.isModLoaded("vmp");
+        boolean asyncVmpTracking = AsyncConfig.enableAsyncVmpTracking;
 
         MutableComponent message = prefix.copy()
                 .append(Component.literal("Performance Statistics").withStyle(ChatFormatting.GOLD))
@@ -100,9 +103,15 @@ public class StatsCommand {
 
                 .append(Component.literal("\nAsync Random Ticks: ").withStyle(ChatFormatting.WHITE))
                 .append(Component.literal(asyncRandomTicks ? "Enabled" : "Disabled")
-                        .withStyle(asyncRandomTicks ? ChatFormatting.GREEN : ChatFormatting.RED))
+                        .withStyle(asyncRandomTicks ? ChatFormatting.GREEN : ChatFormatting.RED));
 
-                .append(Component.literal("\nEntities: ").withStyle(ChatFormatting.WHITE))
+        if (vmpLoaded) {
+            message.append(Component.literal("\nAsync VMP Tracking: ").withStyle(ChatFormatting.WHITE))
+                   .append(Component.literal(asyncVmpTracking ? "Enabled" : "Disabled")
+                           .withStyle(asyncVmpTracking ? ChatFormatting.GREEN : ChatFormatting.RED));
+        }
+
+        message.append(Component.literal("\nEntities: ").withStyle(ChatFormatting.WHITE))
                 .append(Component.literal(String.valueOf(totalEntities)).withStyle(ChatFormatting.GREEN))
 
                 .append(Component.literal("\nMax Threads: ").withStyle(ChatFormatting.WHITE))
@@ -156,6 +165,39 @@ public class StatsCommand {
                     .append(Component.literal(" (").withStyle(ChatFormatting.GRAY))
                     .append(Component.literal(String.valueOf(totalAsyncEntities.get())).withStyle(ChatFormatting.AQUA))
                     .append(Component.literal(" async)").withStyle(ChatFormatting.GRAY));
+
+            if (showTickStats && ticks > 0) {
+                long syncCount = TickStats.getTotalSyncTicks();
+                long asyncCount = TickStats.getTotalAsyncTicks();
+                double totalMspt = TickStats.getTotalMSPT(ticks);
+                double wallMspt = TickStats.getBatchWallMSPT(ticks);
+                double asyncShare = (syncCount + asyncCount) == 0 ? 0.0
+                        : (asyncCount * 100.0) / (syncCount + asyncCount);
+
+                int pool = getPoolSize();
+                double speedup = wallMspt <= 0 ? 0.0
+                        : (TickStats.TOTAL_SYNC_TIME_NS.sum() + TickStats.TOTAL_ASYNC_TIME_NS.sum())
+                          / (double) TickStats.TOTAL_BATCH_WALL_NS.sum();
+
+                message.append(Component.literal("\n\nTick Window: ").withStyle(ChatFormatting.GOLD))
+                        .append(Component.literal(ticks + " ticks").withStyle(ChatFormatting.YELLOW));
+
+                message.append(Component.literal("\nTotal entity ticks: ").withStyle(ChatFormatting.WHITE))
+                        .append(Component.literal(String.valueOf(syncCount + asyncCount)).withStyle(ChatFormatting.GOLD))
+                        .append(Component.literal(" (").withStyle(ChatFormatting.GRAY))
+                        .append(Component.literal(syncCount + " sync").withStyle(ChatFormatting.RED))
+                        .append(Component.literal(" + ").withStyle(ChatFormatting.GRAY))
+                        .append(Component.literal(asyncCount + " async").withStyle(ChatFormatting.AQUA))
+                        .append(Component.literal(String.format(", %.1f%% async", asyncShare)).withStyle(ChatFormatting.GRAY))
+                        .append(Component.literal(")").withStyle(ChatFormatting.GRAY));
+
+                message.append(Component.literal("\nAvg entity MSPT: ").withStyle(ChatFormatting.WHITE))
+                        .append(Component.literal(String.format("%.3f ms", totalMspt)).withStyle(ChatFormatting.GREEN));
+
+                message.append(Component.literal("\nBatch wall MSPT: ").withStyle(ChatFormatting.WHITE))
+                        .append(Component.literal(String.format("%.3f ms", wallMspt)).withStyle(ChatFormatting.GREEN))
+                        .append(Component.literal(String.format(" (pool=%d, speedup=%.2fx)", pool, speedup)).withStyle(ChatFormatting.GRAY));
+            }
 
             if (topCount > 0 && !entityTypeCounts.isEmpty()) {
                 message.append(Component.literal("\n\nTop " + topCount + " Entity Types:").withStyle(ChatFormatting.GOLD));
