@@ -60,6 +60,7 @@ public class StatsCommand {
 
         boolean enabled = !AsyncConfig.disabled;
         boolean asyncSpawn = AsyncConfig.enableAsyncSpawn;
+        boolean asyncMobSpawning = AsyncConfig.enableAsyncMobSpawning;
         boolean asyncRandomTicks = AsyncConfig.enableAsyncRandomTicks;
 
         MutableComponent message = prefix.copy()
@@ -72,6 +73,10 @@ public class StatsCommand {
                 .append(Component.literal("\nAsync Spawn: ").withStyle(ChatFormatting.WHITE))
                 .append(Component.literal(asyncSpawn ? "Enabled" : "Disabled")
                         .withStyle(asyncSpawn ? ChatFormatting.GREEN : ChatFormatting.RED))
+
+                .append(Component.literal("\nAsync Mob Spawning: ").withStyle(ChatFormatting.WHITE))
+                .append(Component.literal(asyncMobSpawning ? "Enabled" : "Disabled")
+                        .withStyle(asyncMobSpawning ? ChatFormatting.GREEN : ChatFormatting.RED))
 
                 .append(Component.literal("\nAsync Random Ticks: ").withStyle(ChatFormatting.WHITE))
                 .append(Component.literal(asyncRandomTicks ? "Enabled" : "Disabled")

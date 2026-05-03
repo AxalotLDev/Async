@@ -30,6 +30,7 @@ public class ConfigCommand {
                 .then(buildReloadCommand())
                 .then(buildSynchronizedEntitiesCommand())
                 .then(buildAsyncEntitySpawnCommand())
+                .then(buildAsyncMobSpawningCommand())
                 .then(buildAsyncRandomTicksCommand())
         );
     }
@@ -148,6 +149,28 @@ public class ConfigCommand {
                             PlatformUtils.saveConfig();
 
                             sendMessage(ctx, "Async Random Ticks set to ",
+                                    String.valueOf(value),
+                                    true);
+                            return 1;
+                        })
+                );
+    }
+
+    private static LiteralArgumentBuilder<CommandSourceStack> buildAsyncMobSpawningCommand() {
+        return literal("setAsyncMobSpawning")
+                .executes(ctx -> {
+                    sendMessage(ctx, "Current value of async natural mob spawning: ",
+                            String.valueOf(AsyncConfig.enableAsyncMobSpawning),
+                            false);
+                    return 1;
+                })
+                .then(Commands.argument("value", BoolArgumentType.bool())
+                        .executes(ctx -> {
+                            boolean value = BoolArgumentType.getBool(ctx, "value");
+                            AsyncConfig.enableAsyncMobSpawning = value;
+                            PlatformUtils.saveConfig();
+
+                            sendMessage(ctx, "Async Natural Mob Spawning set to ",
                                     String.valueOf(value),
                                     true);
                             return 1;

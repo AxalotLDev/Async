@@ -17,6 +17,7 @@ public class AsyncConfig {
     private static final ModConfigSpec.IntValue maxThreads;
     private static final ModConfigSpec.ConfigValue<List<? extends String>> synchronizedEntities;
     private static final ModConfigSpec.BooleanValue enableAsyncSpawn;
+    private static final ModConfigSpec.BooleanValue enableAsyncMobSpawning;
     private static final ModConfigSpec.BooleanValue enableAsyncRandomTicks;
 
     static {
@@ -42,6 +43,9 @@ public class AsyncConfig {
         enableAsyncSpawn = BUILDER.comment("Enables async entity spawning. WARNING: incompatible with Carpet's lagFreeSpawning.")
                 .define("enableAsyncSpawn", com.axalotl.async.common.config.AsyncConfig.enableAsyncSpawn);
 
+        enableAsyncMobSpawning = BUILDER.comment("Enables async natural mob spawning. Defaults to false when C2ME is detected to avoid chunk-load deadlocks.")
+                .define("enableAsyncMobSpawning", com.axalotl.async.common.config.AsyncConfig.enableAsyncMobSpawning);
+
         enableAsyncRandomTicks = BUILDER.comment("Experimental! Enables async random ticks.")
                 .define("enableAsyncRandomTicks", com.axalotl.async.common.config.AsyncConfig.enableAsyncRandomTicks);
 
@@ -54,6 +58,7 @@ public class AsyncConfig {
         com.axalotl.async.common.config.AsyncConfig.disabled = disabled.get();
         com.axalotl.async.common.config.AsyncConfig.maxThreads = maxThreads.get();
         com.axalotl.async.common.config.AsyncConfig.enableAsyncSpawn = enableAsyncSpawn.get();
+        com.axalotl.async.common.config.AsyncConfig.enableAsyncMobSpawning = enableAsyncMobSpawning.get();
         com.axalotl.async.common.config.AsyncConfig.enableAsyncRandomTicks = enableAsyncRandomTicks.get();
 
         List<? extends String> entries = synchronizedEntities.get();
@@ -71,6 +76,7 @@ public class AsyncConfig {
         disabled.set(com.axalotl.async.common.config.AsyncConfig.disabled);
         maxThreads.set(com.axalotl.async.common.config.AsyncConfig.maxThreads);
         enableAsyncSpawn.set(com.axalotl.async.common.config.AsyncConfig.enableAsyncSpawn);
+        enableAsyncMobSpawning.set(com.axalotl.async.common.config.AsyncConfig.enableAsyncMobSpawning);
         enableAsyncRandomTicks.set(com.axalotl.async.common.config.AsyncConfig.enableAsyncRandomTicks);
         synchronizedEntities.set(new ArrayList<>(com.axalotl.async.common.config.AsyncConfig.synchronizedEntities));
         SPEC.save();

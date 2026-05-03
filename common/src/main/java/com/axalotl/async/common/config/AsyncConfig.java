@@ -16,6 +16,7 @@ public class AsyncConfig {
     public static boolean disabled = false;
     public static int maxThreads = -1;
     public static boolean enableAsyncSpawn = true;
+    public static boolean enableAsyncMobSpawning = getDefaultAsyncMobSpawning();
     public static boolean enableAsyncRandomTicks = false;
     public static Set<String> synchronizedEntities = getDefaultSynchronizedEntities();
 
@@ -32,6 +33,10 @@ public class AsyncConfig {
                 "minecraft:experience_orb"
         ));
         return defaultSynchronizedEntities;
+    }
+
+    public static boolean getDefaultAsyncMobSpawning() {
+        return !PlatformUtils.isModLoaded("c2me");
     }
 
     public static int getParallelism() {

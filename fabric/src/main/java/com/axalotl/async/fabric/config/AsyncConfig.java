@@ -28,6 +28,7 @@ public class AsyncConfig {
             "maxThreads",
             "synchronizedEntities",
             "enableAsyncSpawn",
+            "enableAsyncMobSpawning",
             "enableAsyncRandomTicks"
     );
 
@@ -63,6 +64,8 @@ public class AsyncConfig {
                           - 'minecraft:*'      = all entities in namespace""");
         setWithComment("enableAsyncSpawn", enableAsyncSpawn,
                 "Enables async entity spawning. WARNING: incompatible with Carpet's lagFreeSpawning.");
+        setWithComment("enableAsyncMobSpawning", enableAsyncMobSpawning,
+                "Enables async natural mob spawning. Defaults to false when C2ME is detected to avoid chunk-load deadlocks.");
         setWithComment("enableAsyncRandomTicks", enableAsyncRandomTicks,
                 "Experimental! Enables async random ticks.");
 
@@ -81,6 +84,7 @@ public class AsyncConfig {
         disabled = CONFIG.getOrElse("disabled", disabled);
         maxThreads = CONFIG.getOrElse("maxThreads", maxThreads);
         enableAsyncSpawn = CONFIG.getOrElse("enableAsyncSpawn", enableAsyncSpawn);
+        enableAsyncMobSpawning = CONFIG.getOrElse("enableAsyncMobSpawning", enableAsyncMobSpawning);
         enableAsyncRandomTicks = CONFIG.getOrElse("enableAsyncRandomTicks", enableAsyncRandomTicks);
 
         List<String> entries = CONFIG.get("synchronizedEntities");
@@ -100,6 +104,7 @@ public class AsyncConfig {
                   - 'minecraft:zombie' = specific entity
                   - 'minecraft:*'      = all entities in namespace""");
         setCommentIfExists("enableAsyncSpawn", "Enables async entity spawning. WARNING: incompatible with Carpet's lagFreeSpawning.");
+        setCommentIfExists("enableAsyncMobSpawning", "Enables async natural mob spawning. Defaults to false when C2ME is detected to avoid chunk-load deadlocks.");
         setCommentIfExists("enableAsyncRandomTicks", "Experimental! Enables async random ticks.");
     }
 
@@ -129,6 +134,7 @@ public class AsyncConfig {
         disabled = false;
         maxThreads = -1;
         enableAsyncSpawn = true;
+        enableAsyncMobSpawning = getDefaultAsyncMobSpawning();
         enableAsyncRandomTicks = false;
         synchronizedEntities = getDefaultSynchronizedEntities();
     }

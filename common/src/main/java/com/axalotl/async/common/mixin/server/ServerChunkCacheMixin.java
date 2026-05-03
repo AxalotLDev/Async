@@ -83,6 +83,9 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
     @Unique
     private final AtomicBoolean async$spawnCountsReady = new AtomicBoolean(false);
 
+    @Unique
+    private volatile boolean async$forceSyncMobSpawning = false;
+
     @Shadow
     public abstract void tickSpawningChunk(LevelChunk chunk, long timeInhabited, List<MobCategory> spawnCategories, NaturalSpawner.SpawnState spawnState);
 
@@ -94,6 +97,16 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
         if (access != null) {
             cir.setReturnValue(access);
             return;
+        }
+
+        if (async$isHighRiskAsyncChunkRequest(leastStatus, create)) {
+            String message = String.format(
+                    Locale.ROOT,
+                    "Blocked async chunk request that could synchronously load or generate chunks on thread %s at [%d, %d] status %s create=%s",
+                    Thread.currentThread().getName(), x, z, leastStatus, create
+            );
+            ParallelProcessor.LOGGER.warn(message);
+            throw new IllegalStateException(message);
         }
 
         CompletableFuture<ChunkResult<ChunkAccess>> future = CompletableFuture.supplyAsync(
@@ -119,6 +132,11 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
     }
 
     @Unique
+    private boolean async$isHighRiskAsyncChunkRequest(ChunkStatus leastStatus, boolean create) {
+        return create || leastStatus.isOrAfter(ChunkStatus.STRUCTURE_STARTS);
+    }
+
+    @Unique
     private @Nullable ChunkAccess async$tryGetChunk(int x, int z, ChunkStatus leastStatus) {
         ChunkHolder holder = this.getVisibleChunkIfPresent(ChunkPos.asLong(x, z));
         if (holder == null) return null;
@@ -139,8 +157,10 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
         if (Thread.currentThread() != this.mainThread) {
             final ChunkHolder holder = this.getVisibleChunkIfPresent(ChunkPos.asLong(chunkX, chunkZ));
             if (holder != null) {
-                final CompletableFuture<ChunkResult<ChunkAccess>> future = holder.scheduleChunkGenerationTask(ChunkStatus.FULL, this.chunkMap);
-                ChunkAccess chunk = future.getNow(ChunkHolder.UNLOADED_CHUNK).orElse(null);
+                ChunkAccess chunk = holder.getChunkIfPresent(ChunkStatus.FULL);
+                if (chunk instanceof ImposterProtoChunk imposter) {
+                    chunk = imposter.getWrapped();
+                }
                 if (chunk instanceof LevelChunk worldChunk) {
                     cir.setReturnValue(worldChunk);
                 }
@@ -148,9 +168,14 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
         }
     }
 
+    @Unique
+    private boolean async$canUseAsyncMobSpawning() {
+        return !AsyncConfig.disabled && AsyncConfig.enableAsyncSpawn && AsyncConfig.enableAsyncMobSpawning && !async$forceSyncMobSpawning;
+    }
+
     @Inject(method = "tickChunks()V", at = @At("TAIL"))
     private void tickChunks(CallbackInfo ci) {
-        if (AsyncConfig.disabled || !AsyncConfig.enableAsyncSpawn) return;
+        if (!async$canUseAsyncMobSpawning()) return;
 
         if (async$firstRunSpawnCounts) {
             async$firstRunSpawnCounts = false;
@@ -159,8 +184,14 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
         if (async$spawnCountsReady.getAndSet(false)) {
             final int i = distanceManager.getNaturalSpawnChunkCount();
             ParallelProcessor.tickPool.submit(() -> {
-                lastSpawnState = NaturalSpawner.createState(i, this.level.getAllEntities(), this::getFullChunk, new LocalMobCapCalculator(this.chunkMap));
-                async$spawnCountsReady.set(true);
+                try {
+                    lastSpawnState = NaturalSpawner.createState(i, this.level.getAllEntities(), this::getFullChunk, new LocalMobCapCalculator(this.chunkMap));
+                } catch (Throwable throwable) {
+                    async$forceSyncMobSpawning = true;
+                    ParallelProcessor.LOGGER.warn("Async natural spawn state calculation failed, disabling async natural mob spawning for this level", throwable);
+                } finally {
+                    async$spawnCountsReady.set(true);
+                }
             });
         }
     }
@@ -170,7 +201,7 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
         profiler.push("naturalSpawnCount");
         int i = this.distanceManager.getNaturalSpawnChunkCount();
 
-        if (AsyncConfig.disabled || !AsyncConfig.enableAsyncSpawn || async$firstRunSpawnCounts) {
+        if (!async$canUseAsyncMobSpawning() || async$firstRunSpawnCounts) {
             lastSpawnState = NaturalSpawner.createState(i, this.level.getAllEntities(), this::getFullChunk, new LocalMobCapCalculator(this.chunkMap));
         }
 
@@ -186,7 +217,7 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
 
         profiler.popPush("tickSpawningChunks");
 
-        if (!AsyncConfig.disabled && AsyncConfig.enableAsyncSpawn) {
+        if (async$canUseAsyncMobSpawning()) {
             NaturalSpawner.SpawnState currentState = lastSpawnState;
             if (currentState != null) {
                 CompletableFuture.runAsync(() -> {
@@ -199,21 +230,8 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
                         }
                     }
                 }, ParallelProcessor.tickPool).exceptionally(e -> {
-                    ParallelProcessor.LOGGER.error("Error in async entity spawning, switching to synchronous", e);
-                    List<LevelChunk> list1 = this.spawningChunks;
-                    try {
-                        profiler.popPush("filteringSpawningChunks");
-                        this.chunkMap.collectSpawningChunks(list1);
-                        profiler.popPush("shuffleSpawningChunks");
-                        Util.shuffle(list1, this.level.random);
-                        profiler.popPush("tickSpawningChunks");
-
-                        for(LevelChunk levelchunk : list1) {
-                            this.tickSpawningChunk(levelchunk, timeInhabited, list, lastSpawnState);
-                        }
-                    } finally {
-                        list1.clear();
-                    }
+                    async$forceSyncMobSpawning = true;
+                    ParallelProcessor.LOGGER.error("Error in async natural mob spawning, disabling async natural mob spawning for this level", e);
                     return null;
                 });
             }
