@@ -19,11 +19,11 @@ public final class IteratorSafeOrderedReferenceSet<E> {
 
     private E[] listElements;
     @Getter
-    private int listSize;
+    private volatile int listSize;
 
     private final double maxFragFactor;
 
-    private int iteratorCount;
+    private final AtomicInteger iteratorCount = new AtomicInteger();
 
     private final boolean threadRestricted;
 
@@ -47,18 +47,21 @@ public final class IteratorSafeOrderedReferenceSet<E> {
     }
 
     private double getFragFactor() {
-        return 1.0 - ((double) this.indexMap.size() / (double) this.listSize);
+        int ls = this.listSize;
+        if (ls == 0) return 0.0;
+        return 1.0 - ((double) this.indexMap.size() / (double) ls);
     }
 
     public void finishRawIterator() {
-        if (--this.iteratorCount == 0) {
-            if (this.getFragFactor() >= this.maxFragFactor) {
+        synchronized (this) {
+            if (iteratorCount.decrementAndGet() == 0
+                    && this.getFragFactor() >= this.maxFragFactor) {
                 this.defrag();
             }
         }
     }
 
-    public boolean remove(final E element) {
+    public synchronized boolean remove(final E element) {
         final int index = this.indexMap.removeInt(element);
         if (index >= 0) {
 
@@ -73,7 +76,7 @@ public final class IteratorSafeOrderedReferenceSet<E> {
 
             this.listElements[index] = null;
 
-            if (this.allowSafeIteration() && this.iteratorCount == 0 &&
+            if (this.allowSafeIteration() && this.iteratorCount.get() == 0 &&
                     this.getFragFactor() >= this.maxFragFactor) {
                 this.defrag();
             }
@@ -83,11 +86,11 @@ public final class IteratorSafeOrderedReferenceSet<E> {
         return false;
     }
 
-    public boolean contains(final E element) {
+    public synchronized boolean contains(final E element) {
         return this.indexMap.containsKey(element);
     }
 
-    public boolean add(final E element) {
+    public synchronized boolean add(final E element) {
         final int listSize = this.listSize;
 
         final int previous = this.indexMap.putIfAbsent(element, listSize);
@@ -105,6 +108,7 @@ public final class IteratorSafeOrderedReferenceSet<E> {
         return true;
     }
 
+    @SuppressWarnings("unchecked")
     private void defrag() {
         int firstInvalid = this.firstInvalidIndex.get();
         if (firstInvalid < 0) {
@@ -115,6 +119,10 @@ public final class IteratorSafeOrderedReferenceSet<E> {
             Arrays.fill(this.listElements, 0, this.listSize, null);
             this.listSize = 0;
             this.firstInvalidIndex.set(-1);
+            if (this.listElements.length > 64) {
+                this.listElements = (E[]) Array.newInstance(this.listElements.getClass().getComponentType(), 64);
+            }
+            this.indexMap.trim(64);
             return;
         }
 
@@ -159,9 +167,19 @@ public final class IteratorSafeOrderedReferenceSet<E> {
         Arrays.fill(backingArray, lastValidIndex, this.listSize, null);
         this.listSize = lastValidIndex;
         this.firstInvalidIndex.set(-1);
+        int cap = this.listElements.length;
+        if (lastValidIndex > 0 && lastValidIndex * 4 < cap && cap > 64) {
+            int newCap = Math.max(64, Integer.highestOneBit(lastValidIndex) << 2);
+            if (newCap < cap) {
+                E[] shrunk = (E[]) Array.newInstance(this.listElements.getClass().getComponentType(), newCap);
+                System.arraycopy(this.listElements, 0, shrunk, 0, lastValidIndex);
+                this.listElements = shrunk;
+            }
+            this.indexMap.trim(Math.max(64, lastValidIndex * 2));
+        }
     }
 
-    public int size() {
+    public synchronized int size() {
         return this.indexMap.size();
     }
 
@@ -171,29 +189,41 @@ public final class IteratorSafeOrderedReferenceSet<E> {
 
     public void forEach(java.util.function.Consumer<? super E> action) {
         boolean tracked = this.allowSafeIteration();
-        if (tracked) ++this.iteratorCount;
+        final int size;
+        final E[] arr;
+        synchronized (this) {
+            if (tracked) iteratorCount.incrementAndGet();
+            size = this.listSize;
+            arr = this.listElements;
+        }
         try {
-            final E[] arr = this.listElements;
-            final int size = this.listSize;
             for (int i = 0; i < size; i++) {
                 E e = arr[i];
                 if (e != null) action.accept(e);
             }
         } finally {
-            if (tracked) finishRawIterator();
+            if (tracked) {
+                synchronized (this) {
+                    if (iteratorCount.decrementAndGet() == 0
+                            && this.getFragFactor() >= this.maxFragFactor) {
+                        this.defrag();
+                    }
+                }
+            }
         }
     }
 
     public Iterator<E> iterator(final int flags) {
-        if (this.allowSafeIteration()) {
-            ++this.iteratorCount;
+        final int maxIndex;
+        synchronized (this) {
+            if (this.allowSafeIteration()) {
+                iteratorCount.incrementAndGet();
+            }
+            maxIndex = (flags & ITERATOR_FLAG_SEE_ADDITIONS) != 0
+                    ? Integer.MAX_VALUE
+                    : this.listSize;
         }
-
-        return new BaseIterator<>(
-                this,
-                true,
-                (flags & ITERATOR_FLAG_SEE_ADDITIONS) != 0 ? Integer.MAX_VALUE : this.listSize
-        );
+        return new BaseIterator<>(this, true, maxIndex);
     }
 
     public interface Iterator<E> extends java.util.Iterator<E> {
