@@ -80,7 +80,6 @@
     "utils.SyncAllMixin",
     "utils.ThreadingDetectorMixin",
     "vmp.NearbyEntityTrackingMixin",
-    "vmp.VMPChunkMapMixin",
     "world.BlockMixin",
     "world.ChunkHolderMixin",
     "world.CollectingNeighborUpdaterMixin",

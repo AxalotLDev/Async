@@ -12,11 +12,11 @@ public class MixinCanceller implements com.bawnorton.mixinsquared.api.MixinCance
         if (mixinClassName.contains("lithium") && !mixinClassName.contains("async")) {
             LITHIUM = true;
         }
-        if (mixinClassName.contains("vmp") && !mixinClassName.contains("async")) {
-            VMP = true;
-        }
         if (mixinClassName.contains("c2me") && !mixinClassName.contains("async")) {
             C2ME = true;
+        }
+        if (mixinClassName.contains("ishland.vmp") && !mixinClassName.contains("async")) {
+            VMP = true;
         }
         switch (mixinClassName) {
             case "com.ishland.c2me.base.mixin.instrumentation.MixinServerChunkManager":
@@ -25,7 +25,6 @@ public class MixinCanceller implements com.bawnorton.mixinsquared.api.MixinCance
             case "net.caffeinemc.mods.lithium.mixin.collections.attributes.AttributeMapMixin":
             case "net.caffeinemc.mods.lithium.mixin.util.entity_movement_tracking.EntitySectionMixin":
             case "net.caffeinemc.mods.lithium.mixin.collections.entity_filtering.ClassInstanceMultiMapMixin":
-            case "net.caffeinemc.mods.lithium.mixin.chunk.entity_class_groups.ClassInstanceMultiMapMixin":
             case "com.ishland.vmp.mixins.general.collections.MixinTypeFilterableList":
                 return true;
         }
@@ -36,9 +35,6 @@ public class MixinCanceller implements com.bawnorton.mixinsquared.api.MixinCance
                 mixinClassName.endsWith("com.axalotl.async.common.mixin.lithium.AsyncLithiumEntityMovementTrackerMixin") ||
                 mixinClassName.endsWith("com.axalotl.async.common.mixin.lithium.AsyncLithiumClassGroupFilterableListMixin")) {
             return !LITHIUM;
-        }
-        if (mixinClassName.endsWith("com.axalotl.async.common.mixin.vmp.VMPChunkMapMixin")) {
-            return !VMP;
         }
         if (mixinClassName.endsWith("com.axalotl.async.common.mixin.c2me.TheChunkSystemMixin")) {
             return !C2ME;
