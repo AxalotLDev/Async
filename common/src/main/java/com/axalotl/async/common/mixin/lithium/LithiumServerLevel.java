@@ -36,6 +36,9 @@ public abstract class LithiumServerLevel extends Level implements WorldGenLevel,
     @Unique
     private volatile boolean async$suppressNavigationUpdates = false;
 
+    @Unique
+    private final Set<PathNavigation> async$pendingRecompute = Collections.newSetFromMap(new ConcurrentHashMap<>());
+
     protected LithiumServerLevel(WritableLevelData levelData, ResourceKey<Level> dimension, RegistryAccess registryAccess, Holder<DimensionType> dimensionTypeRegistration, boolean isClientSide, boolean isDebug, long biomeZoomSeed, int maxChainedNeighborUpdates) {
         super(levelData, dimension, registryAccess, dimensionTypeRegistration, isClientSide, isDebug, biomeZoomSeed, maxChainedNeighborUpdates);
     }
@@ -48,7 +51,14 @@ public abstract class LithiumServerLevel extends Level implements WorldGenLevel,
             )
     )
     private void updateActiveListeners(BlockPos pos, BlockState oldState, BlockState newState, int arg3, CallbackInfo ci, @Local(ordinal = 0) List<PathNavigation> list) {
-        if (async$suppressNavigationUpdates) return;
+        if (async$suppressNavigationUpdates) {
+            for (PathNavigation nav : async$activeNavigationsOver) {
+                if (((AsyncSafeNavigation) nav).async$shouldRecomputePathSafe(pos)) {
+                    async$pendingRecompute.add(nav);
+                }
+            }
+            return;
+        }
         for (PathNavigation nav : async$activeNavigationsOver) {
             if (((AsyncSafeNavigation) nav).async$shouldRecomputePathSafe(pos)) {
                 list.add(nav);
@@ -79,8 +89,10 @@ public abstract class LithiumServerLevel extends Level implements WorldGenLevel,
 
     @Unique
     public void async$recomputeAllNavigations() {
-        for (PathNavigation nav : async$activeNavigationsOver) {
+        if (async$pendingRecompute.isEmpty()) return;
+        for (PathNavigation nav : async$pendingRecompute) {
             nav.recomputePath();
         }
+        async$pendingRecompute.clear();
     }
 }
