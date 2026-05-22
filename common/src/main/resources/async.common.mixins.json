@@ -88,6 +88,7 @@
     "world.LevelChunkSectionMixin",
     "world.LevelMixin",
     "world.LevelTicksMixin",
+    "world.MapItemSavedDataMixin",
     "world.RandomSequencesMixin",
     "world.ScoreboardMixin",
     "world.SectionStorageMixin",
