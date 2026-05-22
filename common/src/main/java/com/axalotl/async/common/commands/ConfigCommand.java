@@ -30,7 +30,8 @@ public class ConfigCommand {
                 .then(buildReloadCommand())
                 .then(buildSynchronizedEntitiesCommand())
                 .then(buildAsyncEntitySpawnCommand())
-                .then(buildAsyncRandomTicksCommand());
+                .then(buildAsyncRandomTicksCommand())
+                .then(buildAsyncChunkSendCommand());
         if (PlatformUtils.isModLoaded("vmp")) {
             config = config.then(buildAsyncVmpTrackingCommand());
         }
@@ -151,6 +152,28 @@ public class ConfigCommand {
                             PlatformUtils.saveConfig();
 
                             sendMessage(ctx, "Async Random Ticks set to ",
+                                    String.valueOf(value),
+                                    true);
+                            return 1;
+                        })
+                );
+    }
+
+    private static LiteralArgumentBuilder<CommandSourceStack> buildAsyncChunkSendCommand() {
+        return literal("setAsyncChunkSend")
+                .executes(ctx -> {
+                    sendMessage(ctx, "Current value of async chunk send: ",
+                            String.valueOf(AsyncConfig.enableAsyncChunkSend),
+                            false);
+                    return 1;
+                })
+                .then(Commands.argument("value", BoolArgumentType.bool())
+                        .executes(ctx -> {
+                            boolean value = BoolArgumentType.getBool(ctx, "value");
+                            AsyncConfig.enableAsyncChunkSend = value;
+                            PlatformUtils.saveConfig();
+
+                            sendMessage(ctx, "Async Chunk Send set to ",
                                     String.valueOf(value),
                                     true);
                             return 1;

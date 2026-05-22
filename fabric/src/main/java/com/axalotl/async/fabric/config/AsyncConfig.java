@@ -30,7 +30,8 @@ public class AsyncConfig {
             "synchronizedEntities",
             "enableAsyncSpawn",
             "enableAsyncRandomTicks",
-            "enableAsyncVmpTracking"
+            "enableAsyncVmpTracking",
+            "enableAsyncChunkSend"
     );
 
     public static void init() {
@@ -71,7 +72,9 @@ public class AsyncConfig {
         setWithComment("enableAsyncRandomTicks", enableAsyncRandomTicks,
                 "Experimental! Enables async random ticks.");
         setWithComment("enableAsyncVmpTracking", enableAsyncVmpTracking,
-                "Experimental! Offloads VMP's NearbyEntityTracking tryTick calls to the async pool. No effect without VMP installed.");
+                "Offloads VMP's NearbyEntityTracking work (both tryTickTracker AND per-(tracker,player) tryUpdateTracker) to the async pool, grouped per-tracker to avoid races on seenBy state. No effect without VMP installed.");
+        setWithComment("enableAsyncChunkSend", enableAsyncChunkSend,
+                "Pre-builds ClientboundLevelChunkWithLightPacket on the worker pool inside PlayerChunkSender.sendNextChunks — removes the main-thread cost of chunk packet construction on player-join bursts. Off by default: modded BlockEntity.getUpdateTag() may not be thread-safe.");
 
         CONFIG.save();
         LOGGER.info("Configuration saved.");
@@ -91,6 +94,7 @@ public class AsyncConfig {
         enableAsyncSpawn = CONFIG.getOrElse("enableAsyncSpawn", enableAsyncSpawn);
         enableAsyncRandomTicks = CONFIG.getOrElse("enableAsyncRandomTicks", enableAsyncRandomTicks);
         enableAsyncVmpTracking = CONFIG.getOrElse("enableAsyncVmpTracking", enableAsyncVmpTracking);
+        enableAsyncChunkSend = CONFIG.getOrElse("enableAsyncChunkSend", enableAsyncChunkSend);
 
         List<String> entries = CONFIG.get("synchronizedEntities");
         if (entries != null) {
@@ -111,7 +115,8 @@ public class AsyncConfig {
                   - 'minecraft:*'      = all entities in namespace""");
         setCommentIfExists("enableAsyncSpawn", "Reserved flag. No-op currently — parallel spawn was removed after profiling showed it was a net regression.");
         setCommentIfExists("enableAsyncRandomTicks", "Experimental! Enables async random ticks.");
-        setCommentIfExists("enableAsyncVmpTracking", "Experimental! Offloads VMP's NearbyEntityTracking tryTick calls to the async pool. No effect without VMP installed.");
+        setCommentIfExists("enableAsyncVmpTracking", "Offloads VMP's NearbyEntityTracking work (both tryTickTracker AND per-(tracker,player) tryUpdateTracker) to the async pool, grouped per-tracker to avoid races on seenBy state. No effect without VMP installed.");
+        setCommentIfExists("enableAsyncChunkSend", "Pre-builds ClientboundLevelChunkWithLightPacket on the worker pool inside PlayerChunkSender.sendNextChunks — removes the main-thread cost of chunk packet construction on player-join bursts. Off by default: modded BlockEntity.getUpdateTag() may not be thread-safe.");
     }
 
     private static void setCommentIfExists(String key, String comment) {
@@ -143,6 +148,7 @@ public class AsyncConfig {
         enableAsyncSpawn = false;
         enableAsyncRandomTicks = false;
         enableAsyncVmpTracking = false;
+        enableAsyncChunkSend = false;
         synchronizedEntities = getDefaultSynchronizedEntities();
     }
 }

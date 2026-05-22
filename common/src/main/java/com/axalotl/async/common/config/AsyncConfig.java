@@ -18,6 +18,7 @@ public class AsyncConfig {
     public static boolean enableAsyncSpawn = false;
     public static boolean enableAsyncRandomTicks = false;
     public static boolean enableAsyncVmpTracking = false;
+    public static boolean enableAsyncChunkSend = false;
     public static Set<String> synchronizedEntities = getDefaultSynchronizedEntities();
 
     // Caches

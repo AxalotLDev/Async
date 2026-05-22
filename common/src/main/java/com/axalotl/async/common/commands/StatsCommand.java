@@ -87,6 +87,7 @@ public class StatsCommand {
         boolean enabled = !AsyncConfig.disabled;
         boolean asyncSpawn = AsyncConfig.enableAsyncSpawn;
         boolean asyncRandomTicks = AsyncConfig.enableAsyncRandomTicks;
+        boolean asyncChunkSend = AsyncConfig.enableAsyncChunkSend;
         boolean vmpLoaded = PlatformUtils.isModLoaded("vmp");
         boolean asyncVmpTracking = AsyncConfig.enableAsyncVmpTracking;
 
@@ -103,7 +104,11 @@ public class StatsCommand {
 
                 .append(Component.literal("\nAsync Random Ticks: ").withStyle(ChatFormatting.WHITE))
                 .append(Component.literal(asyncRandomTicks ? "Enabled" : "Disabled")
-                        .withStyle(asyncRandomTicks ? ChatFormatting.GREEN : ChatFormatting.RED));
+                        .withStyle(asyncRandomTicks ? ChatFormatting.GREEN : ChatFormatting.RED))
+
+                .append(Component.literal("\nAsync Chunk Send: ").withStyle(ChatFormatting.WHITE))
+                .append(Component.literal(asyncChunkSend ? "Enabled" : "Disabled")
+                        .withStyle(asyncChunkSend ? ChatFormatting.GREEN : ChatFormatting.RED));
 
         if (vmpLoaded) {
             message.append(Component.literal("\nAsync VMP Tracking: ").withStyle(ChatFormatting.WHITE))

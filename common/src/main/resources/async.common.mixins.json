@@ -62,6 +62,7 @@
     "lithium.LithiumGameEventDispatcherStorage",
     "lithium.LithiumServerLevel",
     "lithium.ReferenceMaskedListMixin",
+    "server.AsyncPlayerChunkSenderMixin",
     "server.ChunkMapMixin",
     "server.ChunkMapTrackedEntityMixin",
     "server.FixedPlayerDistanceChunkTrackerMixin",

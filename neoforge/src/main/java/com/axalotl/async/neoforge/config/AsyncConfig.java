@@ -20,6 +20,7 @@ public class AsyncConfig {
     private static final ModConfigSpec.BooleanValue enableAsyncSpawn;
     private static final ModConfigSpec.BooleanValue enableAsyncRandomTicks;
     private static final ModConfigSpec.BooleanValue enableAsyncVmpTracking;
+    private static final ModConfigSpec.BooleanValue enableAsyncChunkSend;
 
     static {
         BUILDER.push("Async Config");
@@ -50,8 +51,11 @@ public class AsyncConfig {
         enableAsyncRandomTicks = BUILDER.comment("Experimental! Enables async random ticks.")
                 .define("enableAsyncRandomTicks", com.axalotl.async.common.config.AsyncConfig.enableAsyncRandomTicks);
 
-        enableAsyncVmpTracking = BUILDER.comment("Experimental! Offloads VMP's NearbyEntityTracking tryTick calls to the async pool. No effect without VMP installed.")
+        enableAsyncVmpTracking = BUILDER.comment("Offloads VMP's NearbyEntityTracking work (both tryTickTracker AND per-(tracker,player) tryUpdateTracker) to the async pool, grouped per-tracker to avoid races on seenBy state. No effect without VMP installed.")
                 .define("enableAsyncVmpTracking", com.axalotl.async.common.config.AsyncConfig.enableAsyncVmpTracking);
+
+        enableAsyncChunkSend = BUILDER.comment("Pre-builds ClientboundLevelChunkWithLightPacket on the worker pool inside PlayerChunkSender.sendNextChunks — removes the main-thread cost of chunk packet construction on player-join bursts. Off by default: modded BlockEntity.getUpdateTag() may not be thread-safe.")
+                .define("enableAsyncChunkSend", com.axalotl.async.common.config.AsyncConfig.enableAsyncChunkSend);
 
         BUILDER.pop();
         SPEC = BUILDER.build();
@@ -65,6 +69,7 @@ public class AsyncConfig {
         com.axalotl.async.common.config.AsyncConfig.enableAsyncSpawn = enableAsyncSpawn.get();
         com.axalotl.async.common.config.AsyncConfig.enableAsyncRandomTicks = enableAsyncRandomTicks.get();
         com.axalotl.async.common.config.AsyncConfig.enableAsyncVmpTracking = enableAsyncVmpTracking.get();
+        com.axalotl.async.common.config.AsyncConfig.enableAsyncChunkSend = enableAsyncChunkSend.get();
 
         List<? extends String> entries = synchronizedEntities.get();
         Set<String> entities = new HashSet<>();
@@ -84,6 +89,7 @@ public class AsyncConfig {
         enableAsyncSpawn.set(com.axalotl.async.common.config.AsyncConfig.enableAsyncSpawn);
         enableAsyncRandomTicks.set(com.axalotl.async.common.config.AsyncConfig.enableAsyncRandomTicks);
         enableAsyncVmpTracking.set(com.axalotl.async.common.config.AsyncConfig.enableAsyncVmpTracking);
+        enableAsyncChunkSend.set(com.axalotl.async.common.config.AsyncConfig.enableAsyncChunkSend);
         synchronizedEntities.set(new ArrayList<>(com.axalotl.async.common.config.AsyncConfig.synchronizedEntities));
         SPEC.save();
         com.axalotl.async.common.config.AsyncConfig.onConfigLoaded();
