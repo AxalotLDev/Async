@@ -42,8 +42,6 @@ import java.util.function.Consumer;
 @Mixin(value = ServerChunkCache.class, priority = 1500)
 public abstract class ServerChunkCacheMixin extends ChunkSource {
 
-    // ==================== Shadows ====================
-
     @Shadow @Final public ChunkMap chunkMap;
     @Shadow @Final
     private Thread mainThread;
@@ -88,8 +86,6 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
         ChunkHolder holder = this.getVisibleChunkIfPresent(pos);
 
         if (holder != null) {
-            // Fast path: FULL status — try tickingChunk first (single field read,
-            // skips futures array + CompletableFuture.getNow + ChunkResult unwrap)
             if (targetStatus == ChunkStatus.FULL) {
                 LevelChunk ticking = holder.getTickingChunk();
                 if (ticking != null) {
@@ -121,8 +117,22 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
             cir.setReturnValue(null);
             return;
         }
-        CompletableFuture<?> ticketTask = CompletableFuture.runAsync(() -> this.getChunkFutureMainThread(x, z, targetStatus, true), this.mainThreadProcessor);
-        cir.setReturnValue(async$awaitAfterTicket(ticketTask, pos, targetStatus));
+        CompletableFuture<ChunkAccess> chunkFuture = new CompletableFuture<>();
+        this.mainThreadProcessor.execute(() -> {
+            try {
+                this.getChunkFutureMainThread(x, z, targetStatus, true).whenComplete((result, ex) -> {
+                    if (ex != null) {
+                        chunkFuture.completeExceptionally(ex);
+                        return;
+                    }
+                    Object chunk = result == null ? null : result.orElse(null);
+                    chunkFuture.complete(chunk instanceof ChunkAccess ca ? async$unwrap(ca) : null);
+                });
+            } catch (Throwable t) {
+                chunkFuture.completeExceptionally(t);
+            }
+        });
+        cir.setReturnValue(async$awaitAfterTicket(chunkFuture, pos, targetStatus));
     }
 
     @Inject(method = "getChunkNow", at = @At("HEAD"), cancellable = true)
@@ -135,14 +145,12 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
             return;
         }
 
-        // Fast path: tickingChunk is a single field read
         LevelChunk ticking = holder.getTickingChunk();
         if (ticking != null) {
             cir.setReturnValue(ticking);
             return;
         }
 
-        // Fallback: check futures array
         ChunkAccess chunk = holder.getChunkIfPresent(ChunkStatus.FULL);
         if (chunk instanceof LevelChunk lc) {
             cir.setReturnValue(lc);
@@ -200,31 +208,25 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
     }
 
     @Unique
-    private @Nullable ChunkAccess async$awaitAfterTicket(CompletableFuture<?> ticketTask,
-                                                         long pos, ChunkStatus status) {
+    private @Nullable ChunkAccess async$awaitAfterTicket(CompletableFuture<ChunkAccess> chunkFuture, long pos, ChunkStatus status) {
         long sleepNs = INITIAL_PARK_NS;
-        for (;;) {
-            if (ticketTask.isCompletedExceptionally()) {
-                ticketTask.join();
-            }
-
+        while (!chunkFuture.isDone()) {
             ChunkHolder holder = this.getVisibleChunkIfPresent(pos);
             if (holder != null) {
                 ChunkAccess ready = async$extractReady(holder, status);
                 if (ready != null) return ready;
-
-                CompletableFuture<?> directFuture = async$findPendingFuture(holder, status);
-                if (directFuture != null) {
-                    return async$awaitWithProbing(directFuture, pos, status);
-                }
-
-                ChunkAccess fromHolder = async$extractCompleted(holder, status);
-                if (fromHolder != null) return fromHolder;
             }
-
             LockSupport.parkNanos(sleepNs);
             sleepNs = Math.min(sleepNs << 1, MAX_PARK_NS);
         }
+        if (chunkFuture.isCompletedExceptionally()) {
+            try { return chunkFuture.join(); } catch (Throwable ignored) { return null; }
+        }
+        ChunkAccess result = chunkFuture.getNow(null);
+        if (result != null) return result;
+        ChunkHolder holder = this.getVisibleChunkIfPresent(pos);
+        if (holder == null) return null;
+        return async$extractReady(holder, status);
     }
 
     @Unique
@@ -308,20 +310,8 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
 
         long capturedTimeDiff = async$capturedTimeDiff;
 
-        it.unimi.dsi.fastutil.longs.LongOpenHashSet set =
-                new it.unimi.dsi.fastutil.longs.LongOpenHashSet(chunks.length * 9);
-        for (LevelChunk c : chunks) {
-            ChunkPos cp = c.getPos();
-            for (int dx = -1; dx <= 1; dx++) {
-                for (int dz = -1; dz <= 1; dz++) {
-                    set.add(ChunkPos.pack(cp.x() + dx, cp.z() + dz));
-                }
-            }
-        }
-        ParallelProcessor.spawnableChunkPositions = set;
-
         int poolSize = ParallelProcessor.getPoolSize();
-        int batchSize = Math.max(4, (chunks.length + poolSize - 1) / poolSize);
+        int batchSize = Math.max(4, Math.min(32, chunks.length / (poolSize * 8)));
         int batchCount = (chunks.length + batchSize - 1) / batchSize;
 
         CompletableFuture<?>[] futures = new CompletableFuture<?>[batchCount];
@@ -362,7 +352,6 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
                 spawnFut.join();
             }
             async$spawnFuture = null;
-            ParallelProcessor.spawnableChunkPositions = null;
         }
 
         if (AsyncConfig.disabled || !AsyncConfig.enableAsyncRandomTicks) {
@@ -376,7 +365,7 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
         if (tickChunks.isEmpty()) return;
 
         int poolSize = ParallelProcessor.getPoolSize();
-        int batchSize = Math.max(1, (tickChunks.size() + poolSize - 1) / poolSize);
+        int batchSize = Math.max(4, Math.min(32, tickChunks.size() / (poolSize * 8)));
         int batchCount = (tickChunks.size() + batchSize - 1) / batchSize;
         CompletableFuture<?>[] futures = new CompletableFuture<?>[batchCount];
 
@@ -401,7 +390,7 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
     private void async$pumpUntilDone(CompletableFuture<?> future) {
         while (!future.isDone()) {
             if (!this.level.getChunkSource().pollTask()) {
-                Thread.onSpinWait();
+                LockSupport.parkNanos("Async ServerChunkCacheMixin pumpUntilDone", 100_000L);
             }
         }
         if (future.isCompletedExceptionally()) {
