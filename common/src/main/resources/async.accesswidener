@@ -6,6 +6,8 @@ accessible class net/minecraft/server/level/ChunkMap$TrackedEntity
 accessible field net/minecraft/server/level/ServerChunkCache mainThreadProcessor Lnet/minecraft/server/level/ServerChunkCache$MainThreadExecutor;
 accessible method net/minecraft/server/level/ServerChunkCache getVisibleChunkIfPresent (J)Lnet/minecraft/server/level/ChunkHolder;
 accessible method net/minecraft/server/level/ServerChunkCache$MainThreadExecutor pollTask ()Z
+accessible method net/minecraft/server/MinecraftServer pollTask ()Z
+accessible field net/minecraft/util/thread/BlockableEventLoop blockingCount I
 accessible class net/minecraft/server/level/ServerChunkCache$MainThreadExecutor
 accessible class net/minecraft/server/level/ServerLevel
 accessible field net/minecraft/server/level/ServerLevel entityTickList Lnet/minecraft/world/level/entity/EntityTickList;

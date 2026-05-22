@@ -3,15 +3,11 @@ package com.axalotl.async.common.mixin.world;
 import com.axalotl.async.common.ParallelProcessor;
 import com.axalotl.async.common.config.AsyncConfig;
 import com.axalotl.async.common.mixin.lithium.LithiumServerLevel;
-import com.axalotl.async.common.parallelised.utils.ItemFluidPrecompute;
 import com.axalotl.async.api.utils.ConcurrentCollections;
 import com.axalotl.async.api.utils.ConcurrentList;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
-import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
-import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import it.unimi.dsi.fastutil.objects.ObjectLinkedOpenHashSet;
-import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.particles.ExplosionParticleInfo;
@@ -27,15 +23,15 @@ import net.minecraft.util.random.WeightedList;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.Mob;
-import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.level.*;
 import net.minecraft.world.level.dimension.DimensionType;
 import net.minecraft.world.level.entity.EntityTickList;
-import net.minecraft.world.level.material.FluidState;
 import net.minecraft.world.level.storage.WritableLevelData;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Opcodes;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Mutable;
@@ -82,91 +78,170 @@ public abstract class ServerLevelMixin extends Level implements WorldGenLevel {
         players = new ConcurrentList<>();
     }
 
+    @WrapMethod(method = "tickNonPassenger")
+    private void async$guardTickNonPassenger(Entity entity, Operation<Void> original) {
+        ParallelProcessor.TickGuard guard = (ParallelProcessor.TickGuard) entity;
+        if (!guard.async$tryBeginTick()) {
+            return;
+        }
+        try {
+            original.call(entity);
+        } finally {
+            guard.async$endTick();
+        }
+    }
+
+    @WrapMethod(method = "tickPassenger")
+    private void async$guardTickPassenger(Entity vehicle, Entity entity, Operation<Void> original) {
+        ParallelProcessor.TickGuard guard = (ParallelProcessor.TickGuard) entity;
+        if (!guard.async$tryBeginTick()) {
+            return;
+        }
+        try {
+            original.call(vehicle, entity);
+        } finally {
+            guard.async$endTick();
+        }
+    }
+
+    @Unique
+    private static final Logger ASYNC_LOGGER = LoggerFactory.getLogger("Async-EntityTick");
+
+    @Unique
+    private int async$lastBatchSize = 256;
+
+    @Unique
+    private int async$lastLiveSize = 256;
+
+    @Unique
+    private ArrayList<Entity> async$syncBuf;
+
+    @Unique
+    private ArrayList<Entity> async$liveBuf;
 
     @Redirect(method = "tick", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/entity/EntityTickList;forEach(Ljava/util/function/Consumer;)V"))
     private void overwriteEntityTicking(EntityTickList entityTickList, Consumer<Entity> consumer) {
         ProfilerFiller profilerfiller = Profiler.get();
+        ServerLevel self = this.getLevel();
+        long batchStart = System.nanoTime();
 
-        List<Entity> toTick = new ArrayList<>();
+        net.minecraft.server.level.DistanceManager distanceManager = this.chunkSource.chunkMap.getDistanceManager();
+        net.minecraft.world.TickRateManager tickRateManager = this.tickRateManager();
 
-        this.entityTickList.forEach(entity -> {
-            if (entity == null || entity.isRemoved()) return;
-            if (this.tickRateManager().isEntityFrozen(entity)) return;
-
+        ArrayList<Entity> live = async$liveBuf;
+        if (live == null) {
+            live = new ArrayList<>(async$lastLiveSize);
+            async$liveBuf = live;
+        } else {
+            live.clear();
+        }
+        final ArrayList<Entity> liveList = live;
+        this.entityTickList.forEach(e -> {
+            if (e == null || e.isRemoved()) return;
+            if (tickRateManager.isEntityFrozen(e)) return;
+            liveList.add(e);
+        });
+        final int liveCount = live.size();
+        async$lastLiveSize = Math.max(64, liveCount + (liveCount >> 2));
+        if (AsyncConfig.enableAsyncDespawn && !AsyncConfig.disabled && liveCount > 0) {
+            ExecutorService dexec = ParallelProcessor.executor;
+            int dpool = Math.max(1, ParallelProcessor.getPoolSize());
+            int dchunkSize = Math.max(8, Math.min(64, liveCount / (dpool * 4)));
+            int dchunks = (liveCount + dchunkSize - 1) / dchunkSize;
+            CompletableFuture<?>[] dfutures = new CompletableFuture<?>[dchunks];
+            for (int c = 0, i = 0; c < dchunks; c++, i += dchunkSize) {
+                final int from = i;
+                final int to = Math.min(i + dchunkSize, liveCount);
+                dfutures[c] = CompletableFuture.runAsync(() -> {
+                    for (int j = from; j < to; j++) {
+                        Entity ent = liveList.get(j);
+                        if (ent.isRemoved()) continue;
+                        try {
+                            ent.checkDespawn();
+                        } catch (Exception ex) {
+                            ASYNC_LOGGER.error("Async checkDespawn failed for {} ({})",
+                                    ent.getType(), ent.getUUID(), ex);
+                        }
+                    }
+                }, dexec);
+            }
+            ParallelProcessor.pumpUntilDone(CompletableFuture.allOf(dfutures));
+        } else {
             profilerfiller.push("checkDespawn");
-            entity.checkDespawn();
+            for (int i = 0; i < liveCount; i++) {
+                Entity ent = live.get(i);
+                if (!ent.isRemoved()) ent.checkDespawn();
+            }
             profilerfiller.pop();
+        }
 
-            if (!this.chunkSource.chunkMap.getDistanceManager()
-                    .inEntityTickingRange(entity.chunkPosition().pack())) return;
+        ArrayList<Entity> pendingAsync = new ArrayList<>(async$lastBatchSize);
+        ArrayList<Entity> syncList = async$syncBuf;
+        if (syncList == null) {
+            syncList = new ArrayList<>(64);
+            async$syncBuf = syncList;
+        } else {
+            syncList.clear();
+        }
+
+        final ArrayList<Entity> syncDeferred = syncList;
+        for (int i = 0; i < liveCount; i++) {
+            Entity entity = live.get(i);
+            if (entity.isRemoved()) continue;
+            if (tickRateManager.isEntityFrozen(entity)) continue;
+
+            if (!(entity instanceof ServerPlayer) && !distanceManager.inEntityTickingRange(entity.chunkPosition().pack())) continue;
+            if (!(entity instanceof ServerPlayer)) {
+                long entityChunkPos = entity.chunkPosition().pack();
+                net.minecraft.server.level.ChunkHolder holder = this.chunkSource.getVisibleChunkIfPresent(entityChunkPos);
+                if (holder == null || holder.getTickingChunk() == null) continue;
+            }
 
             Entity vehicle = entity.getVehicle();
             if (vehicle != null) {
-                if (!vehicle.isRemoved() && vehicle.hasPassenger(entity)) return;
+                if (!vehicle.isRemoved() && vehicle.hasPassenger(entity)) continue;
                 entity.stopRiding();
             }
 
-            toTick.add(entity);
-        });
-
-        async$precomputeItemFluidStates(toTick);
-
-        profilerfiller.push("tick");
-        ParallelProcessor.callEntityTickBatch(this.getLevel(), toTick);
-        profilerfiller.pop();
-    }
-
-    @Unique
-    private void async$precomputeItemFluidStates(List<Entity> toTick) {
-        if (AsyncConfig.disabled || toTick.isEmpty()) return;
-
-        LongOpenHashSet posSet = new LongOpenHashSet();
-        for (Entity e : toTick) {
-            if (e instanceof ItemEntity) {
-                posSet.add(e.blockPosition().asLong());
+            if (AsyncConfig.disabled || ParallelProcessor.shouldTickSynchronously(entity)) {
+                syncDeferred.add(entity);
+            } else {
+                pendingAsync.add(entity);
             }
         }
-        if (posSet.isEmpty()) return;
 
-        long[] positions = posSet.toLongArray();
-        FluidState[] results = new FluidState[positions.length];
-        ServerLevel self = this.getLevel();
+        int n = pendingAsync.size();
+        async$lastBatchSize = Math.max(64, n + (n >> 2));
+        CompletableFuture<Void> all = null;
+        if (n > 0) {
+            ExecutorService exec = ParallelProcessor.executor;
+            int pool = Math.max(1, ParallelProcessor.getPoolSize());
+            int chunkSize = Math.max(4, Math.min(32, n / (pool * 8)));
+            int chunks = (n + chunkSize - 1) / chunkSize;
 
-        int poolSize = ParallelProcessor.getPoolSize();
-        int chunkSize = Math.max(1, (positions.length + poolSize - 1) / poolSize);
-        List<Future<?>> futures = new ArrayList<>();
-
-        for (int i = 0; i < positions.length; i += chunkSize) {
-            final int start = i;
-            final int end = Math.min(i + chunkSize, positions.length);
-            futures.add(ParallelProcessor.executor.submit(() -> {
-                for (int j = start; j < end; j++) {
-                    results[j] = self.getFluidState(BlockPos.of(positions[j]));
-                }
-                return null;
-            }));
-        }
-
-        boolean allDone;
-        do {
-            allDone = true;
-            for (Future<?> f : futures) {
-                if (!f.isDone()) { allDone = false; break; }
+            final ArrayList<Entity> pending = pendingAsync;
+            CompletableFuture<?>[] futures = new CompletableFuture<?>[chunks];
+            for (int c = 0, i = 0; c < chunks; c++, i += chunkSize) {
+                final int from = i;
+                final int to = Math.min(i + chunkSize, n);
+                futures[c] = CompletableFuture.runAsync(() -> {
+                    for (int j = from; j < to; j++) {
+                        ParallelProcessor.tickEntity(self, pending.get(j), true);
+                    }
+                }, exec);
             }
-            if (!allDone) {
-                boolean pumped = false;
-                for (ServerLevel lvl : ParallelProcessor.getServer().getAllLevels()) {
-                    pumped |= lvl.getChunkSource().pollTask();
-                }
-                if (!pumped) Thread.onSpinWait();
-            }
-        } while (!allDone);
-
-        Long2ObjectOpenHashMap<FluidState> fluidMap = new Long2ObjectOpenHashMap<>(positions.length);
-        for (int i = 0; i < positions.length; i++) {
-            fluidMap.put(positions[i], results[i]);
+            all = CompletableFuture.allOf(futures);
         }
-        ItemFluidPrecompute.activate(fluidMap);
+        int sz = syncDeferred.size();
+        if (sz > 0) {
+            profilerfiller.push("tickSync");
+            for (int i = 0; i < sz; i++) {
+                ParallelProcessor.tickEntity(self, syncDeferred.get(i), false);
+            }
+            profilerfiller.pop();
+        }
+        if (all != null) ParallelProcessor.pumpUntilDone(all);
+        ParallelProcessor.onEntityTickBatchEnd(batchStart);
     }
 
     @Redirect(method = "blockEvent", at = @At(value = "INVOKE", target = "Lit/unimi/dsi/fastutil/objects/ObjectLinkedOpenHashSet;add(Ljava/lang/Object;)Z", remap = false))

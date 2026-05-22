@@ -31,7 +31,8 @@ public class ConfigCommand {
                 .then(buildSynchronizedEntitiesCommand())
                 .then(buildAsyncEntitySpawnCommand())
                 .then(buildAsyncRandomTicksCommand())
-                .then(buildAsyncChunkSendCommand());
+                .then(buildAsyncChunkSendCommand())
+                .then(buildAsyncDespawnCommand());
         if (PlatformUtils.isModLoaded("vmp")) {
             config = config.then(buildAsyncVmpTrackingCommand());
         }
@@ -174,6 +175,28 @@ public class ConfigCommand {
                             PlatformUtils.saveConfig();
 
                             sendMessage(ctx, "Async Chunk Send set to ",
+                                    String.valueOf(value),
+                                    true);
+                            return 1;
+                        })
+                );
+    }
+
+    private static LiteralArgumentBuilder<CommandSourceStack> buildAsyncDespawnCommand() {
+        return literal("setAsyncDespawn")
+                .executes(ctx -> {
+                    sendMessage(ctx, "Current value of async despawn: ",
+                            String.valueOf(AsyncConfig.enableAsyncDespawn),
+                            false);
+                    return 1;
+                })
+                .then(Commands.argument("value", BoolArgumentType.bool())
+                        .executes(ctx -> {
+                            boolean value = BoolArgumentType.getBool(ctx, "value");
+                            AsyncConfig.enableAsyncDespawn = value;
+                            PlatformUtils.saveConfig();
+
+                            sendMessage(ctx, "Async Despawn set to ",
                                     String.valueOf(value),
                                     true);
                             return 1;

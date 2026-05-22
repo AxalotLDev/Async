@@ -29,7 +29,7 @@ import java.util.concurrent.ForkJoinWorkerThread;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.LongAdder;
-import java.util.List;
+import java.util.concurrent.locks.LockSupport;
 import java.util.Map;
 
 import static com.axalotl.async.common.utils.TickStats.*;
@@ -37,6 +37,13 @@ import static com.axalotl.async.common.utils.TickStats.*;
 public final class ParallelProcessor {
 
     private ParallelProcessor() {}
+
+    public interface TickGuard {
+        boolean async$tryBeginTick();
+        void async$endTick();
+        byte async$getSyncCache();
+        void async$setSyncCache(byte v);
+    }
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ParallelProcessor.class);
 
@@ -50,8 +57,6 @@ public final class ParallelProcessor {
 
     public static final MobCategory[] CATEGORIES = MobCategory.values();
 
-    public static volatile it.unimi.dsi.fastutil.longs.LongOpenHashSet spawnableChunkPositions;
-
     private static final Set<UUID> BLACKLISTED_ENTITIES = ConcurrentHashMap.newKeySet();
     private static final Class<?>[] BLOCKED_BASE_CLASSES = {
             AbstractBoat.class,
@@ -63,17 +68,18 @@ public final class ParallelProcessor {
             AbstractMinecart.class
     };
 
-    private static final java.util.Map<Class<?>, Boolean> BLOCKED_CACHE = new ConcurrentHashMap<>();
+    private static final ClassValue<Boolean> BLOCKED_CACHE = new ClassValue<>() {
+        @Override
+        protected Boolean computeValue(Class<?> cls) {
+            for (Class<?> base : BLOCKED_BASE_CLASSES) {
+                if (base.isAssignableFrom(cls)) return Boolean.TRUE;
+            }
+            return Boolean.FALSE;
+        }
+    };
 
     private static boolean isBlocked(Class<?> cls) {
-        Boolean cached = BLOCKED_CACHE.get(cls);
-        if (cached != null) return cached;
-        boolean blocked = false;
-        for (Class<?> base : BLOCKED_BASE_CLASSES) {
-            if (base.isAssignableFrom(cls)) { blocked = true; break; }
-        }
-        BLOCKED_CACHE.put(cls, blocked);
-        return blocked;
+        return BLOCKED_CACHE.get(cls);
     }
 
     private static final java.util.Map<Class<?>, Boolean> ASYNC_API_SYNC_CACHE = new ConcurrentHashMap<>();
@@ -85,6 +91,13 @@ public final class ParallelProcessor {
         boolean result = !"minecraft".equals(EntityType.getKey(entity.getType()).getNamespace()) && !cls.isAnnotationPresent(AsyncCompatible.class);
         ASYNC_API_SYNC_CACHE.put(cls, result);
         return result;
+    }
+
+    private static final java.util.Map<Class<?>, Boolean> SYNC_CLASS_CACHE = new ConcurrentHashMap<>();
+
+    public static void clearCaches() {
+        SYNC_CLASS_CACHE.clear();
+        ASYNC_API_SYNC_CACHE.clear();
     }
 
     private static final Map<String, Set<WeakReference<Thread>>> MC_THREAD_TRACKER = new ConcurrentHashMap<>();
@@ -140,69 +153,34 @@ public final class ParallelProcessor {
     }
 
     public static boolean isServerExecutionThread() {
-        return Thread.currentThread().getThreadGroup() == ASYNC_GROUP;
+        return Thread.currentThread() instanceof AsyncForkJoinWorkerThread;
     }
 
     public static int getPoolSize() {
         return executor instanceof ForkJoinPool pool ? pool.getParallelism() : 0;
     }
 
-    public static void callEntityTickBatch(ServerLevel world, List<Entity> entities) {
-        if (entities.isEmpty()) return;
-
-        boolean recording = RECORDING_TICKS_LEFT.get() > 0;
-        long batchStart = recording ? System.nanoTime() : 0L;
-
-        if (AsyncConfig.disabled) {
-            for (Entity e : entities) tickEntity(world, e, false);
-            if (recording) {
-                TOTAL_BATCH_WALL_NS.add(System.nanoTime() - batchStart);
-                RECORDING_TICKS_LEFT.decrementAndGet();
-            }
-            return;
-        }
-
-        int n = entities.size();
-        Entity[] async = new Entity[n];
-        Entity[] sync  = new Entity[n];
-        int asyncCount = 0, syncCount = 0;
-        for (int i = 0; i < n; i++) {
-            Entity e = entities.get(i);
-            if (shouldTickSynchronously(e)) sync[syncCount++] = e;
-            else                            async[asyncCount++] = e;
-        }
-
-        CompletableFuture<Void> allAsync = null;
-        if (asyncCount > 0) {
-            int poolSize  = getPoolSize();
-            int chunkSize = Math.max(1, (asyncCount + poolSize - 1) / poolSize);
-            int batchCount = (asyncCount + chunkSize - 1) / chunkSize;
-            CompletableFuture<?>[] futures = new CompletableFuture[batchCount];
-
-            for (int b = 0, i = 0; i < asyncCount; i += chunkSize, b++) {
-                final int start = i;
-                final int end   = Math.min(i + chunkSize, asyncCount);
-                futures[b] = CompletableFuture.runAsync(() -> {
-                    for (int k = start; k < end; k++) tickEntity(world, async[k], true);
-                }, executor);
-            }
-            allAsync = CompletableFuture.allOf(futures);
-        }
-
-        for (int i = 0; i < syncCount; i++) tickEntity(world, sync[i], false);
-
-        if (allAsync != null) pumpUntilDone(allAsync);
-        PortalTeleportationManager.drainPending();
-        if (recording) {
-            TOTAL_BATCH_WALL_NS.add(System.nanoTime() - batchStart);
+    public static void onEntityTickBatchEnd(long batchStartNanos) {
+        if (RECORDING_TICKS_LEFT.get() > 0) {
+            TOTAL_BATCH_WALL_NS.add(System.nanoTime() - batchStartNanos);
             RECORDING_TICKS_LEFT.decrementAndGet();
         }
+        PortalTeleportationManager.drainPending();
     }
 
     public static void pumpUntilDone(CompletableFuture<?> future) {
         MinecraftServer s = server;
         if (s != null && s.isSameThread()) {
-            s.managedBlock(future::isDone);
+            s.blockingCount++;
+            try {
+                while (!future.isDone()) {
+                    if (!s.pollTask()) {
+                        LockSupport.parkNanos("Async pumpUntilDone", 100_000L);
+                    }
+                }
+            } finally {
+                s.blockingCount--;
+            }
         } else {
             while (!future.isDone()) Thread.onSpinWait();
         }
@@ -213,21 +191,30 @@ public final class ParallelProcessor {
     }
 
     public static boolean shouldTickSynchronously(Entity entity) {
-        if (isShuttingDown || entity.level().isClientSide()) return true;
-        return AsyncConfig.disabled
+        if (isShuttingDown || AsyncConfig.disabled) return true;
+        if (!BLACKLISTED_ENTITIES.isEmpty() && BLACKLISTED_ENTITIES.contains(entity.getUUID())) return true;
+
+        TickGuard guard = (TickGuard) entity;
+        byte cached = guard.async$getSyncCache();
+        if (cached >= 0) return cached == 1;
+
+        Class<?> cls = entity.getClass();
+        boolean sync = isBlocked(cls)
                 || entitySupportsAsyncApi(entity)
-                || isBlocked(entity.getClass())
-                || BLACKLISTED_ENTITIES.contains(entity.getUUID())
                 || AsyncConfig.isEntitySynchronized(EntityType.getKey(entity.getType()));
+        guard.async$setSyncCache(sync ? (byte)1 : (byte)0);
+        return sync;
     }
 
-    private static void tickEntity(ServerLevel world, Entity entity, boolean async) {
+    public static void tickEntity(ServerLevel world, Entity entity, boolean async) {
         long start = System.nanoTime();
         try {
             world.tickNonPassenger(entity);
         } catch (Exception e) {
-            LOGGER.error("Error during {} tick. Entity: {}, UUID: {}",
-                    async ? "async" : "sync", entity.getType(), entity.getUUID(), e);
+            LOGGER.error("Error during {} tick. Entity: {}, UUID: {}", async ? "async" : "sync", entity.getType(), entity.getUUID(), e);
+            if (async) {
+                SYNC_CLASS_CACHE.put(entity.getClass(), Boolean.TRUE);
+            }
         } finally {
             if (RECORDING_TICKS_LEFT.get() > 0) {
                 EntityType<?> type = entity.getType();

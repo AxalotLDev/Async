@@ -1,15 +1,12 @@
 package com.axalotl.async.common.mixin.world;
 
-import com.axalotl.async.common.parallelised.utils.ItemFluidPrecompute;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
-import net.minecraft.core.BlockPos;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.ExplosionDamageCalculator;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.LevelAccessor;
-import net.minecraft.world.level.material.FluidState;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -51,11 +48,5 @@ public abstract class LevelMixin implements LevelAccessor, AutoCloseable {
         synchronized (async$lock) {
             original.call(source, damageSource, damageCalculator, x, y, z, r, fire, interactionType);
         }
-    }
-
-    @WrapMethod(method = "getFluidState")
-    private FluidState async$getFluidState(BlockPos pos, Operation<FluidState> original) {
-        FluidState precomputed = ItemFluidPrecompute.get(pos.asLong());
-        return precomputed != null ? precomputed : original.call(pos);
     }
 }
