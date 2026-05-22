@@ -1,397 +1,168 @@
 package com.axalotl.async.api.fastutil;
 
-import it.unimi.dsi.fastutil.HashCommon;
-import it.unimi.dsi.fastutil.bytes.AbstractByteCollection;
 import it.unimi.dsi.fastutil.bytes.ByteCollection;
-import it.unimi.dsi.fastutil.bytes.ByteIterator;
-import it.unimi.dsi.fastutil.bytes.ByteSpliterator;
-import it.unimi.dsi.fastutil.bytes.ByteArrayList;
-import it.unimi.dsi.fastutil.bytes.ByteSpliterators;
-import it.unimi.dsi.fastutil.longs.*;
-import it.unimi.dsi.fastutil.objects.AbstractObjectSet;
+import it.unimi.dsi.fastutil.longs.AbstractLong2ByteMap;
+import it.unimi.dsi.fastutil.longs.Long2ByteMap;
+import it.unimi.dsi.fastutil.longs.Long2IntMap;
+import it.unimi.dsi.fastutil.longs.LongSet;
 import it.unimi.dsi.fastutil.objects.ObjectIterator;
 import it.unimi.dsi.fastutil.objects.ObjectSet;
-import it.unimi.dsi.fastutil.objects.ObjectSpliterator;
-import it.unimi.dsi.fastutil.objects.ObjectSpliterators;
 
-import java.util.*;
-import java.util.concurrent.atomic.LongAdder;
-import java.util.concurrent.locks.StampedLock;
+import java.util.Map;
+import java.util.function.BiFunction;
 
-/**
- * High-performance striped concurrent Long2ByteMap.
- * Zero autoboxing — uses striped Long2ByteOpenHashMap with StampedLock optimistic reads.
- * Drop-in replacement for Long2ByteOpenHashMap in DistanceManager chunk trackers.
- * Segment count scales with available processors for write throughput on 32+ core machines.
- */
 public final class Long2ByteConcurrentHashMap extends AbstractLong2ByteMap {
 
-    private static final int DEFAULT_SEGMENTS = defaultSegmentCount();
+    private final Long2IntConcurrentHashMap delegate;
 
-    private final int segmentCount;
-    private final int segmentMask;
-    private final Long2ByteOpenHashMap[] segments;
-    private final StampedLock[] locks;
-    private final LongAdder totalSize = new LongAdder();
+    public Long2ByteConcurrentHashMap() { this(16); }
+    public Long2ByteConcurrentHashMap(int expectedSize) {
+        delegate = new Long2IntConcurrentHashMap(expectedSize);
+    }
+    public Long2ByteConcurrentHashMap(int initialCapacity, float loadFactor) { this(initialCapacity); }
+    public Long2ByteConcurrentHashMap(int initialCapacity, float loadFactor, int concurrencyLevel) { this(initialCapacity); }
+    public Long2ByteConcurrentHashMap(int initialCapacity, int concurrencyLevel) { this(initialCapacity); }
 
-    public Long2ByteConcurrentHashMap() { this(256 * DEFAULT_SEGMENTS, DEFAULT_SEGMENTS); }
+    @Override public byte get(long key) { return (byte) delegate.get(key); }
+    @Override public byte put(long key, byte value) { return (byte) delegate.put(key, (int) value); }
+    @Override public byte remove(long key) { return (byte) delegate.remove(key); }
 
-    public Long2ByteConcurrentHashMap(int expectedSize) { this(expectedSize, DEFAULT_SEGMENTS); }
+    @Override public boolean containsKey(long key) { return delegate.containsKey(key); }
+    @Override public boolean containsValue(byte value) { return delegate.containsValue((int) value); }
+    @Override public byte getOrDefault(long key, byte defaultValue) { return (byte) delegate.getOrDefault(key, (int) defaultValue); }
+    @Override public byte putIfAbsent(long key, byte value) { return (byte) delegate.putIfAbsent(key, (int) value); }
+    @Override public boolean remove(long key, byte value) { return delegate.remove(key, (int) value); }
+    @Override public boolean replace(long key, byte oldValue, byte newValue) { return delegate.replace(key, (int) oldValue, (int) newValue); }
+    @Override public byte replace(long key, byte value) { return (byte) delegate.replace(key, (int) value); }
 
-    public Long2ByteConcurrentHashMap(int expectedSize, int concurrencyLevel) {
-        this.segmentCount = nextPowerOf2(Math.max(16, concurrencyLevel));
-        this.segmentMask = segmentCount - 1;
-        int perSegment = Math.max(16, expectedSize / segmentCount);
-        segments = new Long2ByteOpenHashMap[segmentCount];
-        locks = new StampedLock[segmentCount];
-        for (int i = 0; i < segmentCount; i++) {
-            segments[i] = new Long2ByteOpenHashMap(perSegment, 0.75f);
-            locks[i] = new StampedLock();
+    @Override public byte compute(long key, BiFunction<? super Long, ? super Byte, ? extends Byte> remappingFunction) {
+        int res = delegate.compute(key, (k, vInt) -> {
+            Byte old = (vInt == delegate.defaultReturnValue()) ? null : (byte) (int) vInt;
+            Byte nv = remappingFunction.apply(k, old);
+            return nv == null ? null : (int) (byte) nv;
+        });
+        return (byte) res;
+    }
+
+    @Override public byte computeIfAbsent(long key, java.util.function.LongToIntFunction mappingFunction) {
+        int v = delegate.get(key);
+        if (v != delegate.defaultReturnValue()) return (byte) v;
+        int nv = mappingFunction.applyAsInt(key);
+        int prev = delegate.putIfAbsent(key, nv);
+        return (byte) ((prev == delegate.defaultReturnValue()) ? nv : prev);
+    }
+
+    @Override public byte computeIfPresent(long key, BiFunction<? super Long, ? super Byte, ? extends Byte> remappingFunction) {
+        for (;;) {
+            int oldVal = delegate.get(key);
+            if (oldVal == delegate.defaultReturnValue()) return defaultReturnValue();
+            Byte nvObj = remappingFunction.apply(key, (byte) oldVal);
+            if (nvObj == null) {
+                if (delegate.remove(key) != delegate.defaultReturnValue()) return defaultReturnValue();
+            } else {
+                if (delegate.replace(key, oldVal, (int) (byte) nvObj)) return nvObj;
+            }
         }
     }
 
-    static int defaultSegmentCount() {
-        return nextPowerOf2(Math.max(16, Runtime.getRuntime().availableProcessors()));
-    }
-
-    private static int nextPowerOf2(int v) {
-        return Integer.highestOneBit(Math.max(1, v - 1)) << 1;
-    }
-
-    private static int spread(long key) {
-        key = (key ^ (key >>> 30)) * 0xbf58476d1ce4e5b9L;
-        key = (key ^ (key >>> 27)) * 0x94d049bb133111ebL;
-        return (int) (key ^ (key >>> 31));
-    }
-
-    private int segmentFor(long key) { return spread(key) & segmentMask; }
-
-    @Override public byte get(long key) {
-        int seg = segmentFor(key);
-        StampedLock lock = locks[seg];
-        long stamp = lock.tryOptimisticRead();
-        byte v = segments[seg].get(key);
-        if (lock.validate(stamp)) return v;
-        stamp = lock.readLock();
-        try { return segments[seg].get(key); }
-        finally { lock.unlockRead(stamp); }
-    }
-
-    @Override public byte getOrDefault(long key, byte defaultValue) {
-        int seg = segmentFor(key);
-        StampedLock lock = locks[seg];
-        long stamp = lock.tryOptimisticRead();
-        byte v = segments[seg].getOrDefault(key, defaultValue);
-        if (lock.validate(stamp)) return v;
-        stamp = lock.readLock();
-        try { return segments[seg].getOrDefault(key, defaultValue); }
-        finally { lock.unlockRead(stamp); }
-    }
-
-    @Override public boolean containsKey(long key) {
-        int seg = segmentFor(key);
-        StampedLock lock = locks[seg];
-        long stamp = lock.tryOptimisticRead();
-        boolean r = segments[seg].containsKey(key);
-        if (lock.validate(stamp)) return r;
-        stamp = lock.readLock();
-        try { return segments[seg].containsKey(key); }
-        finally { lock.unlockRead(stamp); }
-    }
-
-    @Override public boolean containsValue(byte value) {
-        for (int i = 0; i < segmentCount; i++) {
-            long stamp = locks[i].readLock();
-            try { if (segments[i].containsValue(value)) return true; }
-            finally { locks[i].unlockRead(stamp); }
+    @Override public byte merge(long key, byte value, java.util.function.BiFunction<? super Byte, ? super Byte, ? extends Byte> remappingFunction) {
+        for (;;) {
+            int oldVal = delegate.get(key);
+            if (oldVal == delegate.defaultReturnValue()) {
+                if (delegate.putIfAbsent(key, (int) value) == delegate.defaultReturnValue()) return value;
+            } else {
+                Byte nvObj = remappingFunction.apply((byte) oldVal, value);
+                if (nvObj == null) {
+                    if (delegate.remove(key) != delegate.defaultReturnValue()) return defaultReturnValue();
+                } else {
+                    if (delegate.replace(key, oldVal, (int) (byte) nvObj)) return nvObj;
+                }
+            }
         }
-        return false;
-    }
-
-    @Override public byte put(long key, byte value) {
-        int seg = segmentFor(key);
-        long stamp = locks[seg].writeLock();
-        try {
-            int sb = segments[seg].size();
-            byte prev = segments[seg].put(key, value);
-            if (segments[seg].size() > sb) totalSize.increment();
-            return prev;
-        } finally { locks[seg].unlockWrite(stamp); }
-    }
-
-    @Override public byte putIfAbsent(long key, byte value) {
-        int seg = segmentFor(key);
-        long stamp = locks[seg].writeLock();
-        try {
-            if (segments[seg].containsKey(key)) return segments[seg].get(key);
-            segments[seg].put(key, value);
-            totalSize.increment();
-            return defRetValue;
-        } finally { locks[seg].unlockWrite(stamp); }
-    }
-
-    @Override public byte remove(long key) {
-        int seg = segmentFor(key);
-        long stamp = locks[seg].writeLock();
-        try {
-            int sb = segments[seg].size();
-            byte prev = segments[seg].remove(key);
-            if (segments[seg].size() < sb) totalSize.decrement();
-            return prev;
-        } finally { locks[seg].unlockWrite(stamp); }
-    }
-
-    @Override public boolean remove(long key, byte value) {
-        int seg = segmentFor(key);
-        long stamp = locks[seg].writeLock();
-        try {
-            if (segments[seg].containsKey(key) && segments[seg].get(key) == value) {
-                segments[seg].remove(key);
-                totalSize.decrement();
-                return true;
-            }
-            return false;
-        } finally { locks[seg].unlockWrite(stamp); }
-    }
-
-    @Override public byte replace(long key, byte value) {
-        int seg = segmentFor(key);
-        long stamp = locks[seg].writeLock();
-        try {
-            if (segments[seg].containsKey(key)) return segments[seg].put(key, value);
-            return defRetValue;
-        } finally { locks[seg].unlockWrite(stamp); }
-    }
-
-    @Override public boolean replace(long key, byte oldValue, byte newValue) {
-        int seg = segmentFor(key);
-        long stamp = locks[seg].writeLock();
-        try {
-            if (segments[seg].containsKey(key) && segments[seg].get(key) == oldValue) {
-                segments[seg].put(key, newValue);
-                return true;
-            }
-            return false;
-        } finally { locks[seg].unlockWrite(stamp); }
-    }
-
-    /**
-     * Adds {@code delta} to the value currently associated with {@code key}.
-     * If the key is not present, inserts it with value {@code delta}.
-     * Returns the new value.
-     */
-    public byte addTo(long key, byte delta) {
-        int seg = segmentFor(key);
-        long stamp = locks[seg].writeLock();
-        try {
-            int sb = segments[seg].size();
-            byte cur = segments[seg].getOrDefault(key, (byte) 0);
-            byte newVal = (byte) (cur + delta);
-            segments[seg].put(key, newVal);
-            if (segments[seg].size() > sb) totalSize.increment();
-            return newVal;
-        } finally { locks[seg].unlockWrite(stamp); }
-    }
-
-    public byte computeIfAbsent(long key, java.util.function.LongFunction<Byte> mappingFunction) {
-        int seg = segmentFor(key);
-        StampedLock lock = locks[seg];
-        long stamp = lock.tryOptimisticRead();
-        boolean has = segments[seg].containsKey(key);
-        byte existing = has ? segments[seg].get(key) : defRetValue;
-        if (lock.validate(stamp) && has) return existing;
-
-        stamp = lock.writeLock();
-        try {
-            if (segments[seg].containsKey(key)) return segments[seg].get(key);
-            Byte computed = mappingFunction.apply(key);
-            if (computed != null) {
-                byte bv = computed.byteValue();
-                segments[seg].put(key, bv);
-                totalSize.increment();
-                return bv;
-            }
-            return defRetValue;
-        } finally { lock.unlockWrite(stamp); }
     }
 
     @Override public void putAll(Map<? extends Long, ? extends Byte> m) {
-        if (m instanceof Long2ByteMap l2b) {
-            for (Long2ByteMap.Entry e : l2b.long2ByteEntrySet()) put(e.getLongKey(), e.getByteValue());
-        } else {
-            for (Map.Entry<? extends Long, ? extends Byte> e : m.entrySet()) put(e.getKey().longValue(), e.getValue().byteValue());
-        }
+        for (Map.Entry<? extends Long, ? extends Byte> e : m.entrySet())
+            put(e.getKey().longValue(), e.getValue().byteValue());
     }
+    @Override public void clear() { delegate.clear(); }
+    @Override public int size() { return delegate.size(); }
+    @Override public boolean isEmpty() { return delegate.isEmpty(); }
+    @Override public void defaultReturnValue(byte rv) { delegate.defaultReturnValue((int) rv); }
+    @Override public byte defaultReturnValue() { return (byte) delegate.defaultReturnValue(); }
 
-    @Override public int size() {
-        long s = totalSize.sum();
-        return (int) Math.max(0L, Math.min(s, Integer.MAX_VALUE));
-    }
-    @Override public boolean isEmpty() { return totalSize.sum() == 0; }
-
-    @Override public void clear() {
-        for (int i = 0; i < segmentCount; i++) {
-            long stamp = locks[i].writeLock();
-            try { segments[i].clear(); }
-            finally { locks[i].unlockWrite(stamp); }
-        }
-        totalSize.reset();
-    }
-
-    @Override public void defaultReturnValue(byte rv) {
-        super.defaultReturnValue(rv);
-        for (int i = 0; i < segmentCount; i++) {
-            long stamp = locks[i].writeLock();
-            try { segments[i].defaultReturnValue(rv); }
-            finally { locks[i].unlockWrite(stamp); }
-        }
-    }
-
-    private volatile EntrySet entrySetView;
-
-    @Override public ObjectSet<Long2ByteMap.Entry> long2ByteEntrySet() {
-        EntrySet es = entrySetView;
-        if (es == null) {
-            es = new EntrySet();
-            entrySetView = es;
-        }
-        return es;
-    }
-
-    @Override public LongSet keySet() {
-        LongOpenHashSet keys = new LongOpenHashSet(size());
-        for (int i = 0; i < segmentCount; i++) {
-            long stamp = locks[i].readLock();
-            try { keys.addAll(segments[i].keySet()); }
-            finally { locks[i].unlockRead(stamp); }
-        }
-        return keys;
-    }
+    @Override public LongSet keySet() { return delegate.keySet(); }
 
     @Override public ByteCollection values() {
-        return new Values();
+        it.unimi.dsi.fastutil.bytes.ByteArrayList list = new it.unimi.dsi.fastutil.bytes.ByteArrayList(size());
+        for (it.unimi.dsi.fastutil.ints.IntIterator it = delegate.values().iterator(); it.hasNext(); )
+            list.add((byte) it.nextInt());
+        return list;
     }
 
-    private List<Long2ByteMap.Entry> snapshotEntries() {
-        List<Long2ByteMap.Entry> snap = new ArrayList<>(size());
-        for (int i = 0; i < segmentCount; i++) {
-            long stamp = locks[i].readLock();
-            try {
-                for (Long2ByteMap.Entry e : segments[i].long2ByteEntrySet())
-                    snap.add(new ImmutableEntry(e.getLongKey(), e.getByteValue()));
-            } finally { locks[i].unlockRead(stamp); }
-        }
-        return snap;
-    }
+    @Override public ObjectSet<Entry> long2ByteEntrySet() { return new EntrySetView(); }
 
-    private final class EntrySet extends AbstractObjectSet<Long2ByteMap.Entry>
-            implements Long2ByteMap.FastEntrySet {
-
-        @Override public ObjectIterator<Long2ByteMap.Entry> iterator() {
-            List<Long2ByteMap.Entry> snap = snapshotEntries();
+    private final class EntrySetView implements ObjectSet<Entry> {
+        @Override public ObjectIterator<Entry> iterator() {
+            ObjectIterator<Long2IntMap.Entry> it = delegate.long2IntEntrySet().iterator();
             return new ObjectIterator<>() {
-                private final Iterator<Long2ByteMap.Entry> it = snap.iterator();
+                private Entry last;
                 @Override public boolean hasNext() { return it.hasNext(); }
-                @Override public Long2ByteMap.Entry next() { return it.next(); }
-            };
-        }
-
-        @Override public ObjectIterator<Long2ByteMap.Entry> fastIterator() {
-            List<Long2ByteMap.Entry> snap = snapshotEntries();
-            return new ObjectIterator<>() {
-                private final Iterator<Long2ByteMap.Entry> it = snap.iterator();
-                private final MutableEntry reuse = new MutableEntry();
-                @Override public boolean hasNext() { return it.hasNext(); }
-                @Override public Long2ByteMap.Entry next() {
-                    Long2ByteMap.Entry src = it.next();
-                    reuse.key = src.getLongKey(); reuse.value = src.getByteValue();
-                    return reuse;
+                @Override public Entry next() {
+                    Long2IntMap.Entry e = it.next();
+                    last = new BasicEntry(e.getLongKey(), (byte) e.getIntValue());
+                    return last;
+                }
+                @Override public void remove() {
+                    if (last == null) throw new IllegalStateException();
+                    Long2ByteConcurrentHashMap.this.remove(last.getLongKey(), last.getByteValue());
+                    last = null;
                 }
             };
         }
-
-        @Override public void fastForEach(java.util.function.Consumer<? super Long2ByteMap.Entry> consumer) {
-            MutableEntry reuse = new MutableEntry();
-            for (int i = 0; i < segmentCount; i++) {
-                long stamp = locks[i].readLock();
-                try {
-                    for (Long2ByteMap.Entry e : segments[i].long2ByteEntrySet()) {
-                        reuse.key = e.getLongKey(); reuse.value = e.getByteValue();
-                        consumer.accept(reuse);
-                    }
-                } finally { locks[i].unlockRead(stamp); }
-            }
-        }
-
-        @Override public ObjectSpliterator<Long2ByteMap.Entry> spliterator() {
-            return ObjectSpliterators.asSpliterator(iterator(), size(), ObjectSpliterators.SET_SPLITERATOR_CHARACTERISTICS);
-        }
-
+        @Override public int size() { return delegate.size(); }
+        @Override public boolean isEmpty() { return delegate.isEmpty(); }
+        @Override public void clear() { delegate.clear(); }
         @Override public boolean contains(Object o) {
-            if (!(o instanceof Map.Entry<?, ?> e)) return false;
-            if (!(e.getKey() instanceof Long k) || !(e.getValue() instanceof Byte v)) return false;
-            int seg = segmentFor(k);
-            long stamp = locks[seg].readLock();
-            try { return segments[seg].containsKey(k.longValue()) && segments[seg].get(k.longValue()) == v; }
-            finally { locks[seg].unlockRead(stamp); }
+            if (!(o instanceof Entry e)) return false;
+            return containsKey(e.getLongKey()) && get(e.getLongKey()) == e.getByteValue();
         }
-
         @Override public boolean remove(Object o) {
-            if (!(o instanceof Map.Entry<?, ?> e)) return false;
-            if (!(e.getKey() instanceof Long k) || !(e.getValue() instanceof Byte v)) return false;
-            return Long2ByteConcurrentHashMap.this.remove(k.longValue(), v.byteValue());
+            if (!(o instanceof Entry e)) return false;
+            return Long2ByteConcurrentHashMap.this.remove(e.getLongKey(), e.getByteValue());
         }
-
-        @Override public int size() { return Long2ByteConcurrentHashMap.this.size(); }
-        @Override public void clear() { Long2ByteConcurrentHashMap.this.clear(); }
+        @Override public boolean add(Entry e) { put(e.getLongKey(), e.getByteValue()); return true; }
+        @Override public Object[] toArray() { java.util.List<Entry> list = new java.util.ArrayList<>(size()); for (Entry e : this) list.add(e); return list.toArray(); }
+        @Override public <T> T[] toArray(T[] a) { java.util.List<Entry> list = new java.util.ArrayList<>(size()); for (Entry e : this) list.add(e); return list.toArray(a); }
+        @Override public boolean containsAll(java.util.Collection<?> c) { for (Object o : c) if (!contains(o)) return false; return true; }
+        @Override public boolean addAll(java.util.Collection<? extends Entry> c) { boolean m = false; for (Entry e : c) m |= add(e); return m; }
+        @Override public boolean removeAll(java.util.Collection<?> c) { boolean m = false; for (Object o : c) m |= remove(o); return m; }
+        @Override public boolean retainAll(java.util.Collection<?> c) { boolean m = false; for (Entry e : this) if (!c.contains(e)) m |= remove(e); return m; }
     }
 
-    private final class Values extends AbstractByteCollection {
-        @Override public ByteIterator iterator() {
-            ByteArrayList vals = new ByteArrayList(size());
-            for (int i = 0; i < segmentCount; i++) {
-                long stamp = locks[i].readLock();
-                try { for (byte v : segments[i].values()) vals.add(v); }
-                finally { locks[i].unlockRead(stamp); }
-            }
-            return vals.iterator();
-        }
-        @Override public ByteSpliterator spliterator() {
-            return ByteSpliterators.asSpliterator(iterator(), size(), ByteSpliterators.COLLECTION_SPLITERATOR_CHARACTERISTICS);
-        }
-        @Override public boolean contains(byte v) { return Long2ByteConcurrentHashMap.this.containsValue(v); }
-        @Override public int size() { return Long2ByteConcurrentHashMap.this.size(); }
-        @Override public void clear() { Long2ByteConcurrentHashMap.this.clear(); }
-    }
-
-    private static final class MutableEntry implements Long2ByteMap.Entry {
-        long key; byte value;
+    private static final class BasicEntry implements Entry {
+        private final long key;
+        private byte value;
+        BasicEntry(long key, byte value) { this.key = key; this.value = value; }
         @Override public long getLongKey() { return key; }
         @Override public byte getByteValue() { return value; }
-        @Override public byte setValue(byte v) { byte old = value; value = v; return old; }
+        @Override public byte setValue(byte value) { byte old = this.value; this.value = value; return old; }
     }
 
-    private record ImmutableEntry(long key, byte value) implements Long2ByteMap.Entry {
-        @Override public long getLongKey() { return key; }
-        @Override public byte getByteValue() { return value; }
-        @Override public byte setValue(byte v) { throw new UnsupportedOperationException(); }
-        @Override public boolean equals(Object o) {
-            return o instanceof Long2ByteMap.Entry e && key == e.getLongKey() && value == e.getByteValue();
+    @Override public boolean equals(Object o) {
+        if (o == this) return true;
+        if (!(o instanceof Map<?, ?> other)) return false;
+        if (other.size() != size()) return false;
+        for (Entry e : long2ByteEntrySet()) {
+            Object ov = ((Map<?, ?>) other).get(e.getLongKey());
+            if (!(ov instanceof Byte) || ((Byte) ov) != e.getByteValue()) return false;
         }
-        @Override public int hashCode() { return HashCommon.long2int(key) ^ value; }
-        @Override public String toString() { return key + "=>" + value; }
+        return true;
     }
-
-    @FunctionalInterface
-    public interface LongByteConsumer { void accept(long key, byte value); }
-
-    public void forEach(LongByteConsumer consumer) {
-        for (int i = 0; i < segmentCount; i++) {
-            long stamp = locks[i].readLock();
-            try {
-                for (Long2ByteMap.Entry e : segments[i].long2ByteEntrySet())
-                    consumer.accept(e.getLongKey(), e.getByteValue());
-            } finally { locks[i].unlockRead(stamp); }
-        }
+    @Override public int hashCode() {
+        int h = 0;
+        for (Entry e : long2ByteEntrySet()) h += Long.hashCode(e.getLongKey()) ^ Byte.hashCode(e.getByteValue());
+        return h;
     }
+    @Override public String toString() { return "Long2ByteConcurrentHashMap[size=" + size() + "]"; }
 }

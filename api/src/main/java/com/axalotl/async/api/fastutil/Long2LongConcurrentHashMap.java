@@ -1,414 +1,464 @@
 package com.axalotl.async.api.fastutil;
 
-import it.unimi.dsi.fastutil.HashCommon;
-import it.unimi.dsi.fastutil.longs.*;
-import it.unimi.dsi.fastutil.objects.AbstractObjectSet;
+import it.unimi.dsi.fastutil.longs.AbstractLong2LongMap;
+import it.unimi.dsi.fastutil.longs.Long2LongMap;
+import it.unimi.dsi.fastutil.longs.LongArrayList;
+import it.unimi.dsi.fastutil.longs.LongCollection;
+import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
+import it.unimi.dsi.fastutil.longs.LongSet;
 import it.unimi.dsi.fastutil.objects.ObjectIterator;
 import it.unimi.dsi.fastutil.objects.ObjectSet;
-import it.unimi.dsi.fastutil.objects.ObjectSpliterator;
-import it.unimi.dsi.fastutil.objects.ObjectSpliterators;
 
-import java.util.*;
-import java.util.concurrent.atomic.LongAdder;
-import java.util.concurrent.locks.StampedLock;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.VarHandle;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.function.BiFunction;
+import java.util.function.LongUnaryOperator;
 
-/**
- * High-performance striped concurrent Long2LongMap.
- * Zero autoboxing — uses striped Long2LongOpenHashMap with StampedLock optimistic reads.
- * <p>
- * Segment count scales with available processors to maintain write throughput
- * on high-core-count machines (32+ cores).
- */
 public final class Long2LongConcurrentHashMap extends AbstractLong2LongMap {
 
-    private static final int DEFAULT_SEGMENTS = defaultSegmentCount();
+    private static final long EMPTY     = Long.MIN_VALUE;
+    private static final long TOMBSTONE = Long.MIN_VALUE + 1;
 
-    private final int segmentCount;
-    private final int segmentMask;
-    private final Long2LongOpenHashMap[] segments;
-    private final StampedLock[] locks;
-    private final LongAdder totalSize = new LongAdder();
+    private static final int NSEG_BITS;
+    private static final int NSEG;
+    private static final int SEGMASK;
+    static {
+        int cores = Runtime.getRuntime().availableProcessors();
+        int n = Math.max(8, Math.min(64, cores * 2));
+        int p = Integer.highestOneBit(n - 1) << 1;
+        NSEG = p;
+        NSEG_BITS = Integer.numberOfTrailingZeros(p);
+        SEGMASK = p - 1;
+    }
 
-    public Long2LongConcurrentHashMap() { this(256 * DEFAULT_SEGMENTS, DEFAULT_SEGMENTS); }
+    private static final VarHandle KEYS_VH = MethodHandles.arrayElementVarHandle(long[].class);
+    private static final VarHandle VALS_VH = MethodHandles.arrayElementVarHandle(long[].class);
 
-    public Long2LongConcurrentHashMap(int expectedSize) { this(expectedSize, DEFAULT_SEGMENTS); }
+    private static int hash(long h) {
+        h *= 0xC6BC279692B5C323L;
+        return (int) (h ^ (h >>> 32));
+    }
 
-    public Long2LongConcurrentHashMap(int expectedSize, int concurrencyLevel) {
-        this.segmentCount = nextPowerOf2(Math.max(16, concurrencyLevel));
-        this.segmentMask = segmentCount - 1;
-        int perSegment = Math.max(16, expectedSize / segmentCount);
-        segments = new Long2LongOpenHashMap[segmentCount];
-        locks = new StampedLock[segmentCount];
-        for (int i = 0; i < segmentCount; i++) {
-            segments[i] = new Long2LongOpenHashMap(perSegment, 0.75f);
-            locks[i] = new StampedLock();
+    private static final class State {
+        final long[] keys;
+        final long[] vals;
+        final int    mask;
+        State(int capPow2) {
+            keys = new long[capPow2];
+            vals = new long[capPow2];
+            mask = capPow2 - 1;
+            Arrays.fill(keys, EMPTY);
         }
     }
 
-    static int defaultSegmentCount() {
-        return nextPowerOf2(Math.max(16, Runtime.getRuntime().availableProcessors()));
+    private static final class Segment {
+        volatile State state;
+        volatile int size;
+        int tombstones;
+        Segment(int capPow2) { state = new State(capPow2); }
     }
 
-    private static int nextPowerOf2(int v) {
-        return Integer.highestOneBit(Math.max(1, v - 1)) << 1;
-    }
+    private final Segment[] segments;
 
-    private static int spread(long key) {
-        key = (key ^ (key >>> 30)) * 0xbf58476d1ce4e5b9L;
-        key = (key ^ (key >>> 27)) * 0x94d049bb133111ebL;
-        return (int) (key ^ (key >>> 31));
+    public Long2LongConcurrentHashMap() { this(64); }
+    public Long2LongConcurrentHashMap(int expectedSize) {
+        segments = new Segment[NSEG];
+        int perSegEntries = Math.max(8, expectedSize / NSEG);
+        int cap = 16;
+        while (cap < perSegEntries * 2) cap <<= 1;
+        for (int i = 0; i < NSEG; i++) segments[i] = new Segment(cap);
     }
+    @SuppressWarnings("unused")
+    public Long2LongConcurrentHashMap(int initialCapacity, float loadFactor) { this(initialCapacity); }
 
-    private int segmentFor(long key) { return spread(key) & segmentMask; }
+    private Segment segmentFor(long key) {
+        return segments[(hash(key) >>> (32 - NSEG_BITS)) & SEGMASK];
+    }
 
     @Override public long get(long key) {
-        int seg = segmentFor(key);
-        StampedLock lock = locks[seg];
-        long stamp = lock.tryOptimisticRead();
-        long v = segments[seg].get(key);
-        if (lock.validate(stamp)) return v;
-        stamp = lock.readLock();
-        try { return segments[seg].get(key); }
-        finally { lock.unlockRead(stamp); }
+        if (key == EMPTY || key == TOMBSTONE) return defaultReturnValue();
+        Segment seg = segmentFor(key);
+        State s = seg.state;
+        long[] k = s.keys;
+        long[] v = s.vals;
+        int mask = s.mask;
+        int idx = hash(key) & mask;
+        while (true) {
+            long kk = (long) KEYS_VH.getAcquire(k, idx);
+            if (kk == EMPTY) return defaultReturnValue();
+            if (kk == key) return (long) VALS_VH.getAcquire(v, idx);
+            idx = (idx + 1) & mask;
+        }
     }
 
-    @Override public long getOrDefault(long key, long defaultValue) {
-        int seg = segmentFor(key);
-        StampedLock lock = locks[seg];
-        long stamp = lock.tryOptimisticRead();
-        long v = segments[seg].getOrDefault(key, defaultValue);
-        if (lock.validate(stamp)) return v;
-        stamp = lock.readLock();
-        try { return segments[seg].getOrDefault(key, defaultValue); }
-        finally { lock.unlockRead(stamp); }
+    @Override public long put(long key, long value) {
+        if (key == EMPTY || key == TOMBSTONE) throw new IllegalArgumentException("reserved key");
+        Segment seg = segmentFor(key);
+        synchronized (seg) {
+            State s = seg.state;
+            if (needsResize(seg, s)) s = resizeLocked(seg);
+            return putLocked(seg, s, key, value, false);
+        }
+    }
+
+    @Override public long putIfAbsent(long key, long value) {
+        if (key == EMPTY || key == TOMBSTONE) throw new IllegalArgumentException("reserved key");
+        Segment seg = segmentFor(key);
+        synchronized (seg) {
+            State s = seg.state;
+            if (needsResize(seg, s)) s = resizeLocked(seg);
+            return putLocked(seg, s, key, value, true);
+        }
+    }
+
+    @Override public long remove(long key) {
+        if (key == EMPTY || key == TOMBSTONE) return defaultReturnValue();
+        Segment seg = segmentFor(key);
+        synchronized (seg) {
+            return removeLocked(seg, seg.state, key, false, 0L);
+        }
+    }
+
+    @Override public boolean remove(long key, long value) {
+        if (key == EMPTY || key == TOMBSTONE) return false;
+        Segment seg = segmentFor(key);
+        synchronized (seg) {
+            return removeLocked(seg, seg.state, key, true, value) != defaultReturnValue();
+        }
+    }
+
+    @Override public boolean replace(long key, long oldValue, long newValue) {
+        if (key == EMPTY || key == TOMBSTONE) return false;
+        Segment seg = segmentFor(key);
+        synchronized (seg) {
+            State s = seg.state;
+            int idx = findKey(s, key);
+            if (idx < 0) return false;
+            if (s.vals[idx] != oldValue) return false;
+            VALS_VH.setRelease(s.vals, idx, newValue);
+            return true;
+        }
+    }
+
+    @Override public long replace(long key, long value) {
+        if (key == EMPTY || key == TOMBSTONE) return defaultReturnValue();
+        Segment seg = segmentFor(key);
+        synchronized (seg) {
+            State s = seg.state;
+            int idx = findKey(s, key);
+            if (idx < 0) return defaultReturnValue();
+            long prev = s.vals[idx];
+            VALS_VH.setRelease(s.vals, idx, value);
+            return prev;
+        }
     }
 
     @Override public boolean containsKey(long key) {
-        int seg = segmentFor(key);
-        StampedLock lock = locks[seg];
-        long stamp = lock.tryOptimisticRead();
-        boolean r = segments[seg].containsKey(key);
-        if (lock.validate(stamp)) return r;
-        stamp = lock.readLock();
-        try { return segments[seg].containsKey(key); }
-        finally { lock.unlockRead(stamp); }
+        if (key == EMPTY || key == TOMBSTONE) return false;
+        Segment seg = segmentFor(key);
+        State s = seg.state;
+        long[] k = s.keys;
+        int mask = s.mask;
+        int idx = hash(key) & mask;
+        while (true) {
+            long kk = (long) KEYS_VH.getAcquire(k, idx);
+            if (kk == EMPTY) return false;
+            if (kk == key) return true;
+            idx = (idx + 1) & mask;
+        }
     }
 
     @Override public boolean containsValue(long value) {
-        for (int i = 0; i < segmentCount; i++) {
-            long stamp = locks[i].readLock();
-            try { if (segments[i].containsValue(value)) return true; }
-            finally { locks[i].unlockRead(stamp); }
+        for (Segment seg : segments) {
+            State s = seg.state;
+            for (int i = 0; i <= s.mask; i++) {
+                long k = s.keys[i];
+                if (k != EMPTY && k != TOMBSTONE && s.vals[i] == value) return true;
+            }
         }
         return false;
     }
 
-    @Override public long put(long key, long value) {
-        int seg = segmentFor(key);
-        long stamp = locks[seg].writeLock();
-        try {
-            int sb = segments[seg].size();
-            long prev = segments[seg].put(key, value);
-            if (segments[seg].size() > sb) totalSize.increment();
-            return prev;
-        } finally { locks[seg].unlockWrite(stamp); }
+    @Override public long getOrDefault(long key, long defaultValue) {
+        if (key == EMPTY || key == TOMBSTONE) return defaultValue;
+        Segment seg = segmentFor(key);
+        State s = seg.state;
+        long[] k = s.keys; long[] v = s.vals; int mask = s.mask;
+        int idx = hash(key) & mask;
+        while (true) {
+            long kk = (long) KEYS_VH.getAcquire(k, idx);
+            if (kk == EMPTY) return defaultValue;
+            if (kk == key) return (long) VALS_VH.getAcquire(v, idx);
+            idx = (idx + 1) & mask;
+        }
     }
 
-    @Override public long putIfAbsent(long key, long value) {
-        int seg = segmentFor(key);
-        long stamp = locks[seg].writeLock();
-        try {
-            if (segments[seg].containsKey(key)) return segments[seg].get(key);
-            segments[seg].put(key, value);
-            totalSize.increment();
-            return defRetValue;
-        } finally { locks[seg].unlockWrite(stamp); }
-    }
-
-    @Override public long remove(long key) {
-        int seg = segmentFor(key);
-        long stamp = locks[seg].writeLock();
-        try {
-            int sb = segments[seg].size();
-            long prev = segments[seg].remove(key);
-            if (segments[seg].size() < sb) totalSize.decrement();
-            return prev;
-        } finally { locks[seg].unlockWrite(stamp); }
-    }
-
-    @Override public boolean remove(long key, long value) {
-        int seg = segmentFor(key);
-        long stamp = locks[seg].writeLock();
-        try {
-            if (segments[seg].containsKey(key) && segments[seg].get(key) == value) {
-                segments[seg].remove(key);
-                totalSize.decrement();
-                return true;
+    @Override public long compute(long key, BiFunction<? super Long, ? super Long, ? extends Long> remappingFunction) {
+        if (key == EMPTY || key == TOMBSTONE) throw new IllegalArgumentException("reserved key");
+        Segment seg = segmentFor(key);
+        synchronized (seg) {
+            State s = seg.state;
+            int idx = findKey(s, key);
+            Long old = (idx >= 0) ? s.vals[idx] : null;
+            Long nv = remappingFunction.apply(key, old);
+            if (nv == null) {
+                if (idx >= 0) {
+                    KEYS_VH.setRelease(s.keys, idx, TOMBSTONE);
+                    seg.size--; seg.tombstones++;
+                }
+                return defaultReturnValue();
             }
-            return false;
-        } finally { locks[seg].unlockWrite(stamp); }
-    }
-
-    @Override public long replace(long key, long value) {
-        int seg = segmentFor(key);
-        long stamp = locks[seg].writeLock();
-        try {
-            if (segments[seg].containsKey(key)) return segments[seg].put(key, value);
-            return defRetValue;
-        } finally { locks[seg].unlockWrite(stamp); }
-    }
-
-    @Override public boolean replace(long key, long oldValue, long newValue) {
-        int seg = segmentFor(key);
-        long stamp = locks[seg].writeLock();
-        try {
-            if (segments[seg].containsKey(key) && segments[seg].get(key) == oldValue) {
-                segments[seg].put(key, newValue);
-                return true;
-            }
-            return false;
-        } finally { locks[seg].unlockWrite(stamp); }
-    }
-
-    /**
-     * Adds {@code delta} to the value currently associated with {@code key}.
-     * If the key is not present, inserts it with value {@code delta}.
-     * Returns the new value.
-     */
-    public long addTo(long key, long delta) {
-        int seg = segmentFor(key);
-        long stamp = locks[seg].writeLock();
-        try {
-            int sb = segments[seg].size();
-            long cur = segments[seg].getOrDefault(key, 0L);
-            long newVal = cur + delta;
-            segments[seg].put(key, newVal);
-            if (segments[seg].size() > sb) totalSize.increment();
-            return newVal;
-        } finally { locks[seg].unlockWrite(stamp); }
-    }
-
-    @Override public long computeIfAbsent(long key, java.util.function.LongUnaryOperator mappingFunction) {
-        int seg = segmentFor(key);
-        StampedLock lock = locks[seg];
-        long stamp = lock.tryOptimisticRead();
-        boolean has = segments[seg].containsKey(key);
-        long existing = has ? segments[seg].get(key) : defRetValue;
-        if (lock.validate(stamp) && has) return existing;
-
-        stamp = lock.writeLock();
-        try {
-            if (segments[seg].containsKey(key)) return segments[seg].get(key);
-            long computed = mappingFunction.applyAsLong(key);
-            segments[seg].put(key, computed);
-            totalSize.increment();
-            return computed;
-        } finally { lock.unlockWrite(stamp); }
-    }
-
-    @Override public long computeIfPresent(long key, java.util.function.BiFunction<? super Long, ? super Long, ? extends Long> remappingFunction) {
-        int seg = segmentFor(key);
-        long stamp = locks[seg].writeLock();
-        try {
-            if (!segments[seg].containsKey(key)) return defRetValue;
-            long oldVal = segments[seg].get(key);
-            Long newVal = remappingFunction.apply(key, oldVal);
-            if (newVal != null) {
-                long nv = newVal.longValue();
-                segments[seg].put(key, nv);
-                return nv;
+            if (idx >= 0) {
+                VALS_VH.setRelease(s.vals, idx, nv);
             } else {
-                segments[seg].remove(key);
-                totalSize.decrement();
-                return defRetValue;
+                if (needsResize(seg, s)) s = resizeLocked(seg);
+                putLocked(seg, s, key, nv, false);
             }
-        } finally { locks[seg].unlockWrite(stamp); }
+            return nv;
+        }
     }
 
-    @Override public long compute(long key, java.util.function.BiFunction<? super Long, ? super Long, ? extends Long> remappingFunction) {
-        int seg = segmentFor(key);
-        long stamp = locks[seg].writeLock();
-        try {
-            boolean had = segments[seg].containsKey(key);
-            Long oldVal = had ? Long.valueOf(segments[seg].get(key)) : null;
-            Long newVal = remappingFunction.apply(key, oldVal);
-            if (newVal != null) {
-                long nv = newVal.longValue();
-                int sb = segments[seg].size();
-                segments[seg].put(key, nv);
-                if (segments[seg].size() > sb) totalSize.increment();
-                return nv;
-            } else if (had) {
-                segments[seg].remove(key);
-                totalSize.decrement();
-            }
-            return defRetValue;
-        } finally { locks[seg].unlockWrite(stamp); }
+    @Override public long computeIfAbsent(long key, LongUnaryOperator mappingFunction) {
+        if (key == EMPTY || key == TOMBSTONE) throw new IllegalArgumentException("reserved key");
+        long existing = get(key);
+        if (existing != defaultReturnValue()) return existing;
+        Segment seg = segmentFor(key);
+        synchronized (seg) {
+            State s = seg.state;
+            int idx = findKey(s, key);
+            if (idx >= 0) return s.vals[idx];
+            long nv = mappingFunction.applyAsLong(key);
+            if (needsResize(seg, s)) s = resizeLocked(seg);
+            putLocked(seg, s, key, nv, false);
+            return nv;
+        }
     }
 
-    @Override public long merge(long key, long value, java.util.function.BiFunction<? super Long, ? super Long, ? extends Long> remappingFunction) {
-        int seg = segmentFor(key);
-        long stamp = locks[seg].writeLock();
-        try {
-            boolean had = segments[seg].containsKey(key);
-            if (!had) {
-                int sb = segments[seg].size();
-                segments[seg].put(key, value);
-                if (segments[seg].size() > sb) totalSize.increment();
-                return value;
+    @Override public long computeIfPresent(long key, BiFunction<? super Long, ? super Long, ? extends Long> remappingFunction) {
+        if (key == EMPTY || key == TOMBSTONE) return defaultReturnValue();
+        Segment seg = segmentFor(key);
+        synchronized (seg) {
+            State s = seg.state;
+            int idx = findKey(s, key);
+            if (idx < 0) return defaultReturnValue();
+            Long nv = remappingFunction.apply(key, s.vals[idx]);
+            if (nv == null) {
+                KEYS_VH.setRelease(s.keys, idx, TOMBSTONE);
+                seg.size--; seg.tombstones++;
+                return defaultReturnValue();
             }
-            long oldVal = segments[seg].get(key);
-            Long newVal = remappingFunction.apply(oldVal, value);
-            if (newVal != null) {
-                long nv = newVal.longValue();
-                segments[seg].put(key, nv);
-                return nv;
+            VALS_VH.setRelease(s.vals, idx, nv);
+            return nv;
+        }
+    }
+
+    @Override public long merge(long key, long value, BiFunction<? super Long, ? super Long, ? extends Long> remappingFunction) {
+        if (key == EMPTY || key == TOMBSTONE) throw new IllegalArgumentException("reserved key");
+        Segment seg = segmentFor(key);
+        synchronized (seg) {
+            State s = seg.state;
+            int idx = findKey(s, key);
+            long nv;
+            if (idx >= 0) {
+                Long res = remappingFunction.apply(s.vals[idx], value);
+                if (res == null) {
+                    KEYS_VH.setRelease(s.keys, idx, TOMBSTONE);
+                    seg.size--; seg.tombstones++;
+                    return defaultReturnValue();
+                }
+                nv = res;
+                VALS_VH.setRelease(s.vals, idx, nv);
             } else {
-                segments[seg].remove(key);
-                totalSize.decrement();
-                return defRetValue;
+                nv = value;
+                if (needsResize(seg, s)) s = resizeLocked(seg);
+                putLocked(seg, s, key, nv, false);
             }
-        } finally { locks[seg].unlockWrite(stamp); }
-    }
-
-    public long mergeLong(long key, long value, java.util.function.LongBinaryOperator remappingFunction) {
-        int seg = segmentFor(key);
-        long stamp = locks[seg].writeLock();
-        try {
-            int sb = segments[seg].size();
-            if (segments[seg].containsKey(key)) {
-                long oldVal = segments[seg].get(key);
-                long newVal = remappingFunction.applyAsLong(oldVal, value);
-                segments[seg].put(key, newVal);
-                return newVal;
-            } else {
-                segments[seg].put(key, value);
-                if (segments[seg].size() > sb) totalSize.increment();
-                return value;
-            }
-        } finally { locks[seg].unlockWrite(stamp); }
+            return nv;
+        }
     }
 
     @Override public void putAll(Map<? extends Long, ? extends Long> m) {
-        if (m instanceof Long2LongMap l2l) {
-            for (Long2LongMap.Entry e : l2l.long2LongEntrySet()) put(e.getLongKey(), e.getLongValue());
-        } else {
-            for (Map.Entry<? extends Long, ? extends Long> e : m.entrySet()) put(e.getKey().longValue(), e.getValue().longValue());
+        for (Map.Entry<? extends Long, ? extends Long> e : m.entrySet())
+            put(e.getKey().longValue(), e.getValue().longValue());
+    }
+
+    @Override public void clear() {
+        for (Segment seg : segments) {
+            synchronized (seg) {
+                Arrays.fill(seg.state.keys, EMPTY);
+                seg.size = 0;
+                seg.tombstones = 0;
+            }
         }
     }
 
     @Override public int size() {
-        long s = totalSize.sum();
-        return (int) Math.max(0L, Math.min(s, Integer.MAX_VALUE));
+        long total = 0;
+        for (Segment seg : segments) total += seg.size;
+        return (int) Math.max(0L, Math.min(total, Integer.MAX_VALUE));
     }
 
-    @Override public boolean isEmpty() { return totalSize.sum() == 0; }
+    @Override public boolean isEmpty() { return size() == 0; }
 
-    @Override public void clear() {
-        for (int i = 0; i < segmentCount; i++) {
-            long stamp = locks[i].writeLock();
-            try { segments[i].clear(); }
-            finally { locks[i].unlockWrite(stamp); }
-        }
-        totalSize.reset();
-    }
-
-    @Override public void defaultReturnValue(long rv) {
-        super.defaultReturnValue(rv);
-        for (int i = 0; i < segmentCount; i++) {
-            long stamp = locks[i].writeLock();
-            try { segments[i].defaultReturnValue(rv); }
-            finally { locks[i].unlockWrite(stamp); }
+    private static int findKey(State s, long key) {
+        long[] k = s.keys;
+        int mask = s.mask;
+        int idx = hash(key) & mask;
+        while (true) {
+            long kk = k[idx];
+            if (kk == EMPTY) return -1;
+            if (kk == key) return idx;
+            idx = (idx + 1) & mask;
         }
     }
 
-    @FunctionalInterface
-    public interface LongLongConsumer { void accept(long key, long value); }
-
-    public void forEach(LongLongConsumer action) {
-        for (int i = 0; i < segmentCount; i++) {
-            long stamp = locks[i].readLock();
-            try {
-                for (Long2LongMap.Entry e : segments[i].long2LongEntrySet())
-                    action.accept(e.getLongKey(), e.getLongValue());
-            } finally { locks[i].unlockRead(stamp); }
+    private long putLocked(Segment seg, State s, long key, long value, boolean ifAbsent) {
+        long[] k = s.keys;
+        long[] v = s.vals;
+        int mask = s.mask;
+        int idx = hash(key) & mask;
+        int firstTomb = -1;
+        while (true) {
+            long kk = k[idx];
+            if (kk == EMPTY) {
+                int writeIdx = firstTomb >= 0 ? firstTomb : idx;
+                if (firstTomb >= 0) seg.tombstones--;
+                KEYS_VH.setRelease(k, writeIdx, key);
+                VALS_VH.setRelease(v, writeIdx, value);
+                seg.size++;
+                return defaultReturnValue();
+            }
+            if (kk == TOMBSTONE) {
+                if (firstTomb < 0) firstTomb = idx;
+            } else if (kk == key) {
+                long prev = v[idx];
+                if (!ifAbsent) {
+                    VALS_VH.setRelease(v, idx, value);
+                }
+                return prev;
+            }
+            idx = (idx + 1) & mask;
         }
     }
 
-    @Override public ObjectSet<Long2LongMap.Entry> long2LongEntrySet() { return new SnapshotEntrySet(); }
+    private long removeLocked(Segment seg, State s, long key, boolean checkValue, long expVal) {
+        long[] k = s.keys;
+        long[] v = s.vals;
+        int mask = s.mask;
+        int idx = hash(key) & mask;
+        while (true) {
+            long kk = k[idx];
+            if (kk == EMPTY) return defaultReturnValue();
+            if (kk == key) {
+                long prev = v[idx];
+                if (checkValue && prev != expVal) return defaultReturnValue();
+                KEYS_VH.setRelease(k, idx, TOMBSTONE);
+                seg.size--; seg.tombstones++;
+                return prev;
+            }
+            idx = (idx + 1) & mask;
+        }
+    }
+
+    private boolean needsResize(Segment seg, State s) {
+        return (seg.size + seg.tombstones + 1) > ((s.mask + 1) >> 1);
+    }
+
+    private State resizeLocked(Segment seg) {
+        State old = seg.state;
+        int newCap;
+        if (seg.tombstones > seg.size) newCap = old.mask + 1;
+        else                            newCap = (old.mask + 1) << 1;
+        State ns = new State(newCap);
+        long[] ok = old.keys; long[] ov = old.vals;
+        long[] nk = ns.keys;  long[] nv = ns.vals;
+        int nmask = ns.mask;
+        for (int i = 0; i <= old.mask; i++) {
+            long kk = ok[i];
+            if (kk == EMPTY || kk == TOMBSTONE) continue;
+            int idx = hash(kk) & nmask;
+            while (nk[idx] != EMPTY) idx = (idx + 1) & nmask;
+            nk[idx] = kk;
+            nv[idx] = ov[i];
+        }
+        seg.state = ns;
+        seg.tombstones = 0;
+        return ns;
+    }
 
     @Override public LongSet keySet() {
-        LongOpenHashSet keys = new LongOpenHashSet(size());
-        for (int i = 0; i < segmentCount; i++) {
-            long stamp = locks[i].readLock();
-            try { keys.addAll(segments[i].keySet()); }
-            finally { locks[i].unlockRead(stamp); }
+        LongOpenHashSet set = new LongOpenHashSet(size());
+        for (Segment seg : segments) {
+            State s = seg.state;
+            for (int i = 0; i <= s.mask; i++) {
+                long k = s.keys[i];
+                if (k != EMPTY && k != TOMBSTONE) set.add(k);
+            }
         }
-        return keys;
+        return set;
     }
 
     @Override public LongCollection values() {
-        LongArrayList vals = new LongArrayList(size());
-        for (int i = 0; i < segmentCount; i++) {
-            long stamp = locks[i].readLock();
-            try { for (long v : segments[i].values()) vals.add(v); }
-            finally { locks[i].unlockRead(stamp); }
+        LongArrayList list = new LongArrayList(size());
+        for (Segment seg : segments) {
+            State s = seg.state;
+            for (int i = 0; i <= s.mask; i++) {
+                long k = s.keys[i];
+                if (k != EMPTY && k != TOMBSTONE) list.add(s.vals[i]);
+            }
         }
-        return vals;
+        return list;
     }
 
-    private List<Long2LongMap.Entry> snapshotEntries() {
+    @Override public ObjectSet<Long2LongMap.Entry> long2LongEntrySet() {
         List<Long2LongMap.Entry> snap = new ArrayList<>(size());
-        for (int i = 0; i < segmentCount; i++) {
-            long stamp = locks[i].readLock();
-            try {
-                for (Long2LongMap.Entry e : segments[i].long2LongEntrySet())
-                    snap.add(new ImmutableEntry(e.getLongKey(), e.getLongValue()));
-            } finally { locks[i].unlockRead(stamp); }
-        }
-        return snap;
-    }
-
-    private final class SnapshotEntrySet extends AbstractObjectSet<Long2LongMap.Entry> {
-        @Override public ObjectIterator<Long2LongMap.Entry> iterator() {
-            List<Long2LongMap.Entry> snap = snapshotEntries();
-            return new ObjectIterator<>() {
-                private final Iterator<Long2LongMap.Entry> it = snap.iterator();
-                private Long2LongMap.Entry last;
-                @Override public boolean hasNext() { return it.hasNext(); }
-                @Override public Long2LongMap.Entry next() { last = it.next(); return last; }
-                @Override public void remove() {
-                    if (last == null) throw new IllegalStateException();
-                    Long2LongConcurrentHashMap.this.remove(last.getLongKey());
-                    last = null;
+        for (Segment seg : segments) {
+            State s = seg.state;
+            for (int i = 0; i <= s.mask; i++) {
+                long k = s.keys[i];
+                if (k != EMPTY && k != TOMBSTONE) {
+                    snap.add(new AbstractLong2LongMap.BasicEntry(k, s.vals[i]));
                 }
-            };
+            }
         }
-        @Override public ObjectSpliterator<Long2LongMap.Entry> spliterator() {
-            return ObjectSpliterators.asSpliterator(iterator(), size(), ObjectSpliterators.SET_SPLITERATOR_CHARACTERISTICS);
-        }
-        @Override public int size() { return Long2LongConcurrentHashMap.this.size(); }
-        @Override public void clear() { Long2LongConcurrentHashMap.this.clear(); }
-        @Override public boolean contains(Object o) {
-            if (!(o instanceof Long2LongMap.Entry e)) return false;
-            long key = e.getLongKey();
-            int seg = segmentFor(key);
-            long stamp = locks[seg].readLock();
-            try { return segments[seg].containsKey(key) && segments[seg].get(key) == e.getLongValue(); }
-            finally { locks[seg].unlockRead(stamp); }
-        }
-    }
-
-    private record ImmutableEntry(long key, long value) implements Long2LongMap.Entry {
-        @Override public long getLongKey() { return key; }
-        @Override public long getLongValue() { return value; }
-        @Override public long setValue(long value) { throw new UnsupportedOperationException(); }
-        @Override public boolean equals(Object o) {
-            return o instanceof Long2LongMap.Entry e && key == e.getLongKey() && value == e.getLongValue();
-        }
-        @Override public int hashCode() {
-            return HashCommon.long2int(key) ^ HashCommon.long2int(value);
-        }
-        @Override public String toString() { return key + "=>" + value; }
+        return new ObjectSet<>() {
+            @Override public int size() { return snap.size(); }
+            @Override public boolean isEmpty() { return snap.isEmpty(); }
+            @Override public boolean contains(Object o) {
+                if (!(o instanceof Long2LongMap.Entry en)) return false;
+                long v = get(en.getLongKey());
+                return v != defaultReturnValue() && v == en.getLongValue();
+            }
+            @Override public ObjectIterator<Long2LongMap.Entry> iterator() {
+                Iterator<Long2LongMap.Entry> it = snap.iterator();
+                return new ObjectIterator<>() {
+                    private Long2LongMap.Entry last;
+                    @Override public boolean hasNext() { return it.hasNext(); }
+                    @Override public Long2LongMap.Entry next() { last = it.next(); return last; }
+                    @Override public void remove() {
+                        if (last == null) throw new IllegalStateException();
+                        Long2LongConcurrentHashMap.this.remove(last.getLongKey(), last.getLongValue());
+                        last = null;
+                    }
+                };
+            }
+            @Override public boolean add(Long2LongMap.Entry e) { throw new UnsupportedOperationException(); }
+            @Override public boolean remove(Object o) {
+                if (!(o instanceof Long2LongMap.Entry en)) return false;
+                return Long2LongConcurrentHashMap.this.remove(en.getLongKey(), en.getLongValue());
+            }
+            @Override public void clear() { Long2LongConcurrentHashMap.this.clear(); }
+            @Override public Object[] toArray() { return snap.toArray(); }
+            @Override public <T> T[] toArray(T[] a) { return snap.toArray(a); }
+            @Override public boolean containsAll(java.util.Collection<?> c) { for (Object o : c) if (!contains(o)) return false; return true; }
+            @Override public boolean addAll(java.util.Collection<? extends Long2LongMap.Entry> c) { boolean m = false; for (Long2LongMap.Entry e : c) m |= add(e); return m; }
+            @Override public boolean removeAll(java.util.Collection<?> c) { boolean m = false; for (Object o : c) m |= remove(o); return m; }
+            @Override public boolean retainAll(java.util.Collection<?> c) { throw new UnsupportedOperationException(); }
+        };
     }
 }
