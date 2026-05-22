@@ -22,6 +22,7 @@ import java.util.concurrent.CompletableFuture;
 public final class ParallelSpawnHelper {
 
     private static final int SPAWN_GRAIN = 256;
+    private static Entity[] entityBuf = new Entity[1024];
 
     private ParallelSpawnHelper() {}
 
@@ -43,32 +44,51 @@ public final class ParallelSpawnHelper {
     public record MobCapEntry(ChunkPos chunkPos, MobCategory category) {}
 
     public static NaturalSpawner.SpawnState buildState(int spawnableChunkCount, Iterable<Entity> entities, NaturalSpawner.ChunkGetter chunkGetter, LocalMobCapCalculator localMobCap) {
-        Entity[] arr = toArray(entities);
-        BatchResult merged = collect(arr, chunkGetter);
+        int n = fillBuffer(entities);
+        Entity[] arr = entityBuf;
+        try {
+            BatchResult merged = collect(arr, n, chunkGetter);
 
-        PotentialCalculator potential = new PotentialCalculator();
-        for (int i = 0, n = merged.charges.size(); i < n; i++) {
-            ChargeEntry c = merged.charges.get(i);
-            potential.addCharge(c.pos(), c.charge());
+            PotentialCalculator potential = new PotentialCalculator();
+            for (int i = 0, m = merged.charges.size(); i < m; i++) {
+                ChargeEntry c = merged.charges.get(i);
+                potential.addCharge(c.pos(), c.charge());
+            }
+            for (int i = 0, m = merged.mobCaps.size(); i < m; i++) {
+                MobCapEntry m2 = merged.mobCaps.get(i);
+                localMobCap.addMob(m2.chunkPos(), m2.category());
+            }
+            return new NaturalSpawner.SpawnState(spawnableChunkCount, merged.counts, potential, localMobCap);
+        } finally {
+            for (int i = 0; i < n; i++) arr[i] = null;
         }
-        for (int i = 0, n = merged.mobCaps.size(); i < n; i++) {
-            MobCapEntry m = merged.mobCaps.get(i);
-            localMobCap.addMob(m.chunkPos(), m.category());
-        }
-        return new NaturalSpawner.SpawnState(spawnableChunkCount, merged.counts, potential, localMobCap);
     }
 
-    private static Entity[] toArray(Iterable<Entity> entities) {
+    private static int fillBuffer(Iterable<Entity> entities) {
         if (entities instanceof java.util.Collection<Entity> c) {
-            return c.toArray(new Entity[0]);
+            int size = c.size();
+            if (entityBuf.length < size) {
+                entityBuf = new Entity[Math.max(size, entityBuf.length * 2)];
+            }
+            Entity[] result = c.toArray(entityBuf);
+            if (result != entityBuf) entityBuf = result;
+            return size;
         }
-        List<Entity> list = new ArrayList<>();
-        entities.forEach(list::add);
-        return list.toArray(new Entity[0]);
+        Entity[] buf = entityBuf;
+        int idx = 0;
+        for (Entity e : entities) {
+            if (idx >= buf.length) {
+                Entity[] grown = new Entity[buf.length * 2];
+                System.arraycopy(buf, 0, grown, 0, idx);
+                buf = grown;
+                entityBuf = buf;
+            }
+            buf[idx++] = e;
+        }
+        return idx;
     }
 
-    private static BatchResult collect(Entity[] entities, NaturalSpawner.ChunkGetter chunkGetter) {
-        int n = entities.length;
+    private static BatchResult collect(Entity[] entities, int n, NaturalSpawner.ChunkGetter chunkGetter) {
         if (n == 0) return new BatchResult();
         if (n <= SPAWN_GRAIN || ParallelProcessor.executor == null) {
             BatchResult r = new BatchResult();
