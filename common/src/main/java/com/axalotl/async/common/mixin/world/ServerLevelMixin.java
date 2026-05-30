@@ -26,7 +26,7 @@ import net.minecraft.world.level.dimension.DimensionType;
 import net.minecraft.world.level.entity.EntityTickList;
 import net.minecraft.world.level.storage.WritableLevelData;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 import org.objectweb.asm.Opcodes;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
@@ -132,7 +132,8 @@ public abstract class ServerLevelMixin extends Level implements WorldGenLevel {
             }
             try {
                 ((ThreadPoolExecutor) ParallelProcessor.executor).invokeAll(despawnTasks);
-            } catch (InterruptedException ignored) {}
+            } catch (InterruptedException ignored) {
+            }
         }
 
         profilerfiller.push("tick");
@@ -170,28 +171,36 @@ public abstract class ServerLevelMixin extends Level implements WorldGenLevel {
     }
 
     @WrapMethod(method = "explode")
-    private void createExplosion(
-            @Nullable Entity source,
-            @Nullable DamageSource damageSource,
-            @Nullable ExplosionDamageCalculator damageCalculator,
-            double x, double y, double z,
-            float radius,
-            boolean fire,
-            Level.ExplosionInteraction explosionInteraction,
-            ParticleOptions smallExplosionParticles,
-            ParticleOptions largeExplosionParticles,
-            WeightedList<ExplosionParticleInfo> particleInfo,
-            Holder<SoundEvent> explosionSound,
+    private void explode(
+            @Nullable final Entity source,
+            @Nullable final DamageSource damageSource,
+            @Nullable final ExplosionDamageCalculator damageCalculator,
+            final double x,
+            final double y,
+            final double z,
+            final float r,
+            final boolean fire,
+            final ExplosionInteraction interactionType,
+            final ParticleOptions smallExplosionParticles,
+            final ParticleOptions largeExplosionParticles,
+            final WeightedList<ExplosionParticleInfo> blockParticles,
+            final Holder<SoundEvent> explosionSound,
             Operation<Void> original
     ) {
         synchronized (this) {
             original.call(
-                    source, damageSource, damageCalculator,
-                    x, y, z, radius, fire,
-                    explosionInteraction,
+                    source,
+                    damageSource,
+                    damageCalculator,
+                    x,
+                    y,
+                    z,
+                    r,
+                    fire,
+                    interactionType,
                     smallExplosionParticles,
                     largeExplosionParticles,
-                    particleInfo,
+                    blockParticles,
                     explosionSound
             );
         }
