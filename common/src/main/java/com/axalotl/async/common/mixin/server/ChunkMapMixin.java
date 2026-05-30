@@ -8,15 +8,14 @@ import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.mojang.datafixers.DataFixer;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectLinkedOpenHashMap;
-import it.unimi.dsi.fastutil.longs.LongLinkedOpenHashSet;
 import it.unimi.dsi.fastutil.longs.LongSet;
-import it.unimi.dsi.fastutil.longs.LongSets;
 import net.minecraft.server.level.ChunkGenerationTask;
 import net.minecraft.server.level.ChunkHolder;
 import net.minecraft.server.level.ChunkMap;
 import net.minecraft.server.level.GenerationChunkHolder;
 import net.minecraft.util.datafix.DataFixTypes;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.chunk.storage.RegionStorageInfo;
 import net.minecraft.world.level.chunk.storage.SimpleRegionStorage;
@@ -32,6 +31,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 
 @Mixin(value = ChunkMap.class, priority = 1500)
@@ -70,7 +70,6 @@ public abstract class ChunkMapMixin extends SimpleRegionStorage implements Chunk
     private void replaceConVars(CallbackInfo ci) {
         entityMap = new Int2ObjectConcurrentHashMap<>();
         pendingGenerationTasks = new CopyOnWriteArrayList<>();
-        chunksToEagerlySave = LongSets.synchronize(new LongLinkedOpenHashSet());
     }
 
     @WrapMethod(method = "addEntity")
@@ -86,6 +85,27 @@ public abstract class ChunkMapMixin extends SimpleRegionStorage implements Chunk
     @WrapMethod(method = "releaseGeneration")
     private synchronized void releaseGeneration(GenerationChunkHolder chunkHolder, Operation<Void> original) {
         original.call(chunkHolder);
+    }
+
+    @WrapMethod(method = "setChunkUnsaved")
+    private void setChunkUnsaved(ChunkPos chunkPos, Operation<Void> original) {
+        synchronized (this) {
+            original.call(chunkPos);
+        }
+    }
+
+    @WrapMethod(method = "saveChunksEagerly")
+    private void saveChunksEagerly(BooleanSupplier haveTime, Operation<Void> original) {
+        synchronized (this) {
+            original.call(haveTime);
+        }
+    }
+
+    @WrapMethod(method = "saveAllChunks")
+    private void saveAllChunks(boolean flushStorage, Operation<Void> original) {
+        synchronized (this) {
+            original.call(flushStorage);
+        }
     }
 
     @Inject(method = "addEntity", at = @At(value = "INVOKE", target = "Lnet/minecraft/util/Util;pauseInIde(Ljava/lang/Throwable;)Ljava/lang/Throwable;"), cancellable = true)
