@@ -25,13 +25,18 @@ public abstract class FrogMixin extends Animal {
     @WrapMethod(method = "spawnChildFromBreeding")
     private void breed(ServerLevel level, Animal partner, Operation<Void> original) {
         if (this.getId() > partner.getId()) return;
-        FrogMixin otherMixin = (FrogMixin) partner;
-        if (this.breedingFlag.compareAndSet(false, true) && otherMixin.breedingFlag.compareAndSet(false, true)) {
-            try {
-                original.call(level, partner);
-            } finally {
+        FrogMixin other = (FrogMixin) partner;
+
+        if (this.breedingFlag.compareAndSet(false, true)) {
+            if (other.breedingFlag.compareAndSet(false, true)) {
+                try {
+                    original.call(level, partner);
+                } finally {
+                    this.breedingFlag.set(false);
+                    other.breedingFlag.set(false);
+                }
+            } else {
                 this.breedingFlag.set(false);
-                otherMixin.breedingFlag.set(false);
             }
         }
     }

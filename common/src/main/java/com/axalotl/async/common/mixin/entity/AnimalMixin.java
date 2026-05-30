@@ -28,13 +28,18 @@ public abstract class AnimalMixin extends Entity {
     @WrapMethod(method = "spawnChildFromBreeding")
     private void breed(ServerLevel level, Animal partner, Operation<Void> original) {
         if (this.getId() > partner.getId()) return;
-        AnimalMixin otherMixin = (AnimalMixin) (Object) partner;
-        if (this.breedingFlag.compareAndSet(false, true) && otherMixin.breedingFlag.compareAndSet(false, true)) {
-            try {
-                original.call(level, partner);
-            } finally {
+        AnimalMixin other = (AnimalMixin) (Object) partner;
+
+        if (this.breedingFlag.compareAndSet(false, true)) {
+            if (other.breedingFlag.compareAndSet(false, true)) {
+                try {
+                    original.call(level, partner);
+                } finally {
+                    this.breedingFlag.set(false);
+                    other.breedingFlag.set(false);
+                }
+            } else {
                 this.breedingFlag.set(false);
-                otherMixin.breedingFlag.set(false);
             }
         }
     }
@@ -42,13 +47,18 @@ public abstract class AnimalMixin extends Entity {
     @WrapMethod(method = "finalizeSpawnChildFromBreeding")
     private void breed(ServerLevel level, Animal partner, AgeableMob offspring, Operation<Void> original) {
         if (this.getId() > partner.getId()) return;
-        AnimalMixin otherMixin = (AnimalMixin) (Object) partner;
-        if (this.breedingBabyFlag.compareAndSet(false, true) && otherMixin.breedingBabyFlag.compareAndSet(false, true)) {
-            try {
-                original.call(level, partner, offspring);
-            } finally {
+        AnimalMixin other = (AnimalMixin) (Object) partner;
+
+        if (this.breedingBabyFlag.compareAndSet(false, true)) {
+            if (other.breedingBabyFlag.compareAndSet(false, true)) {
+                try {
+                    original.call(level, partner, offspring);
+                } finally {
+                    this.breedingBabyFlag.set(false);
+                    other.breedingBabyFlag.set(false);
+                }
+            } else {
                 this.breedingBabyFlag.set(false);
-                otherMixin.breedingBabyFlag.set(false);
             }
         }
     }

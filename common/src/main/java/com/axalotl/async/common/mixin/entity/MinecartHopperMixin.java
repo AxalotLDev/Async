@@ -42,7 +42,6 @@ public class MinecartHopperMixin {
         }
     }
 
-    @Unique
     @WrapOperation(
             method = "suckInItems",
             at = @At(
