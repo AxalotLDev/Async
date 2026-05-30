@@ -15,6 +15,7 @@ import net.minecraft.world.level.chunk.ChunkSource;
 import net.minecraft.world.level.chunk.ImposterProtoChunk;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.chunk.status.ChunkStatus;
+import net.minecraft.world.level.chunk.status.ChunkType;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,6 +32,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.LockSupport;
 import java.util.function.Consumer;
@@ -92,7 +94,7 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
     private AtomicBoolean spawnCountsReady;
 
     @Unique
-    private List<Runnable> batch;
+    private List<Runnable> batch = new ArrayList<>();
 
     @Unique
     private final Object lock = new Object();
@@ -100,11 +102,12 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
     @Inject(method = "<init>", at = @At("RETURN"))
     private void init(CallbackInfo ci) {
         this.spawnCountsReady = new AtomicBoolean(false);
-        this.batch = Collections.synchronizedList(new ArrayList<>());
     }
 
-    @Inject(method = "getChunk(IILnet/minecraft/world/level/chunk/status/ChunkStatus;Z)Lnet/minecraft/world/level/chunk/ChunkAccess;", at = @At("HEAD"), cancellable = true)
-    private void getChunk(int x, int z, ChunkStatus targetStatus, boolean loadOrGenerate, CallbackInfoReturnable<ChunkAccess> cir) {
+    @Inject(method = "getChunk(IILnet/minecraft/world/level/chunk/status/ChunkStatus;Z)Lnet/minecraft/world/level/chunk/ChunkAccess;",
+            at = @At("HEAD"), cancellable = true)
+    private void getChunk(int x, int z, ChunkStatus targetStatus, boolean loadOrGenerate,
+                          CallbackInfoReturnable<ChunkAccess> cir) {
         if (Thread.currentThread() == this.mainThread) return;
 
         ChunkAccess access = tryGetChunk(x, z, targetStatus);
@@ -113,12 +116,23 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
             return;
         }
 
+        if (loadOrGenerate || isUnsafeAsyncStatus(targetStatus)) {
+            cir.setReturnValue(null);
+            return;
+        }
+
         CompletableFuture<ChunkResult<ChunkAccess>> future = CompletableFuture.supplyAsync(
-                () -> this.getChunkFutureMainThread(x, z, targetStatus, loadOrGenerate),
+                () -> this.getChunkFutureMainThread(x, z, targetStatus, false),
                 this.mainThreadProcessor
         ).thenCompose(f -> f);
 
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(60);
         while (!future.isDone()) {
+            if (System.nanoTime() > deadline) {
+                future.cancel(false);
+                cir.setReturnValue(null);
+                return;
+            }
             ChunkAccess cached = tryGetChunk(x, z, targetStatus);
             if (cached != null) {
                 future.cancel(false);
@@ -129,10 +143,13 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
         }
 
         ChunkAccess chunk = future.join().orElse(null);
-        if (chunk instanceof ImposterProtoChunk imposter) {
-            chunk = imposter.getWrapped();
-        }
+        if (chunk instanceof ImposterProtoChunk imp) chunk = imp.getWrapped();
         cir.setReturnValue(chunk);
+    }
+
+    @Unique
+    private boolean isUnsafeAsyncStatus(ChunkStatus status) {
+        return status.getChunkType() == ChunkType.PROTOCHUNK;
     }
 
     @Unique
@@ -153,15 +170,17 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
 
     @Inject(method = "getChunkNow", at = @At("HEAD"), cancellable = true)
     private void shortcutGetChunkNow(int x, int z, CallbackInfoReturnable<LevelChunk> cir) {
-        if (Thread.currentThread() != this.mainThread) {
-            final ChunkHolder holder = this.getVisibleChunkIfPresent(ChunkPos.pack(x, z));
-            if (holder != null) {
-                final CompletableFuture<ChunkResult<ChunkAccess>> future = holder.scheduleChunkGenerationTask(ChunkStatus.FULL, this.chunkMap);
-                ChunkAccess chunk = future.getNow(ChunkHolder.UNLOADED_CHUNK).orElse(null);
-                if (chunk instanceof LevelChunk worldChunk) {
-                    cir.setReturnValue(worldChunk);
-                }
+        if (Thread.currentThread() == this.mainThread) return;
+        final ChunkHolder holder = this.getVisibleChunkIfPresent(ChunkPos.pack(x, z));
+        if (holder != null) {
+            ChunkAccess chunk = holder.getChunkIfPresent(ChunkStatus.FULL);
+            if (chunk instanceof LevelChunk worldChunk) {
+                cir.setReturnValue(worldChunk);
+            } else {
+                cir.setReturnValue(null);
             }
+        } else {
+            cir.setReturnValue(null);
         }
     }
 
@@ -206,11 +225,18 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
     @WrapMethod(method = "tickSpawningChunk")
     private void redirectTickSpawningChunk(LevelChunk chunk, long timeDiff, List<MobCategory> spawningCategories, NaturalSpawner.SpawnState spawnCookie, Operation<Void> original) {
         if (AsyncConfig.disabled || !AsyncConfig.enableAsyncSpawn) {
-            original.call(chunk, timeDiff, spawningCategories, lastSpawnState);
-        } else {
-            synchronized (lock) {
-                batch.add(() -> original.call(chunk, timeDiff, spawningCategories, lastSpawnState));
-            }
+            original.call(chunk, timeDiff, spawningCategories, spawnCookie);
+            return;
+        }
+
+        NaturalSpawner.SpawnState state = lastSpawnState;
+        if (state == null) {
+            original.call(chunk, timeDiff, spawningCategories, spawnCookie);
+            return;
+        }
+
+        synchronized (lock) {
+            batch.add(() -> original.call(chunk, timeDiff, spawningCategories, state));
         }
     }
 
