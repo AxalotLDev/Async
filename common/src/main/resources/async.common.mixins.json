@@ -51,6 +51,7 @@
     "entity.spawn.LocalMobCapCalculatorMixin",
     "entity.spawn.PotentialCalculatorMixin",
     "lithium.LithiumGameEventDispatcherStorage",
+    "lithium.LithiumSectionedBlockChangeTrackerMixin",
     "lithium.LithiumServerLevel",
     "server.ChunkMapMixin",
     "server.ChunkMapTrackedEntityMixin",

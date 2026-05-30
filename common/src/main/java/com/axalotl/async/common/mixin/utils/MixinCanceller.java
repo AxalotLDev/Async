@@ -20,6 +20,7 @@ public class MixinCanceller implements com.bawnorton.mixinsquared.api.MixinCance
                 return true;
         }
         if (mixinClassName.endsWith("com.axalotl.async.common.mixin.lithium.LithiumServerLevel") ||
+                mixinClassName.endsWith("com.axalotl.async.common.mixin.lithium.LithiumSectionedBlockChangeTrackerMixin") ||
                 mixinClassName.endsWith("com.axalotl.async.common.mixin.lithium.LithiumGameEventDispatcherStorage")) {
             return !LITHIUM;
         }
