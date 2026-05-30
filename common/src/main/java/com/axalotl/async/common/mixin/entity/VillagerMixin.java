@@ -7,13 +7,9 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.npc.villager.Villager;
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Unique;
 
 @Mixin(Villager.class)
 public class VillagerMixin {
-
-    @Unique
-    private static final Object lock = new Object();
 
     @WrapMethod(method = "pickUpItem")
     private void pickUpItem(ServerLevel level, ItemEntity entity, Operation<Void> original) {
@@ -22,7 +18,7 @@ public class VillagerMixin {
 
     @WrapMethod(method = "spawnGolemIfNeeded")
     private void spawnGolemIfNeeded(ServerLevel level, long timestamp, int villagersNeededToAgree, Operation<Void> original) {
-        synchronized (lock) {
+        synchronized (level) {
             original.call(level, timestamp, villagersNeededToAgree);
         }
     }

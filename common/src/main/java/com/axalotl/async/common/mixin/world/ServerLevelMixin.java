@@ -81,9 +81,6 @@ public abstract class ServerLevelMixin extends Level implements WorldGenLevel {
     @Final
     private List<ServerPlayer> players;
 
-    @Unique
-    private static final Object lock = new Object();
-
     @Inject(method = "<init>", at = @At("RETURN"))
     private void init(CallbackInfo ci) {
         navigatingMobs = ConcurrentCollections.newHashSet();
@@ -187,7 +184,7 @@ public abstract class ServerLevelMixin extends Level implements WorldGenLevel {
             Holder<SoundEvent> explosionSound,
             Operation<Void> original
     ) {
-        synchronized (lock) {
+        synchronized (this) {
             original.call(
                     source, damageSource, damageCalculator,
                     x, y, z, radius, fire,

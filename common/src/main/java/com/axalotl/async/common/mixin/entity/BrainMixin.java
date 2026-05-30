@@ -44,22 +44,21 @@ public class BrainMixin<E extends LivingEntity> {
     @Inject(method = "tick", at = @At("HEAD"))
     private void buildSnapshot(ServerLevel level, E body, CallbackInfo ci) {
         if (AsyncConfig.disabled) return;
-
-        if (needsRebuild || snapshot == null) {
-            synchronized (writeLock) {
-                if (needsRebuild || snapshot == null) {
-                    snapshot = new ConcurrentHashMap<>(this.memories);
-                    needsRebuild = false;
-                }
+        synchronized (writeLock) {
+            if (needsRebuild || snapshot == null) {
+                snapshot = new ConcurrentHashMap<>(this.memories);
+                needsRebuild = false;
             }
+            inTick = true;
         }
-
-        inTick = true;
     }
+
 
     @Inject(method = "tick", at = @At("RETURN"))
     private void endTick(ServerLevel level, E body, CallbackInfo ci) {
-        inTick = false;
+        synchronized (writeLock) {
+            inTick = false;
+        }
     }
 
     @Inject(method = "getMemory", at = @At("HEAD"), cancellable = true)

@@ -9,7 +9,6 @@ import net.minecraft.world.level.entity.Visibility;
 import org.jspecify.annotations.NonNull;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
-import org.spongepowered.asm.mixin.Unique;
 
 import java.util.Set;
 import java.util.UUID;
@@ -20,12 +19,9 @@ public abstract class PersistentEntitySectionManagerMixin implements AutoCloseab
     @Shadow
     private final Set<UUID> knownUuids = ConcurrentHashMap.newKeySet();
 
-    @Unique
-    private static final Object lock = new Object();
-
     @WrapMethod(method = "updateChunkStatus(Lnet/minecraft/world/level/ChunkPos;Lnet/minecraft/world/level/entity/Visibility;)V")
     private void updateChunkStatus(ChunkPos pos, Visibility chunkStatus, @NonNull Operation<Void> original) {
-        synchronized (lock) {
+        synchronized (this) {
             original.call(pos, chunkStatus);
         }
     }

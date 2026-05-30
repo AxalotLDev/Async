@@ -6,7 +6,6 @@ import net.minecraft.world.entity.ai.memory.MemoryModuleType;
 import net.minecraft.world.entity.animal.Animal;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
-import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -14,9 +13,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(AnimalMakeLove.class)
 public abstract class AnimalMakeLoveMixin {
-
-    @Unique
-    private static final Object lock = new Object();
 
     @Shadow
     protected abstract Animal getBreedTarget(Animal body);
@@ -38,7 +34,7 @@ public abstract class AnimalMakeLoveMixin {
 
     @Inject(method = "getBreedTarget", at = @At("HEAD"), cancellable = true)
     private void syncBreedTarget(Animal body, CallbackInfoReturnable<Animal> cir) {
-        synchronized (lock) {
+        synchronized (body) {
             cir.setReturnValue((Animal) body.getBrain().getMemory(MemoryModuleType.BREED_TARGET).orElse(null));
         }
     }

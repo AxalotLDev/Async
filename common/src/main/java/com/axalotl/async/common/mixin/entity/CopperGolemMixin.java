@@ -6,30 +6,27 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.animal.golem.CopperGolem;
 import net.minecraft.world.level.block.entity.ContainerOpenersCounter;
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Unique;
 
 @Mixin(CopperGolem.class)
 public class CopperGolemMixin {
-    @Unique
-    private static final Object lock = new Object();
 
     @WrapMethod(method = "hasContainerOpen")
     private boolean hasContainerOpen(ContainerOpenersCounter container, BlockPos blockPos, Operation<Boolean> original) {
-        synchronized (lock) {
+        synchronized (this) {
             return original.call(container, blockPos);
         }
     }
 
     @WrapMethod(method = "setOpenedChestPos")
     private void setOpenedChestPos(BlockPos openedChestPos, Operation<Void> original) {
-        synchronized (lock) {
+        synchronized (this) {
             original.call(openedChestPos);
         }
     }
 
     @WrapMethod(method = "clearOpenedChestPos")
     private void clearOpenedChestPos(Operation<Void> original) {
-        synchronized (lock) {
+        synchronized (this) {
             original.call();
         }
     }

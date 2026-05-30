@@ -36,8 +36,6 @@ public abstract class EntitySectionStorageMixin<T extends EntityAccess> {
     @Shadow
     public abstract LongStream getExistingSectionPositionsInChunk(long chunkKey);
 
-    @Unique
-    private static final Object lock = new Object();
 
     @Inject(method = "<init>", at = @At("RETURN"))
     private void replaceWithConcurrentCollections(CallbackInfo ci) {
@@ -47,7 +45,7 @@ public abstract class EntitySectionStorageMixin<T extends EntityAccess> {
 
     @WrapMethod(method = "forEachAccessibleNonEmptySection")
     private void forEachAccessibleNonEmptySection(AABB bb, AbortableIterationConsumer<EntitySection<T>> output, Operation<Void> original) {
-        synchronized (lock) {
+        synchronized (this) {
             original.call(bb, output);
         }
     }
@@ -63,14 +61,14 @@ public abstract class EntitySectionStorageMixin<T extends EntityAccess> {
 
     @WrapMethod(method = "getOrCreateSection")
     private EntitySection<T> getOrCreateSection(long key, Operation<EntitySection<T>> original) {
-        synchronized (lock) {
+        synchronized (this) {
             return original.call(key);
         }
     }
 
     @WrapMethod(method = "remove")
     private void remove(long sectionKey, Operation<Void> original) {
-        synchronized (lock) {
+        synchronized (this) {
             original.call(sectionKey);
         }
     }

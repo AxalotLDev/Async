@@ -16,8 +16,6 @@ import net.minecraft.world.entity.item.ItemEntity;
  * }}</pre>
  */
 public class SyncItemPickup {
-    private static final Object lock = new Object();
-
     /**
      * Hidden constructor to prevent instantiation.
      */
@@ -36,7 +34,7 @@ public class SyncItemPickup {
      * @param action the pickup logic to execute safely
      */
     public static void wrap(ServerLevel level, ItemEntity entity, Runnable action) {
-        synchronized (lock) {
+        synchronized (entity) {
             if (!entity.isRemoved()) {
                 action.run();
             }

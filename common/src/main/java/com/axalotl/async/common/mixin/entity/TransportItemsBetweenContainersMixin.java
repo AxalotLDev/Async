@@ -18,20 +18,18 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class TransportItemsBetweenContainersMixin {
 
     @Unique
-    private static final Object lock = new Object();
-    @Unique
     private static final Map<BlockPos, AtomicBoolean> containerFlags = new ConcurrentHashMap<>();
 
     @WrapMethod(method = "pickUpItems")
     private void pickUpItems(PathfinderMob body, Container container, Operation<Void> original) {
-        synchronized (lock) {
+        synchronized (container) {
             original.call(body, container);
         }
     }
 
     @WrapMethod(method = "putDownItem")
     private void putDownItem(PathfinderMob body, Container container, Operation<Void> original) {
-        synchronized (lock) {
+        synchronized (container) {
             original.call(body, container);
         }
     }
@@ -52,7 +50,6 @@ public class TransportItemsBetweenContainersMixin {
         try {
             return original.call(target, level);
         } finally {
-            flag.set(false);
             containerFlags.remove(pos, flag);
         }
     }
