@@ -6,8 +6,6 @@ import net.caffeinemc.mods.lithium.common.tracking.block.SectionedBlockChangeTra
 import net.caffeinemc.mods.lithium.common.util.deduplication.LithiumInterner;
 import net.caffeinemc.mods.lithium.common.util.tuples.WorldSectionBox;
 import net.caffeinemc.mods.lithium.common.world.LithiumData;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.phys.AABB;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -19,12 +17,11 @@ public class LithiumSectionedBlockChangeTrackerMixin {
     @Final
     public WorldSectionBox trackedWorldSections;
 
-    @SuppressWarnings("MixinExtrasOperationParameters")
-    @WrapMethod(method = "registerAt")
-    private static SectionedBlockChangeTracker wrapRegisterAt(Level world, AABB entityBoundingBox, Operation<SectionedBlockChangeTracker> original) {
-        LithiumInterner<SectionedBlockChangeTracker> blockChangeTrackers = ((LithiumData) world).lithium$getData().blockChangeTrackers();
+    @WrapMethod(method = "register")
+    private void wrapRegisterAt(Operation<Void> original) {
+        LithiumInterner<SectionedBlockChangeTracker> blockChangeTrackers = ((LithiumData) this.trackedWorldSections.world()).lithium$getData().blockChangeTrackers();
         synchronized (blockChangeTrackers) {
-            return original.call(world, entityBoundingBox);
+            original.call();
         }
     }
 
