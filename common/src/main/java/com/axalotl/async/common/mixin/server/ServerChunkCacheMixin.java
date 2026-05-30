@@ -116,13 +116,13 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
             return;
         }
 
-        if (loadOrGenerate || isUnsafeAsyncStatus(targetStatus)) {
+        if (isUnsafeAsyncStatus(targetStatus)) {
             cir.setReturnValue(null);
             return;
         }
 
         CompletableFuture<ChunkResult<ChunkAccess>> future = CompletableFuture.supplyAsync(
-                () -> this.getChunkFutureMainThread(x, z, targetStatus, false),
+                () -> this.getChunkFutureMainThread(x, z, targetStatus, loadOrGenerate),
                 this.mainThreadProcessor
         ).thenCompose(f -> f);
 
@@ -130,7 +130,6 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
         while (!future.isDone()) {
             if (System.nanoTime() > deadline) {
                 future.cancel(false);
-                cir.setReturnValue(null);
                 return;
             }
             ChunkAccess cached = tryGetChunk(x, z, targetStatus);
