@@ -94,10 +94,10 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
     private AtomicBoolean spawnCountsReady;
 
     @Unique
-    private List<Runnable> batch = new ArrayList<>();
+    private final Object lock = new Object();
 
     @Unique
-    private final Object lock = new Object();
+    private final List<Runnable> batch = new ArrayList<>();
 
     @Inject(method = "<init>", at = @At("RETURN"))
     private void init(CallbackInfo ci) {
@@ -162,6 +162,12 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
                 return imposter.getWrapped();
             }
             return chunk;
+        }
+
+        if (leastStatus.getChunkType() == ChunkType.PROTOCHUNK) {
+            ChunkAccess fullChunk = holder.getChunkIfPresent(ChunkStatus.FULL);
+            if (fullChunk instanceof ImposterProtoChunk imp) return imp.getWrapped();
+            return fullChunk;
         }
 
         return null;
