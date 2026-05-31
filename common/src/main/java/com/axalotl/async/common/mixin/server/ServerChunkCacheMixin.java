@@ -116,7 +116,7 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
             return;
         }
 
-        if (isUnsafeAsyncStatus(targetStatus)) {
+        if (isUnsafeAsyncStatus(targetStatus) && !loadOrGenerate) {
             cir.setReturnValue(null);
             return;
         }
