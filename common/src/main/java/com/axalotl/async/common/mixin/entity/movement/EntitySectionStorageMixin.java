@@ -17,11 +17,18 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.util.Objects;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
 
 @Mixin(value = EntitySectionStorage.class, priority = 1500)
 public abstract class EntitySectionStorageMixin<T extends EntityAccess> {
+
+    @Unique
+    private ReentrantReadWriteLock.ReadLock readLock;
+
+    @Unique
+    private ReentrantReadWriteLock.WriteLock writeLock;
 
     @Mutable
     @Final
@@ -36,40 +43,57 @@ public abstract class EntitySectionStorageMixin<T extends EntityAccess> {
     @Shadow
     public abstract LongStream getExistingSectionPositionsInChunk(long chunkKey);
 
-
     @Inject(method = "<init>", at = @At("RETURN"))
     private void replaceWithConcurrentCollections(CallbackInfo ci) {
+        ReentrantReadWriteLock rwLock = new ReentrantReadWriteLock();
+        this.readLock = rwLock.readLock();
+        this.writeLock = rwLock.writeLock();
         this.sections = new Long2ObjectConcurrentHashMap<>();
         this.sectionIds = new ConcurrentLongSortedSet();
     }
 
     @WrapMethod(method = "forEachAccessibleNonEmptySection")
     private void forEachAccessibleNonEmptySection(AABB bb, AbortableIterationConsumer<EntitySection<T>> output, Operation<Void> original) {
-        synchronized (this) {
+        readLock.lock();
+        try {
             original.call(bb, output);
+        } finally {
+            readLock.unlock();
         }
     }
 
     @WrapMethod(method = "getExistingSectionsInChunk")
     private Stream<EntitySection<T>> getExistingSections(long chunkKey, Operation<Stream<EntitySection<T>>> original) {
-        return this.getExistingSectionPositionsInChunk(chunkKey)
-                .mapToObj(this.sections::get)
-                .filter(Objects::nonNull)
-                .toList()
-                .stream();
+        readLock.lock();
+        try {
+            return this.getExistingSectionPositionsInChunk(chunkKey)
+                    .mapToObj(this.sections::get)
+                    .filter(Objects::nonNull)
+                    .toList()
+                    .stream();
+        } finally {
+            readLock.unlock();
+        }
     }
 
     @WrapMethod(method = "getOrCreateSection")
     private EntitySection<T> getOrCreateSection(long key, Operation<EntitySection<T>> original) {
-        synchronized (this) {
+        writeLock.lock();
+        try {
             return original.call(key);
+        } finally {
+            writeLock.unlock();
         }
     }
 
+
     @WrapMethod(method = "remove")
     private void remove(long sectionKey, Operation<Void> original) {
-        synchronized (this) {
+        writeLock.lock();
+        try {
             original.call(sectionKey);
+        } finally {
+            writeLock.unlock();
         }
     }
 }
