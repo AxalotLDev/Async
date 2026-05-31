@@ -45,7 +45,8 @@ Concurrent Chunk Management Engine, Fabric API, FerriteCore, Lithium, ScalableLu
 - `/async config synchronizedEntities remove` — Removes selected entity from synchronized processing.
 - `/async stats` — Displays the number of threads in use.
 - `/async stats entity` — Shows the number of entities processed by Async in various worlds.
-- `/async stats entity [number] [ticks]` — Shows the top [number] entity types by count in descending order. For example, `/async stats entity 10` displays the top 10 most numerous entity types. /async stats entity 5 20 displays the top 5 most numerous entity types with their average mspt usage.
+- `/async stats entity [number]` — Shows the top [number] entity types by count in descending order. For example, `/async stats entity 10` displays the top 10 most numerous entity types. 
+- `/async stats entity [number] [ticks]` displays the top [number] most numerous entity types with their average mspt usage per [ticks].
 
 ## 📥 Download
 The mod is available on [Modrinth](https://modrinth.com/mod/async)
