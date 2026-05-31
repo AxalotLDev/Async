@@ -64,16 +64,11 @@ public abstract class EntitySectionStorageMixin<T extends EntityAccess> {
 
     @WrapMethod(method = "getExistingSectionsInChunk")
     private Stream<EntitySection<T>> getExistingSections(long chunkKey, Operation<Stream<EntitySection<T>>> original) {
-        readLock.lock();
-        try {
-            return this.getExistingSectionPositionsInChunk(chunkKey)
-                    .mapToObj(this.sections::get)
-                    .filter(Objects::nonNull)
-                    .toList()
-                    .stream();
-        } finally {
-            readLock.unlock();
-        }
+        return this.getExistingSectionPositionsInChunk(chunkKey)
+                .mapToObj(this.sections::get)
+                .filter(Objects::nonNull)
+                .toList()
+                .stream();
     }
 
     @WrapMethod(method = "getOrCreateSection")

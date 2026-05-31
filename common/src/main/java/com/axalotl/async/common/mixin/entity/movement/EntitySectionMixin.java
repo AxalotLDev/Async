@@ -9,7 +9,6 @@ import net.minecraft.world.level.entity.Visibility;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
-import org.spongepowered.asm.mixin.Unique;
 
 import java.util.Objects;
 import java.util.stream.Stream;
@@ -24,26 +23,23 @@ public class EntitySectionMixin<T extends EntityAccess> {
     @Shadow
     private volatile Visibility chunkStatus;
 
-    @Unique
-    private final Object storageLock = new Object();
-
     @WrapMethod(method = "add")
     private void add(EntityAccess entity, Operation<Void> original) {
-        synchronized (storageLock) {
+        synchronized (this) {
             original.call(entity);
         }
     }
 
     @WrapMethod(method = "remove")
     private boolean remove(EntityAccess entity, Operation<Boolean> original) {
-        synchronized (storageLock) {
+        synchronized (this) {
             return original.call(entity);
         }
     }
 
     @WrapMethod(method = "getEntities()Ljava/util/stream/Stream;")
     private Stream<T> getEntities(Operation<Stream<T>> original) {
-        synchronized (storageLock) {
+        synchronized (this) {
             return storage.stream()
                     .filter(Objects::nonNull)
                     .toList()
