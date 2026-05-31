@@ -15,7 +15,6 @@ import net.minecraft.world.level.chunk.ChunkSource;
 import net.minecraft.world.level.chunk.ImposterProtoChunk;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.chunk.status.ChunkStatus;
-import net.minecraft.world.level.chunk.status.ChunkType;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -116,11 +115,6 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
             return;
         }
 
-        if (isUnsafeAsyncStatus(targetStatus) && !loadOrGenerate) {
-            cir.setReturnValue(null);
-            return;
-        }
-
         CompletableFuture<ChunkResult<ChunkAccess>> future = CompletableFuture.supplyAsync(
                 () -> this.getChunkFutureMainThread(x, z, targetStatus, loadOrGenerate),
                 this.mainThreadProcessor
@@ -147,11 +141,6 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
     }
 
     @Unique
-    private boolean isUnsafeAsyncStatus(ChunkStatus status) {
-        return status.getChunkType() == ChunkType.PROTOCHUNK;
-    }
-
-    @Unique
     private @Nullable ChunkAccess tryGetChunk(int x, int z, ChunkStatus leastStatus) {
         ChunkHolder holder = this.getVisibleChunkIfPresent(ChunkPos.pack(x, z));
         if (holder == null) return null;
@@ -162,12 +151,6 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
                 return imposter.getWrapped();
             }
             return chunk;
-        }
-
-        if (leastStatus.getChunkType() == ChunkType.PROTOCHUNK) {
-            ChunkAccess fullChunk = holder.getChunkIfPresent(ChunkStatus.FULL);
-            if (fullChunk instanceof ImposterProtoChunk imp) return imp.getWrapped();
-            return fullChunk;
         }
 
         return null;
