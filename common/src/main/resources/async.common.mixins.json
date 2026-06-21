@@ -35,6 +35,7 @@
     "entity.RaidMixin",
     "entity.SensingMixin",
     "entity.ShowTradesToPlayerMixin",
+    "entity.SulfurCubeMixin",
     "entity.TransportItemsBetweenContainersMixin",
     "entity.breed.AnimalMakeLoveMixin",
     "entity.breed.FoxBreedGoalMixin",
