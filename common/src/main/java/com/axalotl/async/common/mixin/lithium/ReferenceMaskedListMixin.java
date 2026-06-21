@@ -20,7 +20,7 @@ public class ReferenceMaskedListMixin<E> {
     private Reference2IntOpenHashMap<E> element2Index;
 
     @WrapMethod(method = "add(Ljava/lang/Object;)Z")
-    private boolean async$add(E e, Operation<Boolean> original) {
+    private boolean add(E e, Operation<Boolean> original) {
         synchronized (this) {
             if (element2Index.containsKey(e)) return false;
             return original.call(e);
@@ -28,28 +28,28 @@ public class ReferenceMaskedListMixin<E> {
     }
 
     @WrapMethod(method = "remove")
-    private boolean async$remove(Object o, Operation<Boolean> original) {
+    private boolean remove(Object o, Operation<Boolean> original) {
         synchronized (this) {
             return original.call(o);
         }
     }
 
     @WrapMethod(method = "addOrSet")
-    private void async$addOrSet(E element, boolean visible, Operation<Void> original) {
+    private void addOrSet(E element, boolean visible, Operation<Void> original) {
         synchronized (this) {
             original.call(element, visible);
         }
     }
 
     @WrapMethod(method = "setVisible")
-    private void async$setVisible(E element, boolean visible, Operation<Void> original) {
+    private void setVisible(E element, boolean visible, Operation<Void> original) {
         synchronized (this) {
             original.call(element, visible);
         }
     }
 
     @WrapMethod(method = "iterator")
-    private Iterator<E> async$iterator(Operation<Iterator<E>> original) {
+    private Iterator<E> iterator(Operation<Iterator<E>> original) {
         synchronized (this) {
             List<E> snapshot = new ArrayList<>();
             Iterator<E> it = original.call();
@@ -61,7 +61,7 @@ public class ReferenceMaskedListMixin<E> {
     }
 
     @WrapMethod(method = "totalSize")
-    private int async$totalSize(Operation<Integer> original) {
+    private int totalSize(Operation<Integer> original) {
         synchronized (this) {
             return original.call();
         }

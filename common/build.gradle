@@ -19,10 +19,6 @@ dependencies {
 }
 
 loom {
-    mixin {
-        defaultRefmapName = "async.refmap.json"
-        useLegacyMixinAp = false
-    }
     accessWidenerPath = file("src/main/resources/async.accesswidener")
 }
 

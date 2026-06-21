@@ -54,9 +54,6 @@ loom {
     if (aw.exists()) {
         accessWidenerPath.set(aw)
     }
-    mixin {
-        useLegacyMixinAp = false
-    }
     runs {
         client {
             client()
