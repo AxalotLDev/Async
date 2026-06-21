@@ -1,6 +1,6 @@
 package com.axalotl.async.common.mixin.utils;
 
-import net.minecraft.advancements.criterion.SimpleCriterionTrigger;
+import net.minecraft.advancements.triggers.SimpleCriterionTrigger;
 import net.minecraft.util.ClassInstanceMultiMap;
 import net.minecraft.util.profiling.ActiveProfiler;
 import net.minecraft.world.entity.ai.navigation.PathNavigation;

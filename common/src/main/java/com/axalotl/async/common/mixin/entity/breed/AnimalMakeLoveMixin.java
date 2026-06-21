@@ -31,7 +31,6 @@ public abstract class AnimalMakeLoveMixin {
         }
     }
 
-
     @Inject(method = "getBreedTarget", at = @At("HEAD"), cancellable = true)
     private void syncBreedTarget(Animal body, CallbackInfoReturnable<Animal> cir) {
         synchronized (body) {
