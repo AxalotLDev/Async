@@ -33,7 +33,7 @@ public class AsyncConfig {
 
     public static int getParallelism() {
         if (maxThreads <= 0) return Runtime.getRuntime().availableProcessors();
-        return Math.clamp(Runtime.getRuntime().availableProcessors(), 1, maxThreads);
+        return Math.clamp(maxThreads, 1, Runtime.getRuntime().availableProcessors());
     }
 
     public static boolean isNamespaceWildcard(String input) {
@@ -117,5 +117,7 @@ public class AsyncConfig {
 
     public static void clearCaches() {
         syncCache.clear();
+        exactEntities.clear();
+        namespaceWildcards.clear();
     }
 }

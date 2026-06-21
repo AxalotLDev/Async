@@ -40,6 +40,7 @@ public class AsyncConfig {
                 LOGGER.warn("Configuration not found. Creating defaults...");
                 setDefaultValues();
                 saveConfig();
+                com.axalotl.async.common.config.AsyncConfig.onConfigLoaded();
             } else {
                 CONFIG.load();
                 loadConfigValues();
@@ -50,6 +51,7 @@ public class AsyncConfig {
             LOGGER.error("Error loading configuration. Resetting to defaults.", t);
             setDefaultValues();
             saveConfig();
+            com.axalotl.async.common.config.AsyncConfig.onConfigLoaded();
         }
     }
 
@@ -89,7 +91,6 @@ public class AsyncConfig {
         }
 
         restoreComments();
-        CONFIG.save();
     }
 
     private static void restoreComments() {
