@@ -8,9 +8,10 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyArg;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+import com.axalotl.async.api.utils.ConcurrentObjectArrayList;
+
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collector;
 
 @Mixin(value = ClassInstanceMultiMap.class)
@@ -33,7 +34,7 @@ public abstract class ClassInstanceMultiMapMixin<T> extends AbstractCollection<T
     @Inject(method = "<init>", at = @At("RETURN"))
     private void replaceConcurrentCollections(CallbackInfo ci) {
         this.byClass = new ConcurrentHashMap<>();
-        this.allInstances = new CopyOnWriteArrayList<>();
+        this.allInstances = new ConcurrentObjectArrayList<>();
         this.byClass.put(this.baseClass, this.allInstances);
     }
 
