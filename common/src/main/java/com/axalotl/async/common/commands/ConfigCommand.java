@@ -184,7 +184,7 @@ public class ConfigCommand {
             return 1;
         }
 
-        if (AsyncConfig.isEntitySynchronized(id)) {
+        if (AsyncConfig.synchronizedEntities.contains(id.toString())) {
             sendErrorMessage(ctx, "Error entity class ", id.toString(), " is already synchronized.");
             return 1;
         }
@@ -211,7 +211,7 @@ public class ConfigCommand {
     private static int removeEntity(CommandContext<CommandSourceStack> ctx) {
         Identifier id = IdentifierArgument.getId(ctx, "entity");
 
-        if (!AsyncConfig.isEntitySynchronized(id)) {
+        if (!AsyncConfig.synchronizedEntities.contains(id.toString())) {
             sendErrorMessage(ctx, "Error entity class ", id.toString(), " is not in the synchronized list.");
             return 1;
         }
@@ -224,11 +224,6 @@ public class ConfigCommand {
 
     private static int removeNamespace(CommandContext<CommandSourceStack> ctx) {
         String namespace = StringArgumentType.getString(ctx, "namespace");
-        Identifier id = Identifier.tryParse(namespace);
-
-        if (id != null) {
-            return 1;
-        }
 
         if (!AsyncConfig.synchronizedEntities.contains(namespace)) {
             sendErrorMessage(ctx, "Error namespace ", namespace, " is not in the synchronized list.");
@@ -264,6 +259,6 @@ public class ConfigCommand {
                 .append(Component.literal(prefix).withStyle(style -> style.withColor(ChatFormatting.RED)))
                 .append(Component.literal(error).withStyle(style -> style.withColor(ChatFormatting.RED)))
                 .append(Component.literal(suffix).withStyle(style -> style.withColor(ChatFormatting.RED)));
-        ctx.getSource().sendSuccess(() -> message, true);
+        ctx.getSource().sendFailure(message);
     }
 }
