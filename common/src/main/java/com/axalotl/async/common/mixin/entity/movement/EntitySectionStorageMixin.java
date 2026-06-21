@@ -6,11 +6,9 @@ import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.LongSortedSet;
-import net.minecraft.util.AbortableIterationConsumer;
 import net.minecraft.world.level.entity.EntityAccess;
 import net.minecraft.world.level.entity.EntitySection;
 import net.minecraft.world.level.entity.EntitySectionStorage;
-import net.minecraft.world.phys.AABB;
 import org.spongepowered.asm.mixin.*;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -23,9 +21,6 @@ import java.util.stream.Stream;
 
 @Mixin(value = EntitySectionStorage.class, priority = 1500)
 public abstract class EntitySectionStorageMixin<T extends EntityAccess> {
-
-    @Unique
-    private ReentrantReadWriteLock.ReadLock readLock;
 
     @Unique
     private ReentrantReadWriteLock.WriteLock writeLock;
@@ -46,20 +41,9 @@ public abstract class EntitySectionStorageMixin<T extends EntityAccess> {
     @Inject(method = "<init>", at = @At("RETURN"))
     private void replaceWithConcurrentCollections(CallbackInfo ci) {
         ReentrantReadWriteLock rwLock = new ReentrantReadWriteLock();
-        this.readLock = rwLock.readLock();
         this.writeLock = rwLock.writeLock();
         this.sections = new Long2ObjectConcurrentHashMap<>();
         this.sectionIds = new ConcurrentLongSortedSet();
-    }
-
-    @WrapMethod(method = "forEachAccessibleNonEmptySection")
-    private void forEachAccessibleNonEmptySection(AABB bb, AbortableIterationConsumer<EntitySection<T>> output, Operation<Void> original) {
-        readLock.lock();
-        try {
-            original.call(bb, output);
-        } finally {
-            readLock.unlock();
-        }
     }
 
     @WrapMethod(method = "getExistingSectionsInChunk")
@@ -73,8 +57,12 @@ public abstract class EntitySectionStorageMixin<T extends EntityAccess> {
 
     @WrapMethod(method = "getOrCreateSection")
     private EntitySection<T> getOrCreateSection(long key, Operation<EntitySection<T>> original) {
+        EntitySection<T> existing = sections.get(key);
+        if (existing != null) return existing;
         writeLock.lock();
         try {
+            existing = sections.get(key);
+            if (existing != null) return existing;
             return original.call(key);
         } finally {
             writeLock.unlock();

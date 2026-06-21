@@ -54,17 +54,8 @@ public class StatsCommand {
     }
 
     private static void startRecordingAndShow(CommandSourceStack source, int topCount, int ticks) {
-        TickStats.startRecording(ticks);
         source.sendSuccess(() -> prefix.copy().append(Component.literal("Recording entity ticks for " + ticks + " ticks...").withStyle(ChatFormatting.YELLOW)), false);
-        pollUntilDone(source, topCount, ticks);
-    }
-
-    private static void pollUntilDone(CommandSourceStack source, int topCount, int ticks) {
-        if (TickStats.isRecording()) {
-            pollUntilDone(source, topCount, ticks);
-        } else {
-            showEntityStats(source, topCount, true, ticks);
-        }
+        TickStats.startRecording(ticks, () -> showEntityStats(source, topCount, true, ticks));
     }
 
     private static void showGeneralStats(CommandSourceStack source) {

@@ -76,6 +76,7 @@ loom {
                     "-XX:+UseZGC",
                     "-XX:+AlwaysPreTouch",
                     "-XX:+DisableExplicitGC",
+                    "-XX:+EnableDynamicAgentLoading",
                     "-XX:+UseDynamicNumberOfGCThreads"
             )
         }

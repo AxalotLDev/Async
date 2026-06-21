@@ -54,6 +54,7 @@
     "lithium.LithiumInternerMixin",
     "lithium.LithiumSectionedBlockChangeTrackerMixin",
     "lithium.LithiumServerLevel",
+    "lithium.ReferenceMaskedListMixin",
     "server.ChunkMapMixin",
     "server.ChunkMapTrackedEntityMixin",
     "server.MinecraftServerMixin",

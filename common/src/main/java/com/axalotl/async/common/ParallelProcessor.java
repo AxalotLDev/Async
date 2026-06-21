@@ -6,11 +6,11 @@ import lombok.Getter;
 import lombok.Setter;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.item.FallingBlockEntity;
 import net.minecraft.world.entity.monster.Shulker;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.entity.vehicle.boat.AbstractBoat;
 import net.minecraft.world.entity.vehicle.boat.Boat;
@@ -46,6 +46,9 @@ public class ParallelProcessor {
             AbstractBoat.class,
             Boat.class
     );
+
+    //Cache
+    private static final Map<Class<?>, Boolean> ASYNC_API_CACHE = new ConcurrentHashMap<>();
 
     //Threads
     private static final Map<String, Set<WeakReference<Thread>>> MC_THREAD_TRACKER = new ConcurrentHashMap<>();
@@ -107,33 +110,39 @@ public class ParallelProcessor {
 
         if (AsyncConfig.disabled) {
             entities.forEach(e -> tickEntity(world, e, false));
-            RECORDING_TICKS_LEFT.decrementAndGet();
             return;
         }
 
-        final int poolSize = getPoolSize();
-        final int chunkSize = (entities.size() + poolSize - 1) / poolSize;
-
+        List<Entity> asyncEntities = new ArrayList<>();
+        List<Entity> syncEntities = new ArrayList<>();
+        final Set<Entity> seen = Collections.newSetFromMap(new IdentityHashMap<>(entities.size()));
+        for (Entity entity : entities) {
+            if (entity == null || entity.isRemoved() || !seen.add(entity)) {
+                continue;
+            }
+            if (shouldTickSynchronously(entity)) {
+                syncEntities.add(entity);
+            } else {
+                asyncEntities.add(entity);
+            }
+        }
         final List<Future<Void>> futures = new ArrayList<>();
+        if (!asyncEntities.isEmpty()) {
+            final int poolSize = getPoolSize();
+            final int chunkSize = Math.max(1, (asyncEntities.size() + poolSize - 1) / poolSize);
 
-        for (int i = 0; i < entities.size(); i += chunkSize) {
-            final List<Entity> chunk = entities.subList(i, Math.min(i + chunkSize, entities.size()));
-            Future<Void> future = (Future<Void>) executor.submit(() -> {
-                for (Entity entity : chunk) {
-                    if (!shouldTickSynchronously(entity)) {
+            for (int i = 0; i < asyncEntities.size(); i += chunkSize) {
+                final List<Entity> chunk = asyncEntities.subList(i, Math.min(i + chunkSize, asyncEntities.size()));
+                Future<Void> future = (Future<Void>) executor.submit(() -> {
+                    for (Entity entity : chunk) {
                         tickEntity(world, entity, true);
                     }
-                }
-            });
-            futures.add(future);
+                });
+                futures.add(future);
+            }
         }
-
-        entities.stream()
-                .filter(ParallelProcessor::shouldTickSynchronously)
-                .forEach(e -> tickEntity(world, e, false));
-
+        syncEntities.forEach(e -> tickEntity(world, e, false));
         waitForFutures(futures);
-        RECORDING_TICKS_LEFT.decrementAndGet();
     }
 
     private static void waitForFutures(List<Future<Void>> futures) {
@@ -171,15 +180,19 @@ public class ParallelProcessor {
         return AsyncConfig.disabled
                 || entitySupportsAsyncApi(entity)
                 || entity instanceof Projectile
-                || entity instanceof ServerPlayer
+                || entity instanceof Player
                 || BLOCKED_ENTITIES.contains(entity.getClass())
                 || BLACKLISTED_ENTITIES.contains(entityId)
                 || AsyncConfig.isEntitySynchronized(EntityType.getKey(entity.getType()));
     }
 
     public static boolean entitySupportsAsyncApi(Entity entity) {
-        return !"minecraft".equals(EntityType.getKey(entity.getType()).getNamespace())
-                && !entity.getClass().isAnnotationPresent(AsyncCompatible.class);
+        Class<?> cls = entity.getClass();
+        Boolean cached = ASYNC_API_CACHE.get(cls);
+        if (cached != null) return cached;
+        boolean result = !"minecraft".equals(EntityType.getKey(entity.getType()).getNamespace()) && !cls.isAnnotationPresent(AsyncCompatible.class);
+        ASYNC_API_CACHE.put(cls, result);
+        return result;
     }
 
     private static void tickEntity(ServerLevel world, Entity entity, boolean async) {
