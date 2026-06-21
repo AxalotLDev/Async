@@ -61,6 +61,7 @@
     "server.MinecraftServerMixin",
     "server.PersistentEntitySectionManagerMixin",
     "server.ServerChunkCacheMixin",
+    "server.ServerEntityMixin",
     "server.ServerLevelEntityCallbacksMixin",
     "server.ServerPlayerMixin",
     "utils.FastUtilSynchronizeMixin",
