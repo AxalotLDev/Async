@@ -1,6 +1,5 @@
 package com.axalotl.async.common.config;
 
-import com.axalotl.async.common.parallelised.utils.ModCompatible;
 import com.axalotl.async.common.platform.PlatformUtils;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
@@ -15,7 +14,7 @@ public class AsyncConfig {
 
     public static boolean disabled = false;
     public static int maxThreads = -1;
-    public static boolean enableAsyncSpawn = true;
+    public static boolean enableAsyncSpawn = false;
     public static boolean enableAsyncRandomTicks = false;
     public static Set<String> synchronizedEntities = getDefaultSynchronizedEntities();
 
@@ -25,18 +24,16 @@ public class AsyncConfig {
     private static final Set<String> namespaceWildcards = new HashSet<>();
 
     public static Set<String> getDefaultSynchronizedEntities() {
-        final Set<String> defaultSynchronizedEntities = new HashSet<>(ModCompatible.addUnsupportedMods());
-        defaultSynchronizedEntities.addAll(Set.of(
+        return new HashSet<>(Set.of(
                 "minecraft:tnt",
                 "minecraft:item",
                 "minecraft:experience_orb"
         ));
-        return defaultSynchronizedEntities;
     }
 
     public static int getParallelism() {
         if (maxThreads <= 0) return Runtime.getRuntime().availableProcessors();
-        return Math.max(1, Math.min(Runtime.getRuntime().availableProcessors(), maxThreads));
+        return Math.max(1, Math.min(maxThreads, Runtime.getRuntime().availableProcessors()));
     }
 
     public static boolean isNamespaceWildcard(String input) {
@@ -120,5 +117,7 @@ public class AsyncConfig {
 
     public static void clearCaches() {
         syncCache.clear();
+        exactEntities.clear();
+        namespaceWildcards.clear();
     }
 }

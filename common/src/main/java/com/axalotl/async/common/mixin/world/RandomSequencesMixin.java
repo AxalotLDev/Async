@@ -1,6 +1,6 @@
 package com.axalotl.async.common.mixin.world;
 
-import com.axalotl.async.common.parallelised.ConcurrentCollections;
+import com.axalotl.async.api.utils.ConcurrentCollections;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.RandomSequence;
 import net.minecraft.world.RandomSequences;

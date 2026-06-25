@@ -1,0 +1,3 @@
+- Fixed incompatibility with VMP
+- Fixed an error receiving a remote entity's packet
+- Config fixes (JordanOlivet)

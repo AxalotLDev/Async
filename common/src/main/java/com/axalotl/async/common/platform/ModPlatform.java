@@ -6,6 +6,4 @@ public interface ModPlatform {
     void reloadConfig();
 
     boolean isModLoaded(String id);
-
-    boolean platformUsesRefmap();
 }

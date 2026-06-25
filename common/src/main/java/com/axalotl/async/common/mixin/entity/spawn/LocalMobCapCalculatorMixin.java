@@ -1,7 +1,7 @@
 package com.axalotl.async.common.mixin.entity.spawn;
 
-import com.axalotl.async.common.parallelised.ConcurrentCollections;
-import com.axalotl.async.common.parallelised.fastutil.Long2ObjectConcurrentHashMap;
+import com.axalotl.async.api.fastutil.Long2ObjectConcurrentHashMap;
+import com.axalotl.async.api.utils.ConcurrentCollections;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.ChunkPos;

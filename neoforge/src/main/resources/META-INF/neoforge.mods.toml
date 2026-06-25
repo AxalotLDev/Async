@@ -1,36 +1,37 @@
 modLoader = "javafml"
 loaderVersion = "${neoforge_loader_version_range}"
-license = "${license}"
+license = "GPL-3.0"
 
 [[mods]]
-modId = "${mod_id}"
+modId = "async"
 version = "${version}"
-displayName = "${mod_name}"
+displayName = "Async"
 
 logoFile = "async/icon.png"
-credits = "${credits}"
-authors = "${mod_author}"
+authors = "AxalotL, Alchemy, Bliss, FurryMileon, Grider, jediminer543"
 description = '''${description}'''
-[[mixins]]
-config = "${mod_id}.common.mixins.json"
-[[mixins]]
-config = "${mod_id}.neoforge.mixins.json"
 
-[[dependencies.${ mod_id }]]
+[[mixins]]
+config = "async.common.mixins.json"
+
+[[mixins]]
+config = "async.neoforge.mixins.json"
+
+[[dependencies.async]]
 modId = "minecraft"
 type = "required"
 versionRange = "${minecraft_version_range}"
 ordering = "NONE"
 side = "BOTH"
 
-[[dependencies.${ mod_id }]]
+[[dependencies.async]]
 modId = "moonrise"
 type = "incompatible"
 versionRange = ""
 ordering = "NONE"
 side = "BOTH"
 
-[[dependencies.${ mod_id }]]
+[[dependencies.async]]
 modId = "openpartiesandclaims"
 type = "incompatible"
 versionRange = ""
@@ -39,4 +40,3 @@ side = "BOTH"
 
 ["lithium:options"]
 "mixin.alloc.chunk_random" = false
-"mixin.ai.task.memory_change_counting" = false

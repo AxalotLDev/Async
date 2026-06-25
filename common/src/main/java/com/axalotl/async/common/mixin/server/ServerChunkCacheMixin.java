@@ -18,6 +18,8 @@ import net.minecraft.world.level.chunk.ImposterProtoChunk;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.chunk.status.ChunkStatus;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -27,14 +29,19 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-import java.util.*;
+import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.LockSupport;
 import java.util.function.Consumer;
 
 @Mixin(value = ServerChunkCache.class, priority = 1500)
 public abstract class ServerChunkCacheMixin extends ChunkSource {
+    @Unique
+    private static final Logger LOGGER = LoggerFactory.getLogger(ServerChunkCacheMixin.class);
+
     @Shadow
     @Final
     public ChunkMap chunkMap;
@@ -93,7 +100,12 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
                 this.mainThreadProcessor
         ).thenCompose(f -> f);
 
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(60);
         while (!future.isDone()) {
+            if (System.nanoTime() > deadline) {
+                future.cancel(false);
+                return;
+            }
             ChunkAccess cached = async$tryGetChunk(x, z, leastStatus);
             if (cached != null) {
                 future.cancel(false);
@@ -150,9 +162,10 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
         }
         if (async$spawnCountsReady.getAndSet(false)) {
             int l = this.distanceManager.getNaturalSpawnChunkCount();
-            if (!ParallelProcessor.tickPool.isShutdown()
-                    && !ParallelProcessor.tickPool.isTerminated()) {
-                ParallelProcessor.tickPool.submit(() -> {
+            if (ParallelProcessor.executor != null
+                    && !ParallelProcessor.executor.isShutdown()
+                    && !ParallelProcessor.executor.isTerminated()) {
+                ParallelProcessor.executor.submit(() -> {
                     this.lastSpawnState = NaturalSpawner.createState(
                             l,
                             this.level.getAllEntities(),
@@ -208,11 +221,12 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
                 if (!AsyncConfig.disabled
                         && AsyncConfig.enableAsyncSpawn
                         && lastSpawnState != null
-                        && !ParallelProcessor.tickPool.isShutdown()
-                        && !ParallelProcessor.tickPool.isTerminated()) {
+                        && ParallelProcessor.executor != null
+                        && !ParallelProcessor.executor.isShutdown()
+                        && !ParallelProcessor.executor.isTerminated()) {
                     NaturalSpawner.SpawnState state = lastSpawnState;
                     CompletableFuture.runAsync(() -> {
-                        if (!ParallelProcessor.tickPool.isShutdown()) {
+                        if (!ParallelProcessor.executor.isShutdown()) {
                             for (ServerChunkCache.ChunkAndHolder entry : chunks) {
                                 LevelChunk chunk = entry.chunk();
                                 ChunkPos pos = chunk.getPos();
@@ -237,8 +251,8 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
                                 }
                             }
                         }
-                    }, ParallelProcessor.tickPool).exceptionally(e -> {
-                        ParallelProcessor.LOGGER.error("Error in async entity spawning, switching to synchronous", e);
+                    }, ParallelProcessor.executor).exceptionally(e -> {
+                        LOGGER.error("Error in async entity spawning, switching to synchronous", e);
                         for (ServerChunkCache.ChunkAndHolder entry : chunks) {
                             LevelChunk chunk = entry.chunk();
                             ChunkPos pos = chunk.getPos();

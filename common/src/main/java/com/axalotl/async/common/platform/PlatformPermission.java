@@ -4,7 +4,7 @@ import net.minecraft.commands.CommandSourceStack;
 
 import java.util.function.Predicate;
 
-public class Permission {
+public class PlatformPermission {
 
     public static boolean check(CommandSourceStack source, String node, int level) {
         return PlatformUtils.hasPermission(source, node, level);

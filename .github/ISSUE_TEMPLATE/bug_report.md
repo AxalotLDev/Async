@@ -10,10 +10,7 @@ assignees: AxalotLDev, FurryMileon
 ### 🐛 Describe the bug
 A clear and concise description of what the bug is.
 
-### 🔁 Reproducibility
-- [ ] This bug is not consistently reproducible
-
-### 📋 Steps to reproduce *(skip if checked above)*
+### 📋 Steps to reproduce*
 1. 
 2. 
 3. 
@@ -26,9 +23,10 @@ What actually happened?
 
 ### 🖥️ Environment
 - 🔧 Async version: 
+- 🎮 Minecraft enviroment (Client or Server):
 - 🎮 Minecraft version: 
 - ⚙️ Modloader & version: 
-- 📦 Other mods installed (if relevant): 
+- 📦 Other mods installed: 
 
 ### 📜 Logs
 Please attach your `latest.log` or crash report if available.

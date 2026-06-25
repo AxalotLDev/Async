@@ -32,7 +32,6 @@
     "entity.RaidMixin",
     "entity.SensingMixin",
     "entity.ShowTradesToPlayerMixin",
-    "entity.VillagerMixin",
     "entity.breed.AnimalMakeLoveMixin",
     "entity.breed.FoxBreedGoalMixin",
     "entity.breed.FrogMixin",
@@ -48,22 +47,26 @@
     "entity.spawn.LocalMobCapCalculatorMixin",
     "entity.spawn.PotentialCalculatorMixin",
     "lithium.LithiumGameEventDispatcherStorage",
+    "lithium.LithiumInternerMixin",
+    "lithium.LithiumSectionedBlockChangeTrackerMixin",
     "lithium.LithiumServerLevel",
+    "lithium.ReferenceMaskedListMixin",
     "server.ChunkMapMixin",
     "server.ChunkMapTrackedEntityMixin",
     "server.MinecraftServerMixin",
     "server.PersistentEntitySectionManagerCallbackMixin",
     "server.PersistentEntitySectionManagerMixin",
     "server.ServerChunkCacheMixin",
+    "server.ServerEntityMixin",
     "server.ServerLevelEntityCallbacksMixin",
     "server.ServerPlayerMixin",
-    "utils.FastUtilsMixin",
-    "utils.LegacyRandomSourceMixin",
+    "utils.FastUtilSynchronizeMixin",
     "utils.LockHelperMixin",
     "utils.NetherPortalBlockMixin",
     "utils.ShufflingListMixin",
     "utils.SyncAllMixin",
     "utils.ThreadingDetectorMixin",
+    "utils.ThreadSafeLegacyRandomSourceMixin",
     "vmp.VMPChunkMapMixin",
     "world.BlockMixin",
     "world.ChunkHolderMixin",
@@ -78,10 +81,11 @@
     "world.ServerLevelMixin"
   ],
   "client": [],
-  "server": [],
+  "server": [
+    "entity.VillagerMixin"
+  ],
   "injectors": {
     "defaultRequire": 1
   },
   "plugin": "com.axalotl.async.common.mixin.utils.SynchronisePlugin"
 }
-
