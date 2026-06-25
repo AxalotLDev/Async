@@ -1,9 +1,8 @@
 package com.axalotl.async.common.mixin.world;
 
+import com.axalotl.async.api.utils.ConcurrentCollections;
 import com.axalotl.async.common.ParallelProcessor;
 import com.axalotl.async.common.config.AsyncConfig;
-import com.axalotl.async.common.parallelised.ConcurrentCollections;
-import com.axalotl.async.common.parallelised.utils.PortalCreationCache;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import it.unimi.dsi.fastutil.objects.ObjectLinkedOpenHashSet;
@@ -19,7 +18,11 @@ import net.minecraft.util.profiling.ProfilerFiller;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.Mob;
-import net.minecraft.world.level.*;
+import net.minecraft.world.level.BlockEventData;
+import net.minecraft.world.level.Explosion;
+import net.minecraft.world.level.ExplosionDamageCalculator;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.WorldGenLevel;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.dimension.DimensionType;
 import net.minecraft.world.level.entity.EntityTickList;
@@ -33,16 +36,18 @@ import org.spongepowered.asm.mixin.Mutable;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.Inject;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.*;
-import java.util.function.BooleanSupplier;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
@@ -70,9 +75,6 @@ public abstract class ServerLevelMixin extends Level implements WorldGenLevel {
     protected ServerLevelMixin(WritableLevelData levelData, ResourceKey<Level> dimension, RegistryAccess registryAccess, Holder<DimensionType> dimensionTypeRegistration, Supplier<ProfilerFiller> profiler, boolean isClientSide, boolean isDebug, long biomeZoomSeed, int maxChainedNeighborUpdates) {
         super(levelData, dimension, registryAccess, dimensionTypeRegistration, profiler, isClientSide, isDebug, biomeZoomSeed, maxChainedNeighborUpdates);
     }
-
-    @Shadow
-    protected abstract boolean shouldDiscardEntity(Entity entity);
 
     @Shadow
     public abstract @NotNull ServerLevel getLevel();
@@ -124,7 +126,8 @@ public abstract class ServerLevelMixin extends Level implements WorldGenLevel {
         });
 
         if (!toDespawnCheck.isEmpty()) {
-            int chunkSize = Math.max(1, toDespawnCheck.size() / ParallelProcessor.getPoolSize());
+            int poolSize = Math.max(1, ParallelProcessor.getPoolSize());
+            int chunkSize = Math.max(1, toDespawnCheck.size() / poolSize);
             List<Callable<Void>> despawnTasks = new ArrayList<>();
             for (int i = 0; i < toDespawnCheck.size(); i += chunkSize) {
                 List<Entity> chunk = toDespawnCheck.subList(i, Math.min(i + chunkSize, toDespawnCheck.size()));
@@ -134,8 +137,14 @@ public abstract class ServerLevelMixin extends Level implements WorldGenLevel {
                 });
             }
             try {
-                ((ThreadPoolExecutor) ParallelProcessor.tickPool).invokeAll(despawnTasks);
-            } catch (InterruptedException ignored) {}
+                if (ParallelProcessor.executor != null && !ParallelProcessor.executor.isShutdown()) {
+                    ParallelProcessor.executor.invokeAll(despawnTasks);
+                } else {
+                    for (Entity e : toDespawnCheck) e.checkDespawn();
+                }
+            } catch (InterruptedException ignored) {
+                Thread.currentThread().interrupt();
+            }
         }
 
         profiler.push("tick");
@@ -181,19 +190,16 @@ public abstract class ServerLevelMixin extends Level implements WorldGenLevel {
 
     @WrapMethod(method = "tickChunk")
     private void tickChunk(LevelChunk chunk, int randomTickSpeed, Operation<Void> original) {
-        if (!AsyncConfig.disabled && AsyncConfig.enableAsyncRandomTicks) {
-            CompletableFuture.runAsync(() -> original.call(chunk, randomTickSpeed), ParallelProcessor.tickPool).exceptionally(e -> {
-                ParallelProcessor.LOGGER.error("Error in async random ticks, switching to synchronous", e);
+        if (!AsyncConfig.disabled
+                && AsyncConfig.enableAsyncRandomTicks
+                && ParallelProcessor.executor != null
+                && !ParallelProcessor.executor.isShutdown()) {
+            CompletableFuture.runAsync(() -> original.call(chunk, randomTickSpeed), ParallelProcessor.executor).exceptionally(e -> {
                 original.call(chunk, randomTickSpeed);
                 return null;
             });
         } else {
             original.call(chunk, randomTickSpeed);
         }
-    }
-
-    @Inject(method = "tick", at = @At("HEAD"))
-    private void async_clearPortalCache(BooleanSupplier hasTimeLeft, CallbackInfo ci) {
-        PortalCreationCache.clear();
     }
 }

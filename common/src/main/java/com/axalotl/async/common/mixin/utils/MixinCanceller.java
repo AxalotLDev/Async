@@ -1,10 +1,8 @@
 package com.axalotl.async.common.mixin.utils;
 
-import com.bawnorton.mixinsquared.api.MixinCanceller;
-
 import java.util.List;
 
-public class AsyncModMixinCanceller implements MixinCanceller {
+public class MixinCanceller implements com.bawnorton.mixinsquared.api.MixinCanceller {
     private boolean LITHIUM = false;
     private boolean VMP = false;
 
@@ -22,7 +20,11 @@ public class AsyncModMixinCanceller implements MixinCanceller {
                 return true;
         }
         if (mixinClassName.endsWith("com.axalotl.async.common.mixin.lithium.LithiumServerLevel") ||
-                mixinClassName.endsWith("com.axalotl.async.common.mixin.lithium.LithiumGameEventDispatcherStorage")) {
+                mixinClassName.endsWith("com.axalotl.async.common.mixin.lithium.LithiumSectionedBlockChangeTrackerMixin") ||
+                mixinClassName.endsWith("com.axalotl.async.common.mixin.lithium.LithiumInternerMixin") ||
+                mixinClassName.endsWith("com.axalotl.async.common.mixin.lithium.LithiumGameEventDispatcherStorage") ||
+                mixinClassName.endsWith("com.axalotl.async.common.mixin.lithium.ReferenceMaskedListMixin")
+        ) {
             return !LITHIUM;
         }
         if (mixinClassName.endsWith("com.axalotl.async.common.mixin.vmp.VMPChunkMapMixin")) {

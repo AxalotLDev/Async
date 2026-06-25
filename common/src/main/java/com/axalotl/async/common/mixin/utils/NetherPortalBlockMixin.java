@@ -44,7 +44,7 @@ public abstract class NetherPortalBlockMixin {
     }
 
     @WrapMethod(method = "getExitPortal")
-    private DimensionTransition async_getExitPortal(
+    private DimensionTransition async$getExitPortal(
             ServerLevel level,
             Entity entity,
             BlockPos pos,

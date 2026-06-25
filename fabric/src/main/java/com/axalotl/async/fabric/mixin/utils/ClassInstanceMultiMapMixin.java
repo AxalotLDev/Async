@@ -1,48 +1,45 @@
 package com.axalotl.async.fabric.mixin.utils;
 
-import com.axalotl.async.common.parallelised.ConcurrentCollections;
-import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
-import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import com.axalotl.async.api.utils.ConcurrentCollections;
 import net.minecraft.util.ClassInstanceMultiMap;
-import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Shadow;
-import org.spongepowered.asm.mixin.Unique;
+import org.spongepowered.asm.mixin.*;
 import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyArg;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+import com.axalotl.async.api.utils.ConcurrentObjectArrayList;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collector;
 
 @Mixin(value = ClassInstanceMultiMap.class)
 public abstract class ClassInstanceMultiMapMixin<T> extends AbstractCollection<T> {
 
-    @Unique
-    private static final Object async$lock = new Object();
-
+    @Mutable
+    @Final
     @Shadow
-    private final Map<Class<?>, List<T>> byClass = new ConcurrentHashMap<>();
+    private Map<Class<?>, List<T>> byClass;
 
+    @Mutable
+    @Final
     @Shadow
-    private final List<T> allInstances = new CopyOnWriteArrayList<>();
+    private List<T> allInstances;
+
+    @Final
+    @Shadow
+    private Class<T> baseClass;
+
+    @Inject(method = "<init>", at = @At("RETURN"))
+    private void replaceConcurrentCollections(CallbackInfo ci) {
+        this.byClass = new ConcurrentHashMap<>();
+        this.allInstances = new ConcurrentObjectArrayList<>();
+        this.byClass.put(this.baseClass, this.allInstances);
+    }
 
     @ModifyArg(method = "method_15217", at = @At(value = "INVOKE", target = "Ljava/util/stream/Stream;collect(Ljava/util/stream/Collector;)Ljava/lang/Object;"))
     private Collector<T, ?, List<T>> overwriteCollectToList(Collector<T, ?, List<T>> collector) {
         return ConcurrentCollections.toList();
-    }
-
-    @WrapMethod(method = "add")
-    private boolean add(Object e, Operation<Boolean> original) {
-        synchronized (async$lock) {
-            return original.call(e);
-        }
-    }
-
-    @WrapMethod(method = "remove")
-    private boolean remove(Object o, Operation<Boolean> original) {
-        synchronized (async$lock) {
-            return original.call(o);
-        }
     }
 }

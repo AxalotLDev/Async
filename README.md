@@ -1,21 +1,11 @@
-<div align="center">
-  
 # Async - Minecraft Entity Multi-Threading Mod ⚙️
-
-[![Modrinth Downloads](https://img.shields.io/modrinth/dt/async?style=for-the-badge&logo=modrinth)](https://modrinth.com/mod/async)
-[![Discord](https://img.shields.io/discord/YOUR_DISCORD_ID?style=for-the-badge&logo=discord&label=Discord)](https://discord.com/invite/scvCQ2qKS3)
-[![GitHub Issues](https://img.shields.io/github/issues/AxalotLDev/Async?style=for-the-badge)](https://github.com/AxalotLDev/Async/issues)
-</div>
-
-
-
 **Async** is a Fabric mod designed to improve entity performance by processing them in parallel using multiple CPU cores and threads.
-
 
 ## Important❗
 **Async** is currently in alpha testing and is experimental. Its use may lead to incorrect entity behavior and crashes.
 
-
+## What is Async? 🤔
+Async is a Fabric mod that enhances the performance of entity processing. The mod leverages multithreading, which allows multiple CPU cores to improve performance when handling a large number of entities.
 
 ### 💡 Key Benefits:
 - ⚡ **Improved TPS**: Maintains stable tick times even with a large number of entities.
@@ -42,7 +32,7 @@ Concurrent Chunk Management Engine, Fabric API, FerriteCore, Lithium, ScalableLu
 </details>
 
 ## ⚠️ Incompatible Mods
-- ❌ Moonrise - Known incompatibility 
+- ❌ Moonrise - Known incompatibility
 - ⚠️ ...and there may be conflicts with other mods.
 
 *If you encounter issues with other mods, please report them on our [GitHub](https://github.com/AxalotLDev/Async/issues) or [Discord](https://discord.com/invite/scvCQ2qKS3).*
@@ -55,7 +45,8 @@ Concurrent Chunk Management Engine, Fabric API, FerriteCore, Lithium, ScalableLu
 - `/async config synchronizedEntities remove` — Removes selected entity from synchronized processing.
 - `/async stats` — Displays the number of threads in use.
 - `/async stats entity` — Shows the number of entities processed by Async in various worlds.
-- `/async stats entity [number]` — Shows the top [number] entity types by count in descending order. For example, `/async stats entity 10` displays the top 10 most numerous entity types.
+- `/async stats entity [number]` — Shows the top [number] entity types by count in descending order. For example, `/async stats entity 10` displays the top 10 most numerous entity types. 
+- `/async stats entity [number] [ticks]` displays the top [number] most numerous entity types with their average mspt usage per [ticks].
 
 ## 📥 Download
 The mod is available on [Modrinth](https://modrinth.com/mod/async)

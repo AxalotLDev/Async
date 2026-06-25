@@ -65,6 +65,8 @@ public class AsyncConfig {
         com.axalotl.async.common.config.AsyncConfig.synchronizedEntities = entities.isEmpty()
                 ? getDefaultSynchronizedEntities()
                 : entities;
+
+        com.axalotl.async.common.config.AsyncConfig.onConfigLoaded();
     }
 
     public static void saveConfig() {

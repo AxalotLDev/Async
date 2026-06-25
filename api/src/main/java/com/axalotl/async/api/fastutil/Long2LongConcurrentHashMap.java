@@ -1,4 +1,4 @@
-package com.axalotl.async.common.parallelised.fastutil;
+package com.axalotl.async.api.fastutil;
 
 import it.unimi.dsi.fastutil.longs.*;
 import it.unimi.dsi.fastutil.objects.AbstractObjectSet;
@@ -12,6 +12,23 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * Thread-safe Long2LongMap implementation using ConcurrentHashMap.
  * Designed for safe concurrent iteration and modification.
+ *
+ * <p>
+ * A type-specific {@link Map}; provides some additional methods that use polymorphism to avoid
+ * (un)boxing, and handling of a default return value.
+ *
+ * <p>
+ * Besides extending the corresponding type-specific {@linkplain it.unimi.dsi.fastutil.Function
+ * function}, this interface strengthens {@link Map#entrySet()}, {@link #keySet()} and
+ * {@link #values()}. Moreover, a number of methods, such as {@link #size()},
+ * {@link #defaultReturnValue()}, etc., are un-defaulted as their function default do not make sense
+ * for a map. Maps returning entry sets of type {@link FastEntrySet} support also fast iteration.
+ *
+ * <p>
+ * A submap or subset may or may not have an independent default return value (which however must be
+ * initialized to the default return value of the originator).
+ *
+ * @see Map
  */
 public final class Long2LongConcurrentHashMap implements Long2LongMap {
 
@@ -98,7 +115,6 @@ public final class Long2LongConcurrentHashMap implements Long2LongMap {
         public @NotNull ObjectIterator<Entry> iterator() {
             final Iterator<Map.Entry<Long, Long>> backingIt = backing.entrySet().iterator();
             return new ObjectIterator<>() {
-                private Map.Entry<Long, Long> current;
 
                 @Override
                 public boolean hasNext() {
@@ -107,7 +123,7 @@ public final class Long2LongConcurrentHashMap implements Long2LongMap {
 
                 @Override
                 public Entry next() {
-                    current = backingIt.next();
+                    Map.Entry<Long, Long> current = backingIt.next();
                     // Return Entry that writes back to the map
                     return new Entry() {
                         private final long key = current.getKey();

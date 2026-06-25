@@ -16,7 +16,7 @@ import java.util.Set;
 public class PathFinderMixin {
 
     @WrapMethod(method = "findPath(Lnet/minecraft/world/level/PathNavigationRegion;Lnet/minecraft/world/entity/Mob;Ljava/util/Set;FIF)Lnet/minecraft/world/level/pathfinder/Path;")
-    private synchronized @Nullable Path syncFindPath(PathNavigationRegion world, Mob mob, Set<BlockPos> positions, float followRange, int distance, float rangeMultiplier, Operation<Path> original) {
-        return original.call(world, mob, positions, followRange, distance, rangeMultiplier);
+    private synchronized @Nullable Path syncFindPath(PathNavigationRegion level, Mob entity, Set<BlockPos> targets, float maxPathLength, int reachRange, float maxVisitedNodesMultiplier, Operation<Path> original) {
+        return original.call(level, entity, targets, maxPathLength, reachRange, maxVisitedNodesMultiplier);
     }
 }

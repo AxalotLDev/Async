@@ -1,7 +1,7 @@
 package com.axalotl.async.common.mixin.world;
 
-import com.axalotl.async.common.parallelised.ConcurrentCollections;
-import com.axalotl.async.common.parallelised.fastutil.ConcurrentLongLinkedOpenHashSet;
+import com.axalotl.async.api.fastutil.ConcurrentLongLinkedOpenHashSet;
+import com.axalotl.async.api.utils.ConcurrentCollections;
 import it.unimi.dsi.fastutil.longs.LongSet;
 import net.minecraft.server.level.ChunkHolder;
 import net.minecraft.server.level.DistanceManager;
@@ -18,10 +18,10 @@ public abstract class DistanceManagerMixin {
     @Shadow
     @Final
     @Mutable
-    Set<ChunkHolder> chunksToUpdateFutures = ConcurrentCollections.newHashSet();
+    protected Set<ChunkHolder> chunksToUpdateFutures = ConcurrentCollections.newHashSet();
 
     @Shadow
     @Final
     @Mutable
-    LongSet ticketsToRelease = new ConcurrentLongLinkedOpenHashSet();
+    private LongSet ticketsToRelease = new ConcurrentLongLinkedOpenHashSet();
 }

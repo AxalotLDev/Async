@@ -24,9 +24,9 @@ public class NearestVisibleLivingEntitiesMixin {
     private Predicate<LivingEntity> lineOfSightTest;
 
     @Inject(method = "<init>(Lnet/minecraft/world/entity/LivingEntity;Ljava/util/List;)V", at = @At("RETURN"))
-    private void init(LivingEntity owner, List<LivingEntity> entities, CallbackInfo ci) {
-        Object2BooleanOpenHashMap<LivingEntity> object2BooleanOpenHashMap = new Object2BooleanOpenHashMap<>(entities.size());
-        Predicate<LivingEntity> predicate = target -> Sensor.isEntityTargetable(owner, target);
+    private void init(LivingEntity body, List<LivingEntity> livingEntities, CallbackInfo ci) {
+        Object2BooleanOpenHashMap<LivingEntity> object2BooleanOpenHashMap = new Object2BooleanOpenHashMap<>(livingEntities.size());
+        Predicate<LivingEntity> predicate = target -> Sensor.isEntityTargetable(body, target);
         this.lineOfSightTest = entity -> {
             synchronized (object2BooleanOpenHashMap) {
                 return object2BooleanOpenHashMap.computeIfAbsent(entity, predicate);

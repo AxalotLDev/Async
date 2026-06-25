@@ -13,78 +13,74 @@ import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
-import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
-@Mixin(value = LivingEntity.class, priority = 1001)
+@Mixin(value = LivingEntity.class)
 public abstract class LivingEntityMixin extends Entity {
 
     @Shadow
     final private Map<Holder<MobEffect>, MobEffectInstance> activeEffects = new ConcurrentHashMap<>();
-
-    @Unique
-    private static final Object async$lock = new Object();
 
     public LivingEntityMixin(EntityType<?> type, Level world) {
         super(type, world);
     }
 
     @WrapMethod(method = "die")
-    private synchronized void die(DamageSource damageSource, Operation<Void> original) {
-        original.call(damageSource);
+    private synchronized void die(DamageSource source, Operation<Void> original) {
+        original.call(source);
     }
 
     @WrapMethod(method = "dropFromLootTable")
-    private synchronized void dropFromLootTable(DamageSource damageSource, boolean causedByPlayer, Operation<Void> original) {
-        original.call(damageSource, causedByPlayer);
+    private synchronized void dropFromLootTable(DamageSource source, boolean playerKilled, Operation<Void> original) {
+        original.call(source, playerKilled);
     }
 
-    @WrapMethod(method = "blockedByShield")
-    private void knockback(LivingEntity defender, Operation<Void> original) {
-        synchronized (async$lock) {
-            original.call(defender);
+    @WrapMethod(method = "knockback")
+    private void knockback(double power, double xd, double zd, Operation<Void> original) {
+        synchronized (this) {
+            original.call(power, xd, zd);
         }
     }
 
     @WrapMethod(method = "tickEffects")
     private void tickStatusEffects(Operation<Void> original) {
-        synchronized (async$lock) {
+        synchronized (this) {
             original.call();
         }
     }
 
-    @WrapOperation(method = "tickEffects", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/effect/MobEffectInstance;tick(Lnet/minecraft/world/entity/LivingEntity;Ljava/lang/Runnable;)Z"))
-    private boolean tickEffects(MobEffectInstance instance, LivingEntity entity, Runnable runnable, Operation<Boolean> original) {
-        return instance != null ? original.call(instance, entity, runnable) : false;
-    }
-
-    @Inject(method = "onEffectRemoved", at = @At("HEAD"), cancellable = true)
-    private void onEffectRemoved(MobEffectInstance effectInstance, CallbackInfo ci) {
-        if (effectInstance == null) {
-            ci.cancel();
-        }
+    @WrapOperation(
+            method = "tickEffects",
+            at = @At(
+                    value = "INVOKE",
+                    target = "Lnet/minecraft/world/effect/MobEffectInstance;tick(Lnet/minecraft/world/entity/LivingEntity;Ljava/lang/Runnable;)Z"
+            )
+    )
+    private boolean wrapTickEffect(MobEffectInstance instance, LivingEntity target, Runnable onEffectUpdate, Operation<Boolean> original) {
+        return instance != null ? original.call(instance, target, onEffectUpdate) : false;
     }
 
     @WrapMethod(method = "addEffect(Lnet/minecraft/world/effect/MobEffectInstance;Lnet/minecraft/world/entity/Entity;)Z")
-    private boolean addEffect(MobEffectInstance effect, Entity source, Operation<Boolean> original) {
-        synchronized (async$lock) {
-            return effect != null ? original.call(effect, source) : false;
+    private boolean addEffect(MobEffectInstance newEffect, Entity source, Operation<Boolean> original) {
+        synchronized (this) {
+            return newEffect != null ? original.call(newEffect, source) : false;
         }
     }
 
     @WrapMethod(method = "removeEffect")
     private boolean removeEffect(Holder<MobEffect> effect, Operation<Boolean> original) {
-        synchronized (async$lock) {
+        synchronized (this) {
             return effect != null ? original.call(effect) : false;
         }
     }
@@ -96,18 +92,28 @@ public abstract class LivingEntityMixin extends Entity {
 
     @WrapMethod(method = "removeAllEffects")
     private boolean removeAllEffects(Operation<Boolean> original) {
-        synchronized (async$lock) {
+        synchronized (this) {
             return original.call();
         }
     }
 
     @Inject(method = "causeFallDamage", at = @At("HEAD"), cancellable = true)
-    private void causeFallDamage(float fallDistance, float multiplier, DamageSource source, CallbackInfoReturnable<Boolean> cir) {
+    private void causeFallDamage(float fallDistance, float damageModifier, DamageSource damageSource, CallbackInfoReturnable<Boolean> cir) {
         BlockPos pos = new BlockPos(Mth.floor(this.getX()), Mth.floor(this.getY()), Mth.floor(this.getZ()));
         BlockState currentBlock = this.level().getBlockState(pos);
 
         if (currentBlock.is(BlockTags.CLIMBABLE)) {
             cir.setReturnValue(false);
         }
+    }
+
+    @Redirect(method = "refreshDirtyAttributes", at = @At(value = "INVOKE", target = "Ljava/util/Set;iterator()Ljava/util/Iterator;"))
+    private Iterator<AttributeInstance> snapshotIterator(Set<AttributeInstance> set) {
+        Set<AttributeInstance> snapshot;
+        synchronized (this) {
+            snapshot = new HashSet<>(set);
+            set.clear();
+        }
+        return snapshot.iterator();
     }
 }
