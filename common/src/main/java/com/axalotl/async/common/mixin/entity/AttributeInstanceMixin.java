@@ -1,6 +1,6 @@
 package com.axalotl.async.common.mixin.entity;
 
-import com.axalotl.async.common.parallelised.ConcurrentCollections;
+import com.axalotl.async.api.utils.ConcurrentCollections;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import net.minecraft.resources.ResourceLocation;
@@ -25,6 +25,6 @@ public class AttributeInstanceMixin {
 
     @WrapMethod(method = "getModifiers(Lnet/minecraft/world/entity/ai/attributes/AttributeModifier$Operation;)Ljava/util/Map;")
     private Map<ResourceLocation, AttributeModifier> getModifiersConcurrent(AttributeModifier.Operation operation, Operation<Map<ResourceLocation, AttributeModifier>> original) {
-        return modifiersByOperation.computeIfAbsent(operation, op -> ConcurrentCollections.newHashMap());
+        return modifiersByOperation.computeIfAbsent(operation, ignored -> ConcurrentCollections.newHashMap());
     }
 }

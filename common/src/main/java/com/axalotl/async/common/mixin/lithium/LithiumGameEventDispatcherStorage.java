@@ -12,32 +12,32 @@ import org.spongepowered.asm.mixin.Unique;
 public class LithiumGameEventDispatcherStorage {
 
     @Unique
-    private final Object async$lock = new Object();
+    private final Object lock = new Object();
 
     @WrapMethod(method = "addChunk")
-    private void async$addChunk(long pos, Int2ObjectMap<GameEventListenerRegistry> dispatchers, Operation<Void> original) {
-        synchronized (async$lock) {
+    private void addChunk(long pos, Int2ObjectMap<GameEventListenerRegistry> dispatchers, Operation<Void> original) {
+        synchronized (lock) {
             original.call(pos, dispatchers);
         }
     }
 
     @WrapMethod(method = "removeChunk")
-    private void async$removeChunk(long pos, Operation<Void> original) {
-        synchronized (async$lock) {
+    private void removeChunk(long pos, Operation<Void> original) {
+        synchronized (lock) {
             original.call(pos);
         }
     }
 
     @WrapMethod(method = "replace")
-    private void async$replace(long pos, Int2ObjectMap<GameEventListenerRegistry> dispatchers, Operation<Void> original) {
-        synchronized (async$lock) {
+    private void replace(long pos, Int2ObjectMap<GameEventListenerRegistry> dispatchers, Operation<Void> original) {
+        synchronized (lock) {
             original.call(pos, dispatchers);
         }
     }
 
     @WrapMethod(method = "get")
-    private Int2ObjectMap<GameEventListenerRegistry> async$get(long pos, Operation<Int2ObjectMap<GameEventListenerRegistry>> original) {
-        synchronized (async$lock) {
+    private Int2ObjectMap<GameEventListenerRegistry> get(long pos, Operation<Int2ObjectMap<GameEventListenerRegistry>> original) {
+        synchronized (lock) {
             return original.call(pos);
         }
     }

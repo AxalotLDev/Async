@@ -17,38 +17,48 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public abstract class AnimalMixin extends Entity {
 
     @Unique
-    private final AtomicBoolean async$breedingFlag = new AtomicBoolean(false);
+    private final AtomicBoolean breedingFlag = new AtomicBoolean(false);
     @Unique
-    private final AtomicBoolean async$breedingBabyFlag = new AtomicBoolean(false);
+    private final AtomicBoolean breedingBabyFlag = new AtomicBoolean(false);
 
     public AnimalMixin(EntityType<?> entityType, Level level) {
         super(entityType, level);
     }
 
     @WrapMethod(method = "spawnChildFromBreeding")
-    private void breed(ServerLevel world, Animal other, Operation<Void> original) {
-        if (this.getId() > other.getId()) return;
-        AnimalMixin otherMixin = (AnimalMixin) (Object) other;
-        if (this.async$breedingFlag.compareAndSet(false, true) && otherMixin.async$breedingFlag.compareAndSet(false, true)) {
-            try {
-                original.call(world, other);
-            } finally {
-                this.async$breedingFlag.set(false);
-                otherMixin.async$breedingFlag.set(false);
+    private void breed(ServerLevel level, Animal partner, Operation<Void> original) {
+        if (this.getId() > partner.getId()) return;
+        AnimalMixin other = (AnimalMixin) (Object) partner;
+
+        if (this.breedingFlag.compareAndSet(false, true)) {
+            if (other.breedingFlag.compareAndSet(false, true)) {
+                try {
+                    original.call(level, partner);
+                } finally {
+                    this.breedingFlag.set(false);
+                    other.breedingFlag.set(false);
+                }
+            } else {
+                this.breedingFlag.set(false);
             }
         }
     }
 
     @WrapMethod(method = "finalizeSpawnChildFromBreeding")
-    private void breed(ServerLevel world, Animal other, AgeableMob baby, Operation<Void> original) {
-        if (this.getId() > other.getId()) return;
-        AnimalMixin otherMixin = (AnimalMixin) (Object) other;
-        if (this.async$breedingBabyFlag.compareAndSet(false, true) && otherMixin.async$breedingBabyFlag.compareAndSet(false, true)) {
-            try {
-                original.call(world, other, baby);
-            } finally {
-                this.async$breedingBabyFlag.set(false);
-                otherMixin.async$breedingBabyFlag.set(false);
+    private void breed(ServerLevel level, Animal partner, AgeableMob offspring, Operation<Void> original) {
+        if (this.getId() > partner.getId()) return;
+        AnimalMixin other = (AnimalMixin) (Object) partner;
+
+        if (this.breedingBabyFlag.compareAndSet(false, true)) {
+            if (other.breedingBabyFlag.compareAndSet(false, true)) {
+                try {
+                    original.call(level, partner, offspring);
+                } finally {
+                    this.breedingBabyFlag.set(false);
+                    other.breedingBabyFlag.set(false);
+                }
+            } else {
+                this.breedingBabyFlag.set(false);
             }
         }
     }

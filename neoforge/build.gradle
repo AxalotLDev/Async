@@ -1,7 +1,6 @@
 plugins {
     id 'multiloader-loader'
     id 'net.neoforged.moddev'
-    id 'java-library'
     id 'idea'
     id "com.modrinth.minotaur" version "2.+"
 }
@@ -11,6 +10,8 @@ repositories {
 }
 
 apply plugin: 'com.modrinth.minotaur'
+
+evaluationDependsOn(':api')
 modrinth {
     token = System.getenv("MODRINTH_TOKEN")
     projectId = "async"
@@ -33,42 +34,21 @@ modrinth {
 
 neoForge {
     version = neoforge_version
-    // Automatically enable neoforge AccessTransformers if the file exists
     def at = project(':common').file('src/main/resources/META-INF/accesstransformer.cfg')
     if (at.exists()) {
         accessTransformers.from(at.absolutePath)
     }
     runs {
-        configureEach {
-            systemProperty("neoforge.enabledGameTestNamespaces", mod_id.toString())
-            ideName = "NeoForge ${it.name.capitalize()} (${project.path})" // Unify the run config names with fabric
-        }
-        client {
+        create("client") {
             client()
         }
-        data {
-            data()
-        }
-        server {
+        create("server") {
             server()
         }
     }
     mods {
-        "${mod_id}" {
+        create("${mod_id}") {
             sourceSet sourceSets.main
-        }
-    }
-    if (project.hasProperty('parchment_mappings_version') && project.hasProperty('parchment_minecraft_version')) {
-        def parchmentMappings = project.parchment_mappings_version
-        def parchmentMinecraft = project.parchment_minecraft_version
-
-        if (parchmentMappings != null && parchmentMinecraft != null &&
-                !parchmentMappings.toString().isBlank() && !parchmentMinecraft.toString().isBlank()) {
-
-            parchment {
-                mappingsVersion = parchmentMappings
-                minecraftVersion = parchmentMinecraft
-            }
         }
     }
 }
@@ -77,8 +57,14 @@ dependencies {
     compileOnly(annotationProcessor("com.github.bawnorton.mixinsquared:mixinsquared-common:${mixinsquared_version}"))
     implementation(jarJar("com.github.bawnorton.mixinsquared:mixinsquared-neoforge:${mixinsquared_version}"))
     implementation "maven.modrinth:lithium:${lithium_version}-neoforge"
-    compileOnly 'org.projectlombok:lombok:1.18.32'
-    annotationProcessor 'org.projectlombok:lombok:1.18.32'
+    compileOnly 'org.projectlombok:lombok:1.18.44'
+    annotationProcessor 'org.projectlombok:lombok:1.18.44'
+    implementation project(':api')
 }
 
 sourceSets.main.resources { srcDir 'src/generated/resources' }
+
+tasks.named('jar', Jar) {
+    dependsOn project(':api').tasks.named('classes')
+    from(project(':api').sourceSets.main.output)
+}

@@ -16,7 +16,7 @@ import java.util.Map;
 @Mixin(ServerWatchdog.class)
 public class ServerWatchdogMixin {
 
-    @Inject(method = "run", at = @At(value = "INVOKE", target = "Lnet/minecraft/CrashReport;addCategory(Ljava/lang/String;)Lnet/minecraft/CrashReportCategory;"), locals = LocalCapture.CAPTURE_FAILSOFT)
+    @Inject(method = "run", at = @At(value = "INVOKE", target = "Lnet/minecraft/CrashReport;addCategory(Ljava/lang/String;)Lnet/minecraft/CrashReportCategory;", remap = false), locals = LocalCapture.CAPTURE_FAILSOFT)
     private void addCustomCrashReport(CallbackInfo ci, long i, long j, long k, ThreadMXBean threadmxbean, ThreadInfo[] athreadinfo, StringBuilder stringbuilder, Error error, CrashReport crashreport) {
         CrashReportCategory threadDumpSection = crashreport.addCategory("Async thread dump");
         threadDumpSection.setDetail("All Threads", () -> {

@@ -1,4 +1,4 @@
-package com.axalotl.async.common.parallelised.fastutil;
+package com.axalotl.async.api.fastutil;
 
 import java.util.*;
 import java.util.function.Function;
@@ -19,16 +19,41 @@ import it.unimi.dsi.fastutil.objects.ObjectIterator;
 import it.unimi.dsi.fastutil.objects.ObjectSet;
 import org.jetbrains.annotations.NotNull;
 
+
+/**
+ * Utility bridge between standard Java Collections and FastUtil primitive collections.
+ * <p>
+ * This class provides adapters (“wrappers”) that allow:
+ * <ul>
+ *     <li>Using {@link Collection} as FastUtil primitive collections</li>
+ *     <li>Converting Map entries between boxed and primitive key/value pairs</li>
+ *     <li>Wrapping primitive FastUtil iterators around Java iterators</li>
+ * </ul>
+ *
+ * <p><b>Purpose:</b> Reduce boilerplate when interoperating between
+ * FastUtil and standard Java collections while avoiding full data copies
+ * where possible.</p>
+ *
+ * <p>This class is not intended to be instantiated.</p>
+ */
 public final class FastUtilHackUtil {
 
     private FastUtilHackUtil() {
         throw new AssertionError("No instances");
     }
 
+    /**
+     * Wraps a {@link Collection} of {@link Byte} into a FastUtil {@link ByteCollection}.
+     */
     public static ByteCollection wrapBytes(Collection<Byte> c) {
         return new WrappingByteCollection(c);
     }
 
+    /**
+     * Adapter that exposes a {@link Collection} as a FastUtil {@link ByteCollection}.
+     * <p>
+     * Backed directly by the original collection.
+     */
     public static class WrappingByteCollection implements ByteCollection {
 
         Collection<Byte> backing;
@@ -133,6 +158,9 @@ public final class FastUtilHackUtil {
         }
     }
 
+    /**
+     * Wraps a Java map entry set into FastUtil Long/Int/primitive entry sets.
+     */
     public static ObjectSet<Long2ByteMap.Entry> entrySetLongByteWrap(Map<Long, Byte> map) {
         return new ConvertingObjectSet<>(map.entrySet(), FastUtilHackUtil::longByteEntryForwards, FastUtilHackUtil::longByteEntryBackwards);
     }
@@ -316,6 +344,9 @@ public final class FastUtilHackUtil {
 
     }
 
+    /**
+     * Wraps a Java {@link Iterator} of {@link Byte} into a FastUtil {@link ByteIterator}.
+     */
     public static class WrappingByteIterator implements ByteIterator {
 
         Iterator<Byte> parent;
@@ -340,10 +371,16 @@ public final class FastUtilHackUtil {
         }
     }
 
+    /**
+     * Returns a FastUtil {@link ByteIterator} from an {@link Iterable} of boxed bytes.
+     */
     public static ByteIterator itrByteWrap(Iterable<Byte> backing) {
         return new WrappingByteIterator(backing.iterator());
     }
 
+    /**
+     * Wraps a {@link Set} as a FastUtil {@link ObjectSet} with conversion functions.
+     */
     public static class ConvertingObjectSet<E, T> implements ObjectSet<T> {
         private final Set<E> backing;
         private final Function<E, T> forward;
@@ -541,6 +578,9 @@ public final class FastUtilHackUtil {
         return entry;
     }
 
+    /**
+     * Iterator adapting boxed {@link Integer} to FastUtil {@link IntIterator}.
+     */
     static class WrappingIntIterator implements IntIterator {
         private final Iterator<Integer> backing;
 
@@ -610,6 +650,9 @@ public final class FastUtilHackUtil {
         }
     }
 
+    /**
+     * Wraps a Java {@link Set} of boxed integers into a FastUtil {@link IntSet}.
+     */
     public static class WrappingIntSet implements IntSet {
         private final Set<Integer> backing;
 
@@ -820,7 +863,9 @@ public final class FastUtilHackUtil {
         }
     }
 
-    // Utility methods
+    /**
+     * Utility methods
+     */
     public static <T> ObjectSet<Int2ObjectMap.Entry<T>> entrySetIntWrap(Map<Integer, T> map) {
         return new ConvertingObjectSet<>(
                 map.entrySet(),
@@ -902,6 +947,9 @@ public final class FastUtilHackUtil {
 
     }
 
+    /**
+     * Wraps a {@link Collection} into a FastUtil {@link ObjectCollection}.
+     */
     public static class WrappingObjectCollection<V> implements ObjectCollection<V> {
         private final Collection<V> backing;
 
@@ -975,11 +1023,16 @@ public final class FastUtilHackUtil {
         }
     }
 
-    // Utility methods
+    /**
+     * Utility methods
+     */
     public static <K> ObjectCollection<K> wrap(Collection<K> c) {
         return new WrappingObjectCollection<>(c);
     }
 
+    /**
+     * Wraps an {@link Iterable} into a FastUtil {@link ObjectIterator}.
+     */
     private record WrapperObjectIterator<T>(Iterator<T> parent) implements ObjectIterator<T> {
         private WrapperObjectIterator(Iterator<T> parent) {
             this.parent = Objects.requireNonNull(parent);
@@ -1001,6 +1054,9 @@ public final class FastUtilHackUtil {
         }
     }
 
+    /**
+     * Returns a FastUtil {@link ObjectIterator} from an {@link Iterable}.
+     */
     public static <T> ObjectIterator<T> itrWrap(Iterable<T> in) {
         return new WrapperObjectIterator<>(in.iterator());
     }

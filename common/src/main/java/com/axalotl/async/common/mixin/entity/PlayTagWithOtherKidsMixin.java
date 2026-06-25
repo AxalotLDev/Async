@@ -12,7 +12,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public class PlayTagWithOtherKidsMixin {
 
     @Inject(method = "whoAreYouChasing", at = @At("HEAD"), cancellable = true)
-    private static void onWhoAreYouChasing(LivingEntity baby, CallbackInfoReturnable<LivingEntity> cir) {
-        cir.setReturnValue(baby.getBrain().getMemory(MemoryModuleType.INTERACTION_TARGET).orElse(null));
+    private static void onWhoAreYouChasing(LivingEntity friend, CallbackInfoReturnable<LivingEntity> cir) {
+        cir.setReturnValue(friend.getBrain().getMemory(MemoryModuleType.INTERACTION_TARGET).orElse(null));
     }
 }
