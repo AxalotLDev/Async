@@ -23,7 +23,7 @@ import java.util.stream.Stream;
 public abstract class EntitySectionStorageMixin<T extends EntityAccess> {
 
     @Unique
-    private ReentrantReadWriteLock.WriteLock writeLock;
+    private ReentrantReadWriteLock.WriteLock async$writeLock;
 
     @Mutable
     @Final
@@ -41,7 +41,7 @@ public abstract class EntitySectionStorageMixin<T extends EntityAccess> {
     @Inject(method = "<init>", at = @At("RETURN"))
     private void replaceWithConcurrentCollections(CallbackInfo ci) {
         ReentrantReadWriteLock rwLock = new ReentrantReadWriteLock();
-        this.writeLock = rwLock.writeLock();
+        this.async$writeLock = rwLock.writeLock();
         this.sections = new Long2ObjectConcurrentHashMap<>();
         this.sectionIds = new ConcurrentLongSortedSet();
     }
@@ -59,24 +59,24 @@ public abstract class EntitySectionStorageMixin<T extends EntityAccess> {
     private EntitySection<T> getOrCreateSection(long key, Operation<EntitySection<T>> original) {
         EntitySection<T> existing = sections.get(key);
         if (existing != null) return existing;
-        writeLock.lock();
+        async$writeLock.lock();
         try {
             existing = sections.get(key);
             if (existing != null) return existing;
             return original.call(key);
         } finally {
-            writeLock.unlock();
+            async$writeLock.unlock();
         }
     }
 
 
     @WrapMethod(method = "remove")
     private void remove(long sectionKey, Operation<Void> original) {
-        writeLock.lock();
+        async$writeLock.lock();
         try {
             original.call(sectionKey);
         } finally {
-            writeLock.unlock();
+            async$writeLock.unlock();
         }
     }
 }

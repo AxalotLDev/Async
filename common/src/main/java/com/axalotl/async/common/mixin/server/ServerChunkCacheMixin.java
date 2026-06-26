@@ -40,7 +40,7 @@ import java.util.function.Consumer;
 @Mixin(value = ServerChunkCache.class, priority = 1500)
 public abstract class ServerChunkCacheMixin extends ChunkSource {
     @Unique
-    private static final Logger LOGGER = LoggerFactory.getLogger(ServerChunkCacheMixin.class);
+    private static final Logger async$LOGGER = LoggerFactory.getLogger(ServerChunkCacheMixin.class);
 
     @Shadow
     @Final
@@ -252,7 +252,7 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
                             }
                         }
                     }, ParallelProcessor.executor).exceptionally(e -> {
-                        LOGGER.error("Error in async entity spawning, switching to synchronous", e);
+                        async$LOGGER.error("Error in async entity spawning, switching to synchronous", e);
                         for (ServerChunkCache.ChunkAndHolder entry : chunks) {
                             LevelChunk chunk = entry.chunk();
                             ChunkPos pos = chunk.getPos();

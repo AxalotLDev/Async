@@ -16,7 +16,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public abstract class FrogMixin extends Animal {
 
     @Unique
-    private final AtomicBoolean breedingFlag = new AtomicBoolean(false);
+    private final AtomicBoolean async$breedingFlag = new AtomicBoolean(false);
 
     protected FrogMixin(EntityType<? extends Animal> entityType, Level world) {
         super(entityType, world);
@@ -27,16 +27,16 @@ public abstract class FrogMixin extends Animal {
         if (this.getId() > partner.getId()) return;
         FrogMixin other = (FrogMixin) partner;
 
-        if (this.breedingFlag.compareAndSet(false, true)) {
-            if (other.breedingFlag.compareAndSet(false, true)) {
+        if (this.async$breedingFlag.compareAndSet(false, true)) {
+            if (other.async$breedingFlag.compareAndSet(false, true)) {
                 try {
                     original.call(level, partner);
                 } finally {
-                    this.breedingFlag.set(false);
-                    other.breedingFlag.set(false);
+                    this.async$breedingFlag.set(false);
+                    other.async$breedingFlag.set(false);
                 }
             } else {
-                this.breedingFlag.set(false);
+                this.async$breedingFlag.set(false);
             }
         }
     }

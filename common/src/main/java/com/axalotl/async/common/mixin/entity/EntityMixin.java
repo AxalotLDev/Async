@@ -32,11 +32,11 @@ public abstract class EntityMixin {
     @WrapMethod(method = "getInBlockState")
     private BlockState wrapGetInBlockState(Operation<BlockState> original) {
         BlockState state = original.call();
-        return state != null ? state : getBlockStateNow();
+        return state != null ? state : async$getBlockStateNow();
     }
 
     @Unique
-    private BlockState getBlockStateNow() {
+    private BlockState async$getBlockStateNow() {
         Level level = this.level();
         if (level instanceof ServerLevel serverLevel) {
             BlockPos pos = this.blockPosition();

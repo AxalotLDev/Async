@@ -10,16 +10,16 @@ import java.util.concurrent.atomic.AtomicLong;
 public abstract class ThreadSafeLegacyRandomSourceMixin {
 
     @Unique
-    private final AtomicLong seed = new AtomicLong();
+    private final AtomicLong async$seed = new AtomicLong();
 
     @Shadow
     @Final
     private MarsagliaPolarGaussian gaussianSource;
 
     @Unique
-    private static final long MULTIPLIER = 25214903917L;
+    private static final long async$MULTIPLIER = 25214903917L;
     @Unique
-    private static final long INCREMENT = 11L;
+    private static final long async$INCREMENT = 11L;
     @Unique
     private static final long MODULUS_MASK = 281474976710655L;
 
@@ -29,7 +29,7 @@ public abstract class ThreadSafeLegacyRandomSourceMixin {
      */
     @Overwrite
     public void setSeed(long seed) {
-        this.seed.set((seed ^ MULTIPLIER) & MODULUS_MASK);
+        this.async$seed.set((seed ^ async$MULTIPLIER) & MODULUS_MASK);
     }
 
     /**
@@ -41,9 +41,9 @@ public abstract class ThreadSafeLegacyRandomSourceMixin {
         long i;
         long j;
         do {
-            i = this.seed.get();
-            j = (i * MULTIPLIER + INCREMENT) & MODULUS_MASK;
-        } while (!this.seed.compareAndSet(i, j));
+            i = this.async$seed.get();
+            j = (i * async$MULTIPLIER + async$INCREMENT) & MODULUS_MASK;
+        } while (!this.async$seed.compareAndSet(i, j));
 
         return (int)(j >>> (48 - bits));
     }

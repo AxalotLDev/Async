@@ -19,23 +19,23 @@ public abstract class FoxBreedGoalMixin extends BreedGoal {
     }
 
     @Unique
-    private static final Map<String, Boolean> breedingPairs = new ConcurrentHashMap<>();
+    private static final Map<String, Boolean> async$breedingPairs = new ConcurrentHashMap<>();
 
     @Inject(method = "start", at = @At("HEAD"))
     private void resetBreedingFlag(CallbackInfo ci) {
-        breedingPairs.remove(getPairKey());
+        async$breedingPairs.remove(async$getPairKey());
     }
 
     @Inject(method = "breed", at = @At("HEAD"), cancellable = true)
     private void preventDoubleBreed(CallbackInfo ci) {
-        String pairKey = getPairKey();
-        if (breedingPairs.putIfAbsent(pairKey, Boolean.TRUE) != null) {
+        String pairKey = async$getPairKey();
+        if (async$breedingPairs.putIfAbsent(pairKey, Boolean.TRUE) != null) {
             ci.cancel();
         }
     }
 
     @Unique
-    private String getPairKey() {
+    private String async$getPairKey() {
         String s1 = this.animal.getUUID().toString();
         if (this.partner == null) return s1;
         String s2 = this.partner.getUUID().toString();

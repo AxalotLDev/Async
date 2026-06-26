@@ -24,7 +24,7 @@ public class MinecartHopperMixin {
     }
 
     @Unique
-    private static Object lockForPos(BlockPos pos) {
+    private static Object async$lockForPos(BlockPos pos) {
         return POSITION_LOCKS[pos.hashCode() & 0xFF];
     }
 
@@ -37,7 +37,7 @@ public class MinecartHopperMixin {
     )
     private boolean wrapSuckInItems(Level level, Hopper hopper, Operation<Boolean> original) {
         BlockPos blockPos = BlockPos.containing(hopper.getLevelX(), hopper.getLevelY() + (double) 1.0F, hopper.getLevelZ());
-        synchronized (lockForPos(blockPos)) {
+        synchronized (async$lockForPos(blockPos)) {
             return original.call(level, hopper);
         }
     }
