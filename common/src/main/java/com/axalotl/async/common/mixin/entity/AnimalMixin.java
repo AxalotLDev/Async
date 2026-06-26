@@ -17,9 +17,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public abstract class AnimalMixin extends Entity {
 
     @Unique
-    private final AtomicBoolean breedingFlag = new AtomicBoolean(false);
+    private final AtomicBoolean async$breedingFlag = new AtomicBoolean(false);
     @Unique
-    private final AtomicBoolean breedingBabyFlag = new AtomicBoolean(false);
+    private final AtomicBoolean async$breedingBabyFlag = new AtomicBoolean(false);
 
     public AnimalMixin(EntityType<?> entityType, Level level) {
         super(entityType, level);
@@ -30,16 +30,16 @@ public abstract class AnimalMixin extends Entity {
         if (this.getId() > partner.getId()) return;
         AnimalMixin other = (AnimalMixin) (Object) partner;
 
-        if (this.breedingFlag.compareAndSet(false, true)) {
-            if (other.breedingFlag.compareAndSet(false, true)) {
+        if (this.async$breedingFlag.compareAndSet(false, true)) {
+            if (other.async$breedingFlag.compareAndSet(false, true)) {
                 try {
                     original.call(level, partner);
                 } finally {
-                    this.breedingFlag.set(false);
-                    other.breedingFlag.set(false);
+                    this.async$breedingFlag.set(false);
+                    other.async$breedingFlag.set(false);
                 }
             } else {
-                this.breedingFlag.set(false);
+                this.async$breedingFlag.set(false);
             }
         }
     }
@@ -49,16 +49,16 @@ public abstract class AnimalMixin extends Entity {
         if (this.getId() > partner.getId()) return;
         AnimalMixin other = (AnimalMixin) (Object) partner;
 
-        if (this.breedingBabyFlag.compareAndSet(false, true)) {
-            if (other.breedingBabyFlag.compareAndSet(false, true)) {
+        if (this.async$breedingBabyFlag.compareAndSet(false, true)) {
+            if (other.async$breedingBabyFlag.compareAndSet(false, true)) {
                 try {
                     original.call(level, partner, offspring);
                 } finally {
-                    this.breedingBabyFlag.set(false);
-                    other.breedingBabyFlag.set(false);
+                    this.async$breedingBabyFlag.set(false);
+                    other.async$breedingBabyFlag.set(false);
                 }
             } else {
-                this.breedingBabyFlag.set(false);
+                this.async$breedingBabyFlag.set(false);
             }
         }
     }

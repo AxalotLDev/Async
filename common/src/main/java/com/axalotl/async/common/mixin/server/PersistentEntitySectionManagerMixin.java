@@ -17,7 +17,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @Mixin(PersistentEntitySectionManager.class)
 public abstract class PersistentEntitySectionManagerMixin implements AutoCloseable {
     @Shadow
-    private final Set<UUID> knownUuids = ConcurrentHashMap.newKeySet();
+    final Set<UUID> knownUuids = ConcurrentHashMap.newKeySet();
 
     @WrapMethod(method = "updateChunkStatus(Lnet/minecraft/world/level/ChunkPos;Lnet/minecraft/world/level/entity/Visibility;)V")
     private void updateChunkStatus(ChunkPos pos, Visibility chunkStatus, @NotNull Operation<Void> original) {

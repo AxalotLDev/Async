@@ -30,7 +30,7 @@ import java.util.function.Supplier;
 @Mixin(value = ServerLevel.class, priority = 1500)
 public abstract class LithiumServerLevel extends Level implements WorldGenLevel, ServerWorldExtended {
     @Unique
-    private final Set<PathNavigation> activeNavigationsOver = ConcurrentCollections.newHashSet();
+    private final Set<PathNavigation> async$activeNavigationsOver = ConcurrentCollections.newHashSet();
 
     protected LithiumServerLevel(WritableLevelData levelData, ResourceKey<Level> dimension, RegistryAccess registryAccess, Holder<DimensionType> dimensionTypeRegistration, Supplier<ProfilerFiller> profiler, boolean isClientSide, boolean isDebug, long biomeZoomSeed, int maxChainedNeighborUpdates) {
         super(levelData, dimension, registryAccess, dimensionTypeRegistration, profiler, isClientSide, isDebug, biomeZoomSeed, maxChainedNeighborUpdates);
@@ -44,7 +44,7 @@ public abstract class LithiumServerLevel extends Level implements WorldGenLevel,
             )
     )
     private void updateActiveListeners(BlockPos pos, BlockState old, BlockState current, int updateFlags, CallbackInfo ci, @Local(name = "navigationsToUpdate") List<PathNavigation> navigationsToUpdate) {
-        for (PathNavigation nav : activeNavigationsOver) {
+        for (PathNavigation nav : async$activeNavigationsOver) {
             if (nav.shouldRecomputePath(pos)) {
                 navigationsToUpdate.add(nav);
             }
@@ -53,11 +53,11 @@ public abstract class LithiumServerLevel extends Level implements WorldGenLevel,
 
     @Override
     public void lithium$setNavigationActive(Mob mobEntity) {
-        activeNavigationsOver.add(((NavigatingEntity) mobEntity).lithium$getRegisteredNavigation());
+        async$activeNavigationsOver.add(((NavigatingEntity) mobEntity).lithium$getRegisteredNavigation());
     }
 
     @Override
     public void lithium$setNavigationInactive(Mob mobEntity) {
-        activeNavigationsOver.remove(((NavigatingEntity) mobEntity).lithium$getRegisteredNavigation());
+        async$activeNavigationsOver.remove(((NavigatingEntity) mobEntity).lithium$getRegisteredNavigation());
     }
 }
