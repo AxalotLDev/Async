@@ -27,4 +27,10 @@ public class AttributeInstanceMixin {
     private Map<ResourceLocation, AttributeModifier> getModifiersConcurrent(AttributeModifier.Operation operation, Operation<Map<ResourceLocation, AttributeModifier>> original) {
         return modifiersByOperation.computeIfAbsent(operation, ignored -> ConcurrentCollections.newHashMap());
     }
+
+    @WrapMethod(method = "addModifier")
+    private void addModifierIdempotent(AttributeModifier modifier, Operation<Void> original) {
+        modifierById.remove(modifier.id());
+        original.call(modifier);
+    }
 }
