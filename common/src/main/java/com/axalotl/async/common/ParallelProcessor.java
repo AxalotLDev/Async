@@ -145,6 +145,15 @@ public class ParallelProcessor {
         waitForFutures(futures);
     }
 
+    public static void invokeAllWithPump(List<Callable<Void>> tasks) {
+        if (tasks.isEmpty()) return;
+        final List<Future<Void>> futures = new ArrayList<>(tasks.size());
+        for (Callable<Void> task : tasks) {
+            futures.add(executor.submit(task));
+        }
+        waitForFutures(futures);
+    }
+
     private static void waitForFutures(List<Future<Void>> futures) {
         boolean allDone;
         do {

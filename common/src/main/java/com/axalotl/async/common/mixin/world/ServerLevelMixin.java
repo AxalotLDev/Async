@@ -129,10 +129,7 @@ public abstract class ServerLevelMixin extends Level implements WorldGenLevel {
                     return null;
                 });
             }
-            try {
-                ParallelProcessor.executor.invokeAll(despawnTasks);
-            } catch (InterruptedException ignored) {
-            }
+            ParallelProcessor.invokeAllWithPump(despawnTasks);
         }
 
         profilerfiller.push("tick");
