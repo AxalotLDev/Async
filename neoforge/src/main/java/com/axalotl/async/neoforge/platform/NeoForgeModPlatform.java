@@ -21,4 +21,9 @@ public class NeoForgeModPlatform implements ModPlatform {
     public boolean isModLoaded(String id) {
         return FMLLoader.getLoadingModList().getModFileById(id) != null;
     }
+
+    @Override
+    public boolean platformUsesRefmap() {
+        return false;
+    }
 }

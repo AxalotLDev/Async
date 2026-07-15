@@ -12,6 +12,10 @@ public class PlatformUtils {
         PlatformUtils.minecraftPlatform = PlatformUtils.load(MinecraftPlatform.class);
     }
 
+    public static boolean platformUsesRefmap() {
+        return MOD_PLATFORM.platformUsesRefmap();
+    }
+
     public static void saveConfig() {
         MOD_PLATFORM.saveConfig();
     }

@@ -1,5 +1,6 @@
 package com.axalotl.async.common.mixin.utils;
 
+import com.axalotl.async.common.platform.PlatformUtils;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Multimap;
 
@@ -33,7 +34,7 @@ public class SynchronisePlugin implements IMixinConfigPlugin {
 
     @Override
     public String getRefMapperConfig() {
-        return null;
+        return PlatformUtils.platformUsesRefmap() ? "async.refmap.json" : null;
     }
 
     @Override
