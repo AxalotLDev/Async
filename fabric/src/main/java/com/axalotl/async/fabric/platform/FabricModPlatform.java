@@ -20,4 +20,9 @@ public class FabricModPlatform implements ModPlatform {
     public boolean isModLoaded(String id) {
         return FabricLoader.getInstance().isModLoaded(id);
     }
+
+    @Override
+    public boolean platformUsesRefmap() {
+        return true;
+    }
 }
