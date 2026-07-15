@@ -67,8 +67,8 @@ loom {
             getGenerateRunConfig().set(true)
             getRunDirectory().set(getProject().file('runs/server'))
             getJvmArguments().addAll(Arrays.asList(
-                    "-Xms4G",
-                    "-Xmx4G",
+                    "-Xms8G",
+                    "-Xmx8G",
                     "-XX:+UnlockExperimentalVMOptions",
                     "-XX:+UseZGC",
                     "-XX:+AlwaysPreTouch",
