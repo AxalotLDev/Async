@@ -42,7 +42,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
@@ -119,21 +118,7 @@ public abstract class ServerLevelMixin extends Level implements WorldGenLevel {
             toTick.add(entity);
         });
 
-        if (!toDespawnCheck.isEmpty()) {
-            int chunkSize = Math.max(1, toDespawnCheck.size() / ParallelProcessor.getPoolSize());
-            List<Callable<Void>> despawnTasks = new ArrayList<>();
-            for (int i = 0; i < toDespawnCheck.size(); i += chunkSize) {
-                List<Entity> chunk = toDespawnCheck.subList(i, Math.min(i + chunkSize, toDespawnCheck.size()));
-                despawnTasks.add(() -> {
-                    for (Entity e : chunk) e.checkDespawn();
-                    return null;
-                });
-            }
-            try {
-                ParallelProcessor.executor.invokeAll(despawnTasks);
-            } catch (InterruptedException ignored) {
-            }
-        }
+        ParallelProcessor.forEachParallel(toDespawnCheck, Entity::checkDespawn);
 
         profilerfiller.push("tick");
         ParallelProcessor.callEntityTickBatch(this.getLevel(), toTick);

@@ -3,6 +3,7 @@ package com.axalotl.async.common.mixin.server;
 import com.axalotl.async.common.ParallelProcessor;
 import com.axalotl.async.common.config.AsyncConfig;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
+import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import net.minecraft.server.level.*;
 import net.minecraft.world.entity.Entity;
@@ -33,6 +34,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.LockSupport;
 import java.util.function.Consumer;
 
@@ -68,9 +70,6 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
     private DistanceManager distanceManager;
 
     @Shadow
-    private volatile NaturalSpawner.@Nullable SpawnState lastSpawnState;
-
-    @Shadow
     @Final
     private ServerLevel level;
 
@@ -90,6 +89,9 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
     private AtomicBoolean isSpawnStateComputing;
 
     @Unique
+    private AtomicReference<NaturalSpawner.SpawnState> readySpawnState;
+
+    @Unique
     private boolean wasAsyncSpawnEnabled;
 
     @Unique
@@ -99,11 +101,12 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
     private List<Runnable> batch;
 
     @Unique
-    private volatile CompletableFuture<Void> pendingSpawnBatch;
+    private CompletableFuture<Void> pendingSpawnBatch;
 
     @Inject(method = "<init>", at = @At("RETURN"))
     private void init(CallbackInfo ci) {
         this.isSpawnStateComputing = new AtomicBoolean(false);
+        this.readySpawnState = new AtomicReference<>();
         this.wasAsyncSpawnEnabled = false;
         this.batch = new ArrayList<>();
         this.pendingSpawnBatch = CompletableFuture.completedFuture(null);
@@ -176,18 +179,36 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
 
         if (!wasAsyncSpawnEnabled) {
             wasAsyncSpawnEnabled = true;
-            lastSpawnState = null;
+            readySpawnState.set(null);
             isSpawnStateComputing.set(false);
             pendingSpawnBatch = CompletableFuture.completedFuture(null);
         }
     }
 
+    @WrapOperation(
+            method = "tickChunks(Lnet/minecraft/util/profiling/ProfilerFiller;J)V",
+            at = @At(value = "INVOKE", target = "Lnet/minecraft/server/level/ChunkMap;forEachBlockTickingChunk(Ljava/util/function/Consumer;)V")
+    )
+    private void parallelRandomTicks(ChunkMap map, Consumer<LevelChunk> tickingChunkConsumer, Operation<Void> original) {
+        if (AsyncConfig.disabled || !AsyncConfig.enableAsyncRandomTicks) {
+            original.call(map, tickingChunkConsumer);
+            return;
+        }
+
+        List<LevelChunk> chunks = new ArrayList<>();
+        original.call(map, (Consumer<LevelChunk>) chunks::add);
+        ParallelProcessor.forEachParallel(chunks, tickingChunkConsumer);
+    }
+
     @Redirect(method = "tickChunks(Lnet/minecraft/util/profiling/ProfilerFiller;J)V", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/NaturalSpawner;createState(ILjava/lang/Iterable;Lnet/minecraft/world/level/NaturalSpawner$ChunkGetter;Lnet/minecraft/world/level/LocalMobCapCalculator;)Lnet/minecraft/world/level/NaturalSpawner$SpawnState;"))
     private NaturalSpawner.SpawnState redirectCreateSpawnState(int spawnableChunkCount, Iterable<Entity> entities, NaturalSpawner.ChunkGetter chunkGetter, LocalMobCapCalculator localMobCapCalculator) {
-        if (AsyncConfig.disabled || !AsyncConfig.enableAsyncSpawn || lastSpawnState == null) {
-            return NaturalSpawner.createState(spawnableChunkCount, entities, chunkGetter, localMobCapCalculator);
+        if (!AsyncConfig.disabled && AsyncConfig.enableAsyncSpawn) {
+            NaturalSpawner.SpawnState ready = readySpawnState.getAndSet(null);
+            if (ready != null) {
+                return ready;
+            }
         }
-        return lastSpawnState;
+        return NaturalSpawner.createState(spawnableChunkCount, entities, chunkGetter, localMobCapCalculator);
     }
 
     @WrapMethod(method = "tickSpawningChunk")
@@ -197,14 +218,8 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
             return;
         }
 
-        NaturalSpawner.SpawnState state = lastSpawnState;
-        if (state == null) {
-            original.call(chunk, timeDiff, spawningCategories, spawnCookie);
-            return;
-        }
-
         synchronized (lock) {
-            batch.add(() -> original.call(chunk, timeDiff, spawningCategories, state));
+            batch.add(() -> original.call(chunk, timeDiff, spawningCategories, spawnCookie));
         }
     }
 
@@ -217,37 +232,60 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
             batch.clear();
         }
 
-        if (AsyncConfig.disabled || !AsyncConfig.enableAsyncSpawn) return;
+        if (AsyncConfig.disabled || !AsyncConfig.enableAsyncSpawn) {
+            runSpawnBatch(currentBatch);
+            return;
+        }
 
-        CompletableFuture<Void> prev = pendingSpawnBatch;
-        pendingSpawnBatch = prev
+        pendingSpawnBatch = pendingSpawnBatch
+                .exceptionally(_ -> null)
+                .thenCompose(_ -> runSpawnBatchParallel(currentBatch));
+    }
+
+    @Unique
+    private CompletableFuture<Void> runSpawnBatchParallel(List<Runnable> tasks) {
+        int chunkSize = ParallelProcessor.chunkSizeFor(tasks.size());
+        List<CompletableFuture<Void>> slices = new ArrayList<>();
+        for (int i = 0; i < tasks.size(); i += chunkSize) {
+            List<Runnable> slice = tasks.subList(i, Math.min(i + chunkSize, tasks.size()));
+            slices.add(CompletableFuture.runAsync(() -> runSpawnBatch(slice), ParallelProcessor.executor));
+        }
+        return CompletableFuture.allOf(slices.toArray(new CompletableFuture[0]));
+    }
+
+    @Unique
+    private void runSpawnBatch(List<Runnable> tasks) {
+        for (Runnable task : tasks) {
+            try {
+                task.run();
+            } catch (Throwable e) {
+                LOGGER.error("Error in async entity spawning", e);
+            }
+        }
+    }
+
+    @Inject(method = "tickChunks()V", at = @At("TAIL"))
+    private void scheduleSpawnStateRecompute(CallbackInfo ci) {
+        if (AsyncConfig.disabled || !AsyncConfig.enableAsyncSpawn) return;
+        if (readySpawnState.get() != null) return;
+        if (isSpawnStateComputing.getAndSet(true)) return;
+
+        final int chunkCount = distanceManager.getNaturalSpawnChunkCount();
+        final Iterable<Entity> entities = this.level.getAllEntities();
+        pendingSpawnBatch = pendingSpawnBatch
                 .exceptionally(_ -> null)
                 .thenRunAsync(() -> {
-                    for (Runnable task : currentBatch) {
-                        task.run();
+                    try {
+                        readySpawnState.set(NaturalSpawner.createState(
+                                chunkCount, entities, this::getFullChunk, new LocalMobCapCalculator(this.chunkMap)));
+                    } finally {
+                        isSpawnStateComputing.set(false);
                     }
                 }, ParallelProcessor.executor)
                 .whenComplete((_, e) -> {
                     if (e != null) {
-                        LOGGER.error("Error in async entity spawning", e);
+                        LOGGER.error("Error computing async spawn state", e);
                     }
                 });
-    }
-
-    @Inject(method = "tickChunks()V", at = @At("TAIL"))
-    private void tickChunks(CallbackInfo ci) {
-        if (AsyncConfig.disabled || !AsyncConfig.enableAsyncSpawn) return;
-
-        if (!isSpawnStateComputing.getAndSet(true)) {
-            final int chunkCount = distanceManager.getNaturalSpawnChunkCount();
-            final Iterable<Entity> entities = this.level.getAllEntities();
-            ParallelProcessor.executor.submit(() -> {
-                try {
-                    lastSpawnState = NaturalSpawner.createState(chunkCount, entities, this::getFullChunk, new LocalMobCapCalculator(this.chunkMap));
-                } finally {
-                    isSpawnStateComputing.set(false);
-                }
-            });
-        }
     }
 }

@@ -1,2 +1,10 @@
 - Fixed incompatibility with VMP
-- Fixed an error receiving a remote entity's packet
+- Fixed dead entities staying visible to clients as unremovable ghosts
+- Fixed mob farms spawning much slower with `enableAsyncSpawn`
+- Fixed `ArrayIndexOutOfBoundsException` during async spawning
+- Fixed the ender dragon no longer landing or shooting fireballs
+- Fixed chunk corruption on save caused by unsynchronized palette access
+- Fixed one failing chunk cancelling the remaining spawn attempts in a tick
+- Fixed a crash with mods that cache the ticking chunk list (ServerCore)
+- Improved thread pool utilization and reduced barrier overhead
+- Default thread count is now one less than the core count

@@ -8,6 +8,7 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.boss.enderdragon.EnderDragon;
 import net.minecraft.world.entity.item.FallingBlockEntity;
 import net.minecraft.world.entity.monster.Shulker;
 import net.minecraft.world.entity.player.Player;
@@ -44,14 +45,34 @@ public class ParallelProcessor {
             FallingBlockEntity.class,
             Shulker.class,
             AbstractBoat.class,
-            Boat.class
+            Boat.class,
+            EnderDragon.class
     );
 
     //Cache
     private static final Map<Class<?>, Boolean> ASYNC_API_CACHE = new ConcurrentHashMap<>();
 
+    private static final Map<Class<?>, Boolean> SYNC_BY_CLASS = new ConcurrentHashMap<>();
+
+    public static void onSyncRulesChanged() {
+        SYNC_BY_CLASS.clear();
+    }
+
     //Threads
     private static final Map<String, Set<WeakReference<Thread>>> MC_THREAD_TRACKER = new ConcurrentHashMap<>();
+
+    //Batch
+    private static final int MIN_ASYNC_BATCH = 64;
+
+    private static final int TASKS_PER_THREAD = 8;
+
+    private static final int MIN_CHUNK = 8;
+
+    public static int chunkSizeFor(int workItems) {
+        int targetTasks = Math.max(1, getPoolSize()) * TASKS_PER_THREAD;
+        int chunkSize = (workItems + targetTasks - 1) / targetTasks;
+        return Math.max(MIN_CHUNK, chunkSize);
+    }
 
     public static void setupThreadPool(int parallelism, Class<?> asyncClass) {
         isShuttingDown = false;
@@ -104,7 +125,6 @@ public class ParallelProcessor {
         return 0;
     }
 
-    @SuppressWarnings("unchecked")
     public static void callEntityTickBatch(ServerLevel world, List<Entity> entities) {
         if (entities.isEmpty()) return;
 
@@ -126,64 +146,114 @@ public class ParallelProcessor {
                 asyncEntities.add(entity);
             }
         }
-        final List<Future<Void>> futures = new ArrayList<>();
-        if (!asyncEntities.isEmpty()) {
-            final int poolSize = getPoolSize();
-            final int chunkSize = Math.max(1, (asyncEntities.size() + poolSize - 1) / poolSize);
-
-            for (int i = 0; i < asyncEntities.size(); i += chunkSize) {
-                final List<Entity> chunk = asyncEntities.subList(i, Math.min(i + chunkSize, asyncEntities.size()));
-                Future<Void> future = (Future<Void>) executor.submit(() -> {
-                    for (Entity entity : chunk) {
-                        tickEntity(world, entity, true);
-                    }
-                });
-                futures.add(future);
-            }
+        if (asyncEntities.size() < MIN_ASYNC_BATCH) {
+            asyncEntities.forEach(e -> tickEntity(world, e, false));
+            syncEntities.forEach(e -> tickEntity(world, e, false));
+            return;
         }
+
+        final int chunkSize = chunkSizeFor(asyncEntities.size());
+        final List<Runnable> work = new ArrayList<>();
+        for (int i = 0; i < asyncEntities.size(); i += chunkSize) {
+            final List<Entity> chunk = asyncEntities.subList(i, Math.min(i + chunkSize, asyncEntities.size()));
+            work.add(() -> {
+                for (Entity entity : chunk) {
+                    tickEntity(world, entity, true);
+                }
+            });
+        }
+
         syncEntities.forEach(e -> tickEntity(world, e, false));
-        waitForFutures(futures);
+        runParallel(work);
     }
 
-    private static void waitForFutures(List<Future<Void>> futures) {
-        boolean allDone;
-        do {
-            allDone = futures.stream().allMatch(Future::isDone);
-            if (!allDone) {
-                boolean pumped = false;
-                for (ServerLevel lvl : server.getAllLevels()) {
-                    pumped |= lvl.getChunkSource().pollTask();
-                }
-                if (!pumped) Thread.onSpinWait();
-            }
-        } while (!allDone);
+    public static <T> void forEachParallel(List<T> items, java.util.function.Consumer<T> action) {
+        if (items.isEmpty()) return;
+        if (items.size() < MIN_ASYNC_BATCH) {
+            items.forEach(action);
+            return;
+        }
 
-        for (Future<Void> future : futures) {
-            try {
-                future.get();
-            } catch (ExecutionException e) {
-                LOGGER.error("Error during async entity tick", e.getCause());
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                return;
+        int chunkSize = chunkSizeFor(items.size());
+        List<Runnable> work = new ArrayList<>();
+        for (int i = 0; i < items.size(); i += chunkSize) {
+            List<T> slice = items.subList(i, Math.min(i + chunkSize, items.size()));
+            work.add(() -> slice.forEach(action));
+        }
+        runParallel(work);
+    }
+
+    private static void runParallel(List<Runnable> work) {
+        if (work.isEmpty()) return;
+
+        final Queue<Runnable> queue = new ConcurrentLinkedQueue<>(work);
+        final int workers = Math.max(1, getPoolSize());
+        final CountDownLatch done = new CountDownLatch(workers);
+        for (int i = 0; i < workers; i++) {
+            executor.execute(() -> {
+                try {
+                    drain(queue);
+                } finally {
+                    done.countDown();
+                }
+            });
+        }
+
+        awaitCompletion(done);
+    }
+
+    private static void drain(Queue<Runnable> queue) {
+        Runnable chunk;
+        while ((chunk = queue.poll()) != null) {
+            runChunk(chunk);
+        }
+    }
+
+    private static void runChunk(Runnable chunk) {
+        try {
+            chunk.run();
+        } catch (Throwable e) {
+            LOGGER.error("Error during parallel tick chunk", e);
+        }
+    }
+
+    private static void pumpMainThreadTasks() {
+        for (ServerLevel lvl : server.getAllLevels()) {
+            lvl.getChunkSource().pollTask();
+        }
+    }
+
+    private static void awaitCompletion(CountDownLatch done) {
+        try {
+            while (!done.await(200, TimeUnit.MICROSECONDS)) {
+                pumpMainThreadTasks();
             }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
         }
     }
 
     public static boolean shouldTickSynchronously(Entity entity) {
-        if (isShuttingDown || entity.level().isClientSide() || entity.portalProcess != null) {
+        if (isShuttingDown || AsyncConfig.disabled || entity.portalProcess != null || entity.level().isClientSide()) {
             return true;
         }
 
-        UUID entityId = entity.getUUID();
+        if (!BLACKLISTED_ENTITIES.isEmpty() && BLACKLISTED_ENTITIES.contains(entity.getUUID())) {
+            return true;
+        }
 
-        return AsyncConfig.disabled
-                || entitySupportsAsyncApi(entity)
+        Boolean cached = SYNC_BY_CLASS.get(entity.getClass());
+        if (cached != null) {
+            return cached;
+        }
+
+        boolean sync = entitySupportsAsyncApi(entity)
                 || entity instanceof Projectile
                 || entity instanceof Player
                 || BLOCKED_ENTITIES.contains(entity.getClass())
-                || BLACKLISTED_ENTITIES.contains(entityId)
                 || AsyncConfig.isEntitySynchronized(EntityType.getKey(entity.getType()));
+        SYNC_BY_CLASS.put(entity.getClass(), sync);
+        return sync;
     }
 
     public static boolean entitySupportsAsyncApi(Entity entity) {

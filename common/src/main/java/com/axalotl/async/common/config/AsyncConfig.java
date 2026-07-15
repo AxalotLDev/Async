@@ -1,5 +1,6 @@
 package com.axalotl.async.common.config;
 
+import com.axalotl.async.common.ParallelProcessor;
 import com.axalotl.async.common.platform.PlatformUtils;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
@@ -32,8 +33,9 @@ public class AsyncConfig {
     }
 
     public static int getParallelism() {
-        if (maxThreads <= 0) return Runtime.getRuntime().availableProcessors();
-        return Math.clamp(maxThreads, 1, Runtime.getRuntime().availableProcessors());
+        int cores = Runtime.getRuntime().availableProcessors();
+        if (maxThreads <= 0) return Math.max(1, cores - 1);
+        return Math.clamp(maxThreads, 1, cores);
     }
 
     public static boolean isNamespaceWildcard(String input) {
@@ -77,6 +79,7 @@ public class AsyncConfig {
     }
 
     private static void rebuildCaches() {
+        ParallelProcessor.onSyncRulesChanged();
         syncCache.clear();
         exactEntities.clear();
         namespaceWildcards.clear();
@@ -116,6 +119,7 @@ public class AsyncConfig {
     }
 
     public static void clearCaches() {
+        ParallelProcessor.onSyncRulesChanged();
         syncCache.clear();
         exactEntities.clear();
         namespaceWildcards.clear();
