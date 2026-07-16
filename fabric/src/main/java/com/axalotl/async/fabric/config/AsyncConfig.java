@@ -56,11 +56,13 @@ public class AsyncConfig {
     }
 
     public static void saveConfig() {
-        setWithComment("disabled", disabled, "Enables parallel processing of entities.");
-        setWithComment("maxThreads", maxThreads, "Maximum worker threads. -1 = auto.");
+        setWithComment("disabled", disabled, "Disables the mod. All entities are ticked on the main thread.");
+        setWithComment("maxThreads", maxThreads,
+                "Worker threads for parallel ticking. -1 = auto (one less than the core count). Capped at the core count.");
         setWithComment("synchronizedEntities", new ArrayList<>(synchronizedEntities),
                 """
-                        List of entity IDs or namespaces (*):
+                        Entities ticked on the main thread instead of in parallel.
+                        Entity IDs or namespaces (*):
                           - 'minecraft:zombie' = specific entity
                           - 'minecraft:*'      = all entities in namespace""");
         setWithComment("enableAsyncSpawn", enableAsyncSpawn,
@@ -94,10 +96,12 @@ public class AsyncConfig {
     }
 
     private static void restoreComments() {
-        setCommentIfExists("disabled", "Enables parallel processing of entities.");
-        setCommentIfExists("maxThreads", "Maximum worker threads. -1 = auto.");
+        setCommentIfExists("disabled", "Disables the mod. All entities are ticked on the main thread.");
+        setCommentIfExists("maxThreads",
+                "Worker threads for parallel ticking. -1 = auto (one less than the core count). Capped at the core count.");
         setCommentIfExists("synchronizedEntities", """
-                List of entity IDs or namespaces (*):
+                Entities ticked on the main thread instead of in parallel.
+                Entity IDs or namespaces (*):
                   - 'minecraft:zombie' = specific entity
                   - 'minecraft:*'      = all entities in namespace""");
         setCommentIfExists("enableAsyncSpawn", "Enables async entity spawning. WARNING: incompatible with Carpet's lagFreeSpawning.");
