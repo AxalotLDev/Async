@@ -22,14 +22,15 @@ public class AsyncConfig {
     static {
         BUILDER.push("Async Config");
 
-        disabled = BUILDER.comment("Enables parallel processing of entities.")
+        disabled = BUILDER.comment("Disables the mod. All entities are ticked on the main thread.")
                 .define("disabled", com.axalotl.async.common.config.AsyncConfig.disabled);
 
-        maxThreads = BUILDER.comment("Maximum worker threads. -1 = auto.")
+        maxThreads = BUILDER.comment("Worker threads for parallel ticking. -1 = auto (one less than the core count). Capped at the core count.")
                 .defineInRange("maxThreads", com.axalotl.async.common.config.AsyncConfig.maxThreads, -1, Integer.MAX_VALUE);
 
         synchronizedEntities = BUILDER.comment("""
-                        List of entity IDs or namespaces (*):
+                        Entities ticked on the main thread instead of in parallel.
+                        Entity IDs or namespaces (*):
                           - 'minecraft:zombie' = specific entity
                           - 'minecraft:*'      = all entities in namespace""")
                 .defineListAllowEmpty(
