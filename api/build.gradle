@@ -8,7 +8,7 @@ plugins {
 }
 
 group = 'io.github.axalotldev'
-version = "1.0.3"
+version = "1.0.5"
 
 base {
     archivesName = "${mod_id}-${project.name}"
