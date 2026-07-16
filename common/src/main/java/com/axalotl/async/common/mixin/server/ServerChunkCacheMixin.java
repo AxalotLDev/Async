@@ -185,10 +185,7 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
         }
     }
 
-    @WrapOperation(
-            method = "tickChunks(Lnet/minecraft/util/profiling/ProfilerFiller;J)V",
-            at = @At(value = "INVOKE", target = "Lnet/minecraft/server/level/ChunkMap;forEachBlockTickingChunk(Ljava/util/function/Consumer;)V")
-    )
+    @WrapOperation(method = "tickChunks(Lnet/minecraft/util/profiling/ProfilerFiller;J)V", at = @At(value = "INVOKE", target = "Lnet/minecraft/server/level/ChunkMap;forEachBlockTickingChunk(Ljava/util/function/Consumer;)V"))
     private void parallelRandomTicks(ChunkMap map, Consumer<LevelChunk> tickingChunkConsumer, Operation<Void> original) {
         if (AsyncConfig.disabled || !AsyncConfig.enableAsyncRandomTicks) {
             original.call(map, tickingChunkConsumer);
