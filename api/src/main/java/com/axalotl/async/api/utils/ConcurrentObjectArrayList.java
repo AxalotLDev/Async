@@ -15,9 +15,14 @@ import java.util.stream.Stream;
  * ({@link #iterator()}, {@link #forEach(Consumer)}, {@link #stream()}) operate on a snapshot taken
  * under the lock, so concurrent readers never observe a partially-mutated list or throw
  * {@link java.util.ConcurrentModificationException}.</p>
+ *
+ * @param <T> the element type
  */
 public class ConcurrentObjectArrayList<T> extends ObjectArrayList<T> {
 
+    /**
+     * Creates an empty list.
+     */
     public ConcurrentObjectArrayList() {
         super();
     }

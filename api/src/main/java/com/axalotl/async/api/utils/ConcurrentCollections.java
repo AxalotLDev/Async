@@ -10,8 +10,14 @@ import java.util.stream.Collectors;
 /**
  * Factory methods for creating thread-safe collection instances.
  * Provides convenient methods to create concurrent collections with standard interfaces.
+ * <p>
+ * This class is not intended to be instantiated.
  */
-public class ConcurrentCollections {
+public final class ConcurrentCollections {
+
+    private ConcurrentCollections() {
+        throw new AssertionError("No instances");
+    }
 
     /**
      * Creates a new thread-safe set
