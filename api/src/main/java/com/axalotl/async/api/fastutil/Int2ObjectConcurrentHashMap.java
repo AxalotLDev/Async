@@ -37,6 +37,12 @@ public final class Int2ObjectConcurrentHashMap<V> implements Int2ObjectMap<V> {
     private final ConcurrentHashMap<Integer, V> backing = new ConcurrentHashMap<>(16, 0.9f, 1);
     private V defaultReturnValue;
 
+    /**
+     * Creates an empty map.
+     */
+    public Int2ObjectConcurrentHashMap() {
+    }
+
     @Override
     public V get(int key) {
         return backing.getOrDefault(key, defaultReturnValue);
@@ -114,8 +120,8 @@ public final class Int2ObjectConcurrentHashMap<V> implements Int2ObjectMap<V> {
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
-        if (!(o instanceof Int2ObjectMap<?> that)) return false;
-        return size() == that.size() && int2ObjectEntrySet().containsAll(that.int2ObjectEntrySet());
+        if (!(o instanceof Map<?, ?>)) return false;
+        return backing.equals(o);
     }
 
     @Override
