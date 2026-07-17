@@ -25,7 +25,7 @@ public class AsyncConfig {
         disabled = BUILDER.comment("Disables the mod. All entities are ticked on the main thread.")
                 .define("disabled", com.axalotl.async.common.config.AsyncConfig.disabled);
 
-        maxThreads = BUILDER.comment("Worker threads for parallel ticking. -1 = auto (one less than the core count). Capped at the core count.")
+        maxThreads = BUILDER.comment("Worker threads for parallel ticking. -1 = auto.")
                 .defineInRange("maxThreads", com.axalotl.async.common.config.AsyncConfig.maxThreads, -1, Integer.MAX_VALUE);
 
         synchronizedEntities = BUILDER.comment("""

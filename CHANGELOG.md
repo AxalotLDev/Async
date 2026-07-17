@@ -6,5 +6,12 @@
 - Fixed chunk corruption on save caused by unsynchronized palette access
 - Fixed one failing chunk cancelling the remaining spawn attempts in a tick
 - Fixed a crash with mods that cache the ticking chunk list (ServerCore)
+- Fixed `enableAsyncSpawn` rebuilding the spawn state on the main thread every tick on large worlds
+- Fixed a race in Lithium's block change trackers that could lose trackers or throw during a block change
+- Fixed hopper minecarts writing to a container while another mob hauled from it, losing or duplicating items
+- Fixed entities continuing to tick past the barrier when the server thread was interrupted
+- Improved block reads: the palette no longer takes a lock to read
+- Improved mob spawning: thread-local random, and the mob cap check no longer serializes every worker
 - Improved thread pool utilization and reduced barrier overhead
-- Default thread count is now one less than the core count
+- Reduced lock contention with Lithium, VMP and C2ME
+- Default thread count now scales down from the logical thread count, leaving room for the main thread and GC

@@ -85,6 +85,12 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
     @Shadow
     public abstract void tickSpawningChunk(LevelChunk chunk, long timeDiff, List<MobCategory> spawningCategories, NaturalSpawner.SpawnState spawnCookie);
 
+    @Shadow
+    private NaturalSpawner.SpawnState lastSpawnState;
+
+    @Unique
+    private boolean spawnStateStale;
+
     @Unique
     private AtomicBoolean isSpawnStateComputing;
 
@@ -131,6 +137,7 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
         while (!future.isDone()) {
             if (System.nanoTime() > deadline) {
                 future.cancel(false);
+                LOGGER.warn("Timed out after 60s waiting for chunk [{}, {}] at status {}; falling back to the vanilla blocking path", x, z, targetStatus);
                 return;
             }
             ChunkAccess cached = tryGetChunk(x, z, targetStatus);
@@ -199,13 +206,27 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
 
     @Redirect(method = "tickChunks(Lnet/minecraft/util/profiling/ProfilerFiller;J)V", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/NaturalSpawner;createState(ILjava/lang/Iterable;Lnet/minecraft/world/level/NaturalSpawner$ChunkGetter;Lnet/minecraft/world/level/LocalMobCapCalculator;)Lnet/minecraft/world/level/NaturalSpawner$SpawnState;"))
     private NaturalSpawner.SpawnState redirectCreateSpawnState(int spawnableChunkCount, Iterable<Entity> entities, NaturalSpawner.ChunkGetter chunkGetter, LocalMobCapCalculator localMobCapCalculator) {
+        spawnStateStale = false;
         if (!AsyncConfig.disabled && AsyncConfig.enableAsyncSpawn) {
             NaturalSpawner.SpawnState ready = readySpawnState.getAndSet(null);
             if (ready != null) {
                 return ready;
             }
+            NaturalSpawner.SpawnState previous = lastSpawnState;
+            if (previous != null) {
+                spawnStateStale = true;
+                return previous;
+            }
         }
         return NaturalSpawner.createState(spawnableChunkCount, entities, chunkGetter, localMobCapCalculator);
+    }
+
+    @Redirect(method = "tickChunks(Lnet/minecraft/util/profiling/ProfilerFiller;J)V", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/NaturalSpawner;getFilteredSpawningCategories(Lnet/minecraft/world/level/NaturalSpawner$SpawnState;ZZZ)Ljava/util/List;"))
+    private List<MobCategory> skipSpawningWhileStateIsStale(NaturalSpawner.SpawnState state, boolean spawnFriendlies, boolean spawnEnemies, boolean spawnPersistent) {
+        if (spawnStateStale) {
+            return List.of();
+        }
+        return NaturalSpawner.getFilteredSpawningCategories(state, spawnFriendlies, spawnEnemies, spawnPersistent);
     }
 
     @WrapMethod(method = "tickSpawningChunk")
@@ -241,11 +262,12 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
 
     @Unique
     private CompletableFuture<Void> runSpawnBatchParallel(List<Runnable> tasks) {
-        int chunkSize = ParallelProcessor.chunkSizeFor(tasks.size());
+        int chunkSize = ParallelProcessor.SPAWN_COST.chunkSize(tasks.size());
         List<CompletableFuture<Void>> slices = new ArrayList<>();
         for (int i = 0; i < tasks.size(); i += chunkSize) {
             List<Runnable> slice = tasks.subList(i, Math.min(i + chunkSize, tasks.size()));
-            slices.add(CompletableFuture.runAsync(() -> runSpawnBatch(slice), ParallelProcessor.executor));
+            Runnable timed = ParallelProcessor.SPAWN_COST.wrap(slice.size(), () -> runSpawnBatch(slice));
+            slices.add(CompletableFuture.runAsync(timed, ParallelProcessor.BACKGROUND));
         }
         return CompletableFuture.allOf(slices.toArray(new CompletableFuture[0]));
     }
@@ -278,7 +300,7 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
                     } finally {
                         isSpawnStateComputing.set(false);
                     }
-                }, ParallelProcessor.executor)
+                }, ParallelProcessor.BACKGROUND)
                 .whenComplete((_, e) -> {
                     if (e != null) {
                         LOGGER.error("Error computing async spawn state", e);

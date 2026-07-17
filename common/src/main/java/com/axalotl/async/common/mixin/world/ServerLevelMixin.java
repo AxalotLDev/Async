@@ -90,38 +90,46 @@ public abstract class ServerLevelMixin extends Level implements WorldGenLevel {
     @Redirect(method = "tick", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/entity/EntityTickList;forEach(Ljava/util/function/Consumer;)V"))
     private void overwriteEntityTicking(EntityTickList entityTickList, Consumer<Entity> consumer) {
         ProfilerFiller profilerfiller = Profiler.get();
+        final boolean asyncDespawn = !AsyncConfig.disabled && AsyncConfig.enableAsyncSpawn;
 
         List<Entity> toTick = new ArrayList<>();
-        List<Entity> toDespawnCheck = new ArrayList<>();
+        List<Entity> despawn = new ArrayList<>();
 
         this.entityTickList.forEach(entity -> {
             if (entity == null || entity.isRemoved()) return;
             if (this.tickRateManager().isEntityFrozen(entity)) return;
 
-            if (!AsyncConfig.disabled && AsyncConfig.enableAsyncSpawn) {
-                toDespawnCheck.add(entity);
-            } else {
+            if (!asyncDespawn) {
                 profilerfiller.push("checkDespawn");
                 entity.checkDespawn();
                 profilerfiller.pop();
             }
 
-            if (!this.chunkSource.chunkMap.getDistanceManager()
-                    .inEntityTickingRange(entity.chunkPosition().pack())) return;
+            if (!(entity instanceof ServerPlayer)
+                    && !this.chunkSource.chunkMap.getDistanceManager()
+                    .inEntityTickingRange(entity.chunkPosition().pack())) {
+                if (asyncDespawn) despawn.add(entity);
+                return;
+            }
 
             Entity vehicle = entity.getVehicle();
             if (vehicle != null) {
-                if (!vehicle.isRemoved() && vehicle.hasPassenger(entity)) return;
+                if (!vehicle.isRemoved() && vehicle.hasPassenger(entity)) {
+                    if (asyncDespawn) despawn.add(entity);
+                    return;
+                }
                 entity.stopRiding();
             }
 
             toTick.add(entity);
         });
 
-        ParallelProcessor.forEachParallel(toDespawnCheck, Entity::checkDespawn);
-
         profilerfiller.push("tick");
-        ParallelProcessor.callEntityTickBatch(this.getLevel(), toTick);
+        if (asyncDespawn) {
+            ParallelProcessor.callEntityTickBatch(this.getLevel(), toTick, despawn);
+        } else {
+            ParallelProcessor.callEntityTickBatch(this.getLevel(), toTick);
+        }
         profilerfiller.pop();
     }
 

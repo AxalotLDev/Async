@@ -2,8 +2,11 @@ package com.axalotl.async.common;
 
 import com.axalotl.async.api.utils.AsyncCompatible;
 import com.axalotl.async.common.config.AsyncConfig;
+import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
+import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import lombok.Getter;
 import lombok.Setter;
+import net.minecraft.world.level.ChunkPos;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
@@ -23,6 +26,7 @@ import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.LongAdder;
+import java.util.function.Consumer;
 
 import static com.axalotl.async.common.utils.TickStats.*;
 
@@ -38,6 +42,11 @@ public class ParallelProcessor {
     public static ExecutorService executor;
     private static final AtomicInteger THREAD_POOL_ID = new AtomicInteger();
     private static volatile boolean isShuttingDown = false;
+
+    private static final Queue<Runnable> FOREGROUND_TASKS = new ConcurrentLinkedQueue<>();
+    private static final Queue<Runnable> BACKGROUND_TASKS = new ConcurrentLinkedQueue<>();
+
+    public static final Executor BACKGROUND = ParallelProcessor::executeBackground;
 
     //Blacklist
     private static final Set<UUID> BLACKLISTED_ENTITIES = ConcurrentHashMap.newKeySet();
@@ -62,16 +71,80 @@ public class ParallelProcessor {
     private static final Map<String, Set<WeakReference<Thread>>> MC_THREAD_TRACKER = new ConcurrentHashMap<>();
 
     //Batch
-    private static final int MIN_ASYNC_BATCH = 64;
+    private static final int SECTION_SHIFT = 2;
 
-    private static final int TASKS_PER_THREAD = 8;
+    public static void executeForeground(Runnable task) {
+        FOREGROUND_TASKS.add(task);
+        executor.execute(ParallelProcessor::runOnePrioritized);
+    }
 
-    private static final int MIN_CHUNK = 8;
+    public static void executeBackground(Runnable task) {
+        BACKGROUND_TASKS.add(task);
+        executor.execute(ParallelProcessor::runOnePrioritized);
+    }
 
-    public static int chunkSizeFor(int workItems) {
-        int targetTasks = Math.max(1, getPoolSize()) * TASKS_PER_THREAD;
-        int chunkSize = (workItems + targetTasks - 1) / targetTasks;
-        return Math.max(MIN_CHUNK, chunkSize);
+    private static void runOnePrioritized() {
+        Runnable task = FOREGROUND_TASKS.poll();
+        if (task == null) task = BACKGROUND_TASKS.poll();
+        if (task == null) return;
+        try {
+            task.run();
+        } catch (Throwable e) {
+            LOGGER.error("Error in pool task", e);
+        }
+    }
+
+    public static final CostModel ENTITY_TICK_COST = new CostModel(25_000);
+    public static final CostModel DESPAWN_COST = new CostModel(2_000);
+    public static final CostModel GENERIC_COST = new CostModel(100_000);
+    public static final CostModel SPAWN_COST = new CostModel(100_000);
+
+    public static final class CostModel {
+        private static final long TARGET_TASK_NANOS = 250_000;
+        private static final long MIN_PARALLEL_NANOS = 2 * TARGET_TASK_NANOS;
+        private static final double SMOOTHING = 0.25;
+
+        private final LongAdder batchNanos = new LongAdder();
+        private final LongAdder batchItems = new LongAdder();
+        private volatile double nanosPerItem;
+
+        CostModel(double seedNanosPerItem) {
+            this.nanosPerItem = seedNanosPerItem;
+        }
+
+        public Runnable wrap(int items, Runnable task) {
+            return () -> {
+                long start = System.nanoTime();
+                try {
+                    task.run();
+                } finally {
+                    batchNanos.add(System.nanoTime() - start);
+                    batchItems.add(items);
+                }
+            };
+        }
+
+        private synchronized void fold() {
+            long items = batchItems.sumThenReset();
+            if (items <= 0) return;
+            long nanos = batchNanos.sumThenReset();
+            double sample = Math.clamp((double) nanos / items, 100.0, 2_000_000.0);
+            double current = nanosPerItem;
+            nanosPerItem = current + (sample - current) * SMOOTHING;
+        }
+
+        public int chunkSize(int workItems) {
+            fold();
+            int byCost = (int) Math.max(1, (long) (TARGET_TASK_NANOS / nanosPerItem));
+            int participants = Math.max(1, getPoolSize()) + 1;
+            int fairShare = Math.max(1, (workItems + participants - 1) / participants);
+            return Math.clamp(byCost, 1, fairShare);
+        }
+
+        public boolean shouldRunSequentially(int workItems) {
+            fold();
+            return workItems * nanosPerItem < MIN_PARALLEL_NANOS;
+        }
     }
 
     public static void setupThreadPool(int parallelism, Class<?> asyncClass) {
@@ -126,18 +199,23 @@ public class ParallelProcessor {
     }
 
     public static void callEntityTickBatch(ServerLevel world, List<Entity> entities) {
-        if (entities.isEmpty()) return;
+        callEntityTickBatch(world, entities, null);
+    }
+
+    public static void callEntityTickBatch(ServerLevel world, List<Entity> entities, List<Entity> despawnOnly) {
+        final boolean despawn = despawnOnly != null;
+        if (entities.isEmpty() && (!despawn || despawnOnly.isEmpty())) return;
 
         if (AsyncConfig.disabled) {
-            entities.forEach(e -> tickEntity(world, e, false));
+            if (despawn) despawnOnly.forEach(ParallelProcessor::checkDespawn);
+            entities.forEach(e -> tickOne(world, e, false, despawn));
             return;
         }
 
         List<Entity> asyncEntities = new ArrayList<>();
         List<Entity> syncEntities = new ArrayList<>();
-        final Set<Entity> seen = Collections.newSetFromMap(new IdentityHashMap<>(entities.size()));
         for (Entity entity : entities) {
-            if (entity == null || entity.isRemoved() || !seen.add(entity)) {
+            if (entity == null || entity.isRemoved()) {
                 continue;
             }
             if (shouldTickSynchronously(entity)) {
@@ -146,74 +224,170 @@ public class ParallelProcessor {
                 asyncEntities.add(entity);
             }
         }
-        if (asyncEntities.size() < MIN_ASYNC_BATCH) {
-            asyncEntities.forEach(e -> tickEntity(world, e, false));
-            syncEntities.forEach(e -> tickEntity(world, e, false));
+        if (ENTITY_TICK_COST.shouldRunSequentially(asyncEntities.size())) {
+            if (despawn) despawnOnly.forEach(ParallelProcessor::checkDespawn);
+            asyncEntities.forEach(e -> tickOne(world, e, false, despawn));
+            syncEntities.forEach(e -> tickOne(world, e, false, despawn));
             return;
         }
 
-        final int chunkSize = chunkSizeFor(asyncEntities.size());
-        final List<Runnable> work = new ArrayList<>();
-        for (int i = 0; i < asyncEntities.size(); i += chunkSize) {
-            final List<Entity> chunk = asyncEntities.subList(i, Math.min(i + chunkSize, asyncEntities.size()));
-            work.add(() -> {
-                for (Entity entity : chunk) {
-                    tickEntity(world, entity, true);
-                }
-            });
+        final List<Runnable> work = buildSpatialWork(asyncEntities,
+                e -> tickOne(world, e, true, despawn));
+        if (despawn && !despawnOnly.isEmpty()) {
+            addSlices(work, despawnOnly, DESPAWN_COST.chunkSize(despawnOnly.size()), DESPAWN_COST,
+                    ParallelProcessor::checkDespawn);
         }
 
-        syncEntities.forEach(e -> tickEntity(world, e, false));
-        runParallel(work);
+        ParallelBatch batch = submitParallel(work);
+        syncEntities.forEach(e -> tickOne(world, e, false, despawn));
+        finishParallel(batch);
     }
 
-    public static <T> void forEachParallel(List<T> items, java.util.function.Consumer<T> action) {
+    private static void tickOne(ServerLevel world, Entity entity, boolean async, boolean despawn) {
+        if (despawn) checkDespawn(entity);
+        tickEntity(world, entity, async);
+    }
+
+    private static void checkDespawn(Entity entity) {
+        try {
+            entity.checkDespawn();
+        } catch (Exception e) {
+            LOGGER.error("Error during despawn check. Entity: {}, UUID: {}", entity.getType(), entity.getUUID(), e);
+        }
+    }
+
+    private static long sectionKey(Entity entity) {
+        ChunkPos pos = entity.chunkPosition();
+        return (((long) (pos.x() >> SECTION_SHIFT)) << 32) | ((pos.z() >> SECTION_SHIFT) & 0xFFFFFFFFL);
+    }
+
+    private static List<Runnable> buildSpatialWork(List<Entity> entities, Consumer<Entity> action) {
+        CostModel cost = ENTITY_TICK_COST;
+        Long2ObjectMap<List<Entity>> bySection = new Long2ObjectOpenHashMap<>();
+        for (Entity entity : entities) {
+            bySection.computeIfAbsent(sectionKey(entity), _ -> new ArrayList<>()).add(entity);
+        }
+        int maxPerTask = cost.chunkSize(entities.size());
+        long[] keys = bySection.keySet().toLongArray();
+        Arrays.sort(keys);
+
+        List<Runnable> work = new ArrayList<>();
+        for (long key : keys) {
+            List<Entity> section = bySection.get(key);
+            if (section.size() >= maxPerTask) {
+                addSlices(work, section, maxPerTask, cost, action);
+            }
+        }
+        List<Entity> pending = new ArrayList<>();
+        for (long key : keys) {
+            List<Entity> section = bySection.get(key);
+            if (section.size() >= maxPerTask) continue;
+            if (!pending.isEmpty() && pending.size() + section.size() > maxPerTask) {
+                emit(work, pending, cost, action);
+                pending = new ArrayList<>();
+            }
+            pending.addAll(section);
+        }
+        if (!pending.isEmpty()) {
+            emit(work, pending, cost, action);
+        }
+        return work;
+    }
+
+    private static <T> void emit(List<Runnable> work, List<T> batch, CostModel cost, Consumer<T> action) {
+        work.add(cost.wrap(batch.size(), () -> batch.forEach(action)));
+    }
+
+    private static <T> void addSlices(List<Runnable> work, List<T> items, int maxPerTask, CostModel cost, Consumer<T> action) {
+        for (int i = 0; i < items.size(); i += maxPerTask) {
+            emit(work, items.subList(i, Math.min(i + maxPerTask, items.size())), cost, action);
+        }
+    }
+
+    public static <T> void forEachParallel(List<T> items, Consumer<T> action) {
         if (items.isEmpty()) return;
-        if (items.size() < MIN_ASYNC_BATCH) {
+        if (GENERIC_COST.shouldRunSequentially(items.size())) {
             items.forEach(action);
             return;
         }
 
-        int chunkSize = chunkSizeFor(items.size());
         List<Runnable> work = new ArrayList<>();
-        for (int i = 0; i < items.size(); i += chunkSize) {
-            List<T> slice = items.subList(i, Math.min(i + chunkSize, items.size()));
-            work.add(() -> slice.forEach(action));
-        }
+        addSlices(work, items, GENERIC_COST.chunkSize(items.size()), GENERIC_COST, action);
         runParallel(work);
     }
 
-    private static void runParallel(List<Runnable> work) {
-        if (work.isEmpty()) return;
+    private record ParallelBatch(Queue<Runnable> queue, CountDownLatch done) {
+    }
 
-        final Queue<Runnable> queue = new ConcurrentLinkedQueue<>(work);
-        final int workers = Math.max(1, getPoolSize());
-        final CountDownLatch done = new CountDownLatch(workers);
-        for (int i = 0; i < workers; i++) {
-            executor.execute(() -> {
+    private static ParallelBatch submitParallel(List<Runnable> work) {
+        final CountDownLatch done = new CountDownLatch(work.size());
+        final Queue<Runnable> queue = new ConcurrentLinkedQueue<>();
+        for (Runnable task : work) {
+            queue.add(() -> {
                 try {
-                    drain(queue);
+                    task.run();
+                } catch (Throwable e) {
+                    LOGGER.error("Error during parallel tick chunk", e);
                 } finally {
                     done.countDown();
                 }
             });
         }
 
-        awaitCompletion(done);
+        final int workers = Math.clamp(getPoolSize(), 1, work.size());
+        for (int i = 0; i < workers; i++) {
+            executeForeground(() -> drain(queue));
+        }
+        return new ParallelBatch(queue, done);
+    }
+
+    private static final long POLL_INTERVAL_MICROS = 200;
+
+    private static final int STALLED_POLLS_BEFORE_DRAINING = 25;
+
+    private static void finishParallel(ParallelBatch batch) {
+        final CountDownLatch done = batch.done();
+        boolean interrupted = false;
+        long previous = done.getCount();
+        int stalledPolls = 0;
+
+        while (done.getCount() > 0) {
+            try {
+                if (done.await(POLL_INTERVAL_MICROS, TimeUnit.MICROSECONDS)) {
+                    break;
+                }
+            } catch (InterruptedException e) {
+                interrupted = true;
+            }
+
+            pumpMainThreadTasks();
+
+            stalledPolls = done.getCount() == previous ? stalledPolls + 1 : 0;
+            if (stalledPolls >= STALLED_POLLS_BEFORE_DRAINING) {
+                Runnable chunk;
+                while ((chunk = batch.queue().poll()) != null) {
+                    chunk.run();
+                    pumpMainThreadTasks();
+                }
+                stalledPolls = 0;
+            }
+            previous = done.getCount();
+        }
+
+        if (interrupted) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    private static void runParallel(List<Runnable> work) {
+        if (work.isEmpty()) return;
+        finishParallel(submitParallel(work));
     }
 
     private static void drain(Queue<Runnable> queue) {
         Runnable chunk;
         while ((chunk = queue.poll()) != null) {
-            runChunk(chunk);
-        }
-    }
-
-    private static void runChunk(Runnable chunk) {
-        try {
             chunk.run();
-        } catch (Throwable e) {
-            LOGGER.error("Error during parallel tick chunk", e);
         }
     }
 
@@ -223,15 +397,6 @@ public class ParallelProcessor {
         }
     }
 
-    private static void awaitCompletion(CountDownLatch done) {
-        try {
-            while (!done.await(200, TimeUnit.MICROSECONDS)) {
-                pumpMainThreadTasks();
-            }
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
-    }
 
     public static boolean shouldTickSynchronously(Entity entity) {
         if (isShuttingDown || AsyncConfig.disabled || entity.portalProcess != null || entity.level().isClientSide()) {
@@ -266,14 +431,15 @@ public class ParallelProcessor {
     }
 
     private static void tickEntity(ServerLevel world, Entity entity, boolean async) {
-        long start = System.nanoTime();
+        final boolean recording = RECORDING_TICKS_LEFT.get() > 0;
+        final long start = recording ? System.nanoTime() : 0L;
         try {
             world.tickNonPassenger(entity);
         } catch (Exception e) {
             LOGGER.error("Error during {} tick. Entity: {}, UUID: {}",
                     async ? "async" : "sync", entity.getType(), entity.getUUID(), e);
         } finally {
-            if (RECORDING_TICKS_LEFT.get() > 0) {
+            if (recording) {
                 EntityType<?> type = entity.getType();
                 long elapsed = System.nanoTime() - start;
 
@@ -303,6 +469,8 @@ public class ParallelProcessor {
             }
         }
 
+        FOREGROUND_TASKS.clear();
+        BACKGROUND_TASKS.clear();
         AsyncConfig.clearCaches();
         BLACKLISTED_ENTITIES.clear();
         resetEntityTickStats();
