@@ -32,14 +32,21 @@ public abstract class EntityMixin {
     @WrapMethod(method = "getInBlockState")
     private BlockState wrapGetInBlockState(Operation<BlockState> original) {
         BlockState state = original.call();
+        if (state != null) {
+            return state;
+        }
+        state = original.call();
         return state != null ? state : getBlockStateNow();
     }
 
     @Unique
     private BlockState getBlockStateNow() {
         Level level = this.level();
+        BlockPos pos = this.blockPosition();
+        if (!level.isInValidBounds(pos)) {
+            return Blocks.VOID_AIR.defaultBlockState();
+        }
         if (level instanceof ServerLevel serverLevel) {
-            BlockPos pos = this.blockPosition();
             ChunkAccess chunk = serverLevel.getChunkSource()
                     .getChunkNow(pos.getX() >> 4, pos.getZ() >> 4);
             if (chunk != null) {

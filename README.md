@@ -102,8 +102,7 @@ or [Discord](https://discord.com/invite/scvCQ2qKS3).*
 Async can also be configured through its config file:
 
 - `disabled` — Fully disables the mod.
-- `maxThreads` — Number of threads to use. Defaults to `-1`, meaning one less than the core count. Values are clamped to
-  the core count.
+- `maxThreads` — Number of threads to use. Defaults to `-1` (auto)
 - `enableAsyncSpawn` — Parallel mob spawn processing.
 - `enableAsyncRandomTicks` — Async random ticks (experimental).
 - `synchronizedEntities` — Entity types that must be ticked on the main thread.
