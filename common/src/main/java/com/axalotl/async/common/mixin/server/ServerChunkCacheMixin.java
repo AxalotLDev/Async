@@ -85,12 +85,6 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
     @Shadow
     public abstract void tickSpawningChunk(LevelChunk chunk, long timeDiff, List<MobCategory> spawningCategories, NaturalSpawner.SpawnState spawnCookie);
 
-    @Shadow
-    private NaturalSpawner.SpawnState lastSpawnState;
-
-    @Unique
-    private boolean spawnStateStale;
-
     @Unique
     private AtomicBoolean isSpawnStateComputing;
 
@@ -206,27 +200,13 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
 
     @Redirect(method = "tickChunks(Lnet/minecraft/util/profiling/ProfilerFiller;J)V", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/NaturalSpawner;createState(ILjava/lang/Iterable;Lnet/minecraft/world/level/NaturalSpawner$ChunkGetter;Lnet/minecraft/world/level/LocalMobCapCalculator;)Lnet/minecraft/world/level/NaturalSpawner$SpawnState;"))
     private NaturalSpawner.SpawnState redirectCreateSpawnState(int spawnableChunkCount, Iterable<Entity> entities, NaturalSpawner.ChunkGetter chunkGetter, LocalMobCapCalculator localMobCapCalculator) {
-        spawnStateStale = false;
         if (!AsyncConfig.disabled && AsyncConfig.enableAsyncSpawn) {
             NaturalSpawner.SpawnState ready = readySpawnState.getAndSet(null);
             if (ready != null) {
                 return ready;
             }
-            NaturalSpawner.SpawnState previous = lastSpawnState;
-            if (previous != null) {
-                spawnStateStale = true;
-                return previous;
-            }
         }
         return NaturalSpawner.createState(spawnableChunkCount, entities, chunkGetter, localMobCapCalculator);
-    }
-
-    @Redirect(method = "tickChunks(Lnet/minecraft/util/profiling/ProfilerFiller;J)V", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/NaturalSpawner;getFilteredSpawningCategories(Lnet/minecraft/world/level/NaturalSpawner$SpawnState;ZZ)Ljava/util/List;"))
-    private List<MobCategory> skipSpawningWhileStateIsStale(NaturalSpawner.SpawnState state, boolean spawnEnemies, boolean spawnPersistent) {
-        if (spawnStateStale) {
-            return List.of();
-        }
-        return NaturalSpawner.getFilteredSpawningCategories(state, spawnEnemies, spawnPersistent);
     }
 
     @WrapMethod(method = "tickSpawningChunk")
@@ -234,6 +214,10 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
         if (AsyncConfig.disabled || !AsyncConfig.enableAsyncSpawn) {
             original.call(chunk, timeDiff, spawningCategories, spawnCookie);
             return;
+        }
+
+        if (!spawningCategories.isEmpty()) {
+            spawnCookie.localMobCapCalculator.playersNearChunk.put(chunk.getPos().pack(), this.chunkMap.getPlayersCloseForSpawning(chunk.getPos()));
         }
 
         synchronized (lock) {
@@ -291,17 +275,10 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
 
         final int chunkCount = distanceManager.getNaturalSpawnChunkCount();
         final Iterable<Entity> entities = this.level.getAllEntities();
-        pendingSpawnBatch = pendingSpawnBatch
-                .exceptionally(_ -> null)
-                .thenRunAsync(() -> {
-                    try {
-                        readySpawnState.set(NaturalSpawner.createState(
-                                chunkCount, entities, this::getFullChunk, new LocalMobCapCalculator(this.chunkMap)));
-                    } finally {
-                        isSpawnStateComputing.set(false);
-                    }
-                }, ParallelProcessor.BACKGROUND)
+        CompletableFuture.runAsync(() -> readySpawnState.set(NaturalSpawner.createState(
+                        chunkCount, entities, this::getFullChunk, new LocalMobCapCalculator(this.chunkMap))), ParallelProcessor.BACKGROUND)
                 .whenComplete((_, e) -> {
+                    isSpawnStateComputing.set(false);
                     if (e != null) {
                         LOGGER.error("Error computing async spawn state", e);
                     }
