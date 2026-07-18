@@ -244,11 +244,13 @@ public class ParallelProcessor {
     }
 
     private static void tickOne(ServerLevel world, Entity entity, boolean async, boolean despawn) {
+        if (entity.isRemoved()) return;
         if (despawn) checkDespawn(entity);
         tickEntity(world, entity, async);
     }
 
     private static void checkDespawn(Entity entity) {
+        if (entity.isRemoved()) return;
         try {
             entity.checkDespawn();
         } catch (Exception e) {
