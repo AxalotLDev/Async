@@ -182,9 +182,10 @@ public class ParallelProcessor {
     }
 
     private static boolean isThreadInPool(Thread thread) {
-        return MC_THREAD_TRACKER.getOrDefault("Async-Tick", Set.of()).stream()
-                .map(WeakReference::get)
-                .anyMatch(thread::equals);
+        for (WeakReference<Thread> ref : MC_THREAD_TRACKER.getOrDefault("Async-Tick", Set.of())) {
+            if (ref.get() == thread) return true;
+        }
+        return false;
     }
 
     public static boolean isServerExecutionThread() {

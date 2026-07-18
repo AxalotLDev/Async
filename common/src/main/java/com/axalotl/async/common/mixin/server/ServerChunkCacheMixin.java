@@ -115,6 +115,7 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
     @Inject(method = "getChunk(IILnet/minecraft/world/level/chunk/status/ChunkStatus;Z)Lnet/minecraft/world/level/chunk/ChunkAccess;", at = @At("HEAD"), cancellable = true)
     private void getChunk(int x, int z, ChunkStatus targetStatus, boolean loadOrGenerate, CallbackInfoReturnable<ChunkAccess> cir) {
         if (Thread.currentThread() == this.mainThread) return;
+        if (!ParallelProcessor.isServerExecutionThread()) return;
 
         ChunkAccess access = tryGetChunk(x, z, targetStatus);
         if (access != null) {
@@ -160,6 +161,7 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
     @Inject(method = "getChunkNow", at = @At("HEAD"), cancellable = true)
     private void shortcutGetChunkNow(int x, int z, CallbackInfoReturnable<LevelChunk> cir) {
         if (Thread.currentThread() == this.mainThread) return;
+        if (!ParallelProcessor.isServerExecutionThread()) return;
         final ChunkHolder holder = this.getVisibleChunkIfPresent(ChunkPos.pack(x, z));
         if (holder != null) {
             ChunkAccess chunk = holder.getChunkIfPresent(ChunkStatus.FULL);
