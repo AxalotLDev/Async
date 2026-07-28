@@ -36,3 +36,5 @@ accessible class net/minecraft/server/level/ChunkMap$DistanceManager
 accessible method net/minecraft/server/level/DistanceManager forEachEntityTickingChunk (Lit/unimi/dsi/fastutil/longs/LongConsumer;)V
 accessible method net/minecraft/server/level/ChunkMap collectSpawningChunks (Ljava/util/List;)V
 accessible method net/minecraft/server/level/ChunkMap forEachBlockTickingChunk (Ljava/util/function/Consumer;)V
+accessible field net/minecraft/world/level/NaturalSpawner$SpawnState localMobCapCalculator Lnet/minecraft/world/level/LocalMobCapCalculator;
+accessible field net/minecraft/world/level/LocalMobCapCalculator playersNearChunk Lit/unimi/dsi/fastutil/longs/Long2ObjectMap;

@@ -68,6 +68,9 @@ public class ConcurrentLongLinkedOpenHashSet extends LongLinkedOpenHashSet {
      */
     private final ConcurrentSkipListSet<Long> backing = new ConcurrentSkipListSet<>();
 
+    /**
+     * Creates an empty set.
+     */
     public ConcurrentLongLinkedOpenHashSet() {
     }
 

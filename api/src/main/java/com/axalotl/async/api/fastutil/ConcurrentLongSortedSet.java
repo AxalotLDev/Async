@@ -4,6 +4,7 @@ import it.unimi.dsi.fastutil.longs.*;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Collection;
+import java.util.NavigableSet;
 import java.util.Objects;
 import java.util.SortedSet;
 import java.util.concurrent.ConcurrentSkipListSet;
@@ -25,12 +26,13 @@ import java.util.concurrent.ConcurrentSkipListSet;
  */
 public final class ConcurrentLongSortedSet implements LongSortedSet {
 
-    private final ConcurrentSkipListSet<Long> backing = new ConcurrentSkipListSet<>();
+    private final NavigableSet<Long> backing;
 
     /**
      * Creates a new empty concurrent sorted set
      */
     public ConcurrentLongSortedSet() {
+        this.backing = new ConcurrentSkipListSet<>();
     }
 
     /**
@@ -42,6 +44,15 @@ public final class ConcurrentLongSortedSet implements LongSortedSet {
     public ConcurrentLongSortedSet(Collection<Long> collection) {
         this();
         addAll(Objects.requireNonNull(collection, "Initial collection cannot be null"));
+    }
+
+    /**
+     * Wraps a live range view of another concurrent sorted set; changes in the parent are
+     * visible here and vice versa. Used by {@link #subSet}, {@link #headSet} and
+     * {@link #tailSet} to avoid copying the range.
+     */
+    private ConcurrentLongSortedSet(NavigableSet<Long> view) {
+        this.backing = view;
     }
 
     /**
@@ -220,7 +231,9 @@ public final class ConcurrentLongSortedSet implements LongSortedSet {
      */
     @Override
     public LongSortedSet subSet(long fromElement, long toElement) {
-        return new ConcurrentLongSortedSet(backing.subSet(Math.min(fromElement, toElement), Math.max(fromElement, toElement)));
+        long from = Math.min(fromElement, toElement);
+        long to = Math.max(fromElement, toElement);
+        return new ConcurrentLongSortedSet(backing.subSet(from, true, to, false));
     }
 
     /**
@@ -232,7 +245,7 @@ public final class ConcurrentLongSortedSet implements LongSortedSet {
      */
     @Override
     public LongSortedSet headSet(long toElement) {
-        return new ConcurrentLongSortedSet(backing.headSet(toElement));
+        return new ConcurrentLongSortedSet(backing.headSet(toElement, false));
     }
 
     /**
@@ -244,7 +257,7 @@ public final class ConcurrentLongSortedSet implements LongSortedSet {
      */
     @Override
     public LongSortedSet tailSet(long fromElement) {
-        return new ConcurrentLongSortedSet(backing.tailSet(fromElement));
+        return new ConcurrentLongSortedSet(backing.tailSet(fromElement, true));
     }
 
     /**

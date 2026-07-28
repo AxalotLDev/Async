@@ -1,3 +1,24 @@
 - Fixed incompatibility with VMP
 - Fixed an error receiving a remote entity's packet
 - Config fixes (JordanOlivet)
+- Fixed dead entities staying visible to clients as unremovable ghosts
+- Fixed mob farms spawning much slower with `enableAsyncSpawn`
+- Fixed `ArrayIndexOutOfBoundsException` during async spawning
+- Fixed the ender dragon no longer landing or shooting fireballs
+- Fixed chunk corruption on save caused by unsynchronized palette access
+- Fixed one failing chunk cancelling the remaining spawn attempts in a tick
+- Fixed a crash with mods that cache the ticking chunk list (ServerCore)
+- Fixed `enableAsyncSpawn` rebuilding the spawn state on the main thread every tick on large worlds
+- Fixed a race in Lithium's block change trackers that could lose trackers or throw during a block change
+- Fixed hopper minecarts writing to a container while another mob hauled from it, losing or duplicating items
+- Fixed entities continuing to tick past the barrier when the server thread was interrupted
+- Improved block reads: the palette no longer takes a lock to read
+- Improved mob spawning: thread-local random, and the mob cap check no longer serializes every worker
+- Improved thread pool utilization and reduced barrier overhead
+- Reduced lock contention with Lithium, VMP and C2ME
+- Default thread count now scales down from the logical thread count, leaving room for the main thread and GC
+- Fixed natural spawning silently going quiet in some dimensions
+- Fixed mob spawning skipping ticks: spawn state is now rebuilt on the main thread every tick instead of an async recompute that could lag or be skipped
+- Simplified async spawning to dispatch each tick's batch as a single background task instead of splitting it across the pool
+- Improved async chunk access with a per-thread last-chunk cache and safer fallback when the worker pool is unavailable
+- Improved the parallel tick barrier: the main thread now helps drain the work queue instead of idling while workers finish
