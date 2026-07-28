@@ -15,3 +15,8 @@
 - Improved thread pool utilization and reduced barrier overhead
 - Reduced lock contention with Lithium, VMP and C2ME
 - Default thread count now scales down from the logical thread count, leaving room for the main thread and GC
+- Fixed natural spawning silently going quiet in some dimensions
+- Fixed mob spawning skipping ticks: spawn state is now rebuilt on the main thread every tick instead of an async recompute that could lag or be skipped
+- Simplified async spawning to dispatch each tick's batch as a single background task instead of splitting it across the pool
+- Improved async chunk access with a per-thread last-chunk cache and safer fallback when the worker pool is unavailable
+- Improved the parallel tick barrier: the main thread now helps drain the work queue instead of idling while workers finish
