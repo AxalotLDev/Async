@@ -5,6 +5,7 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.longs.Long2LongOpenHashMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectLinkedOpenHashMap;
+import it.unimi.dsi.fastutil.longs.Long2ReferenceOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongLinkedOpenHashSet;
 import it.unimi.dsi.fastutil.objects.*;
 import org.spongepowered.asm.mixin.Mixin;
@@ -16,15 +17,14 @@ import org.spongepowered.asm.mixin.Mixin;
         ObjectOpenCustomHashSet.class,
         Long2LongOpenHashMap.class,
         Long2ObjectLinkedOpenHashMap.class,
+        Long2ReferenceOpenHashMap.class,
         ReferenceOpenHashSet.class,
         Reference2ReferenceArrayMap.class,
         Object2LongOpenHashMap.class,
         Reference2ReferenceOpenHashMap.class,
         IntArrayList.class,
         Reference2IntOpenHashMap.class,
-        ReferenceArrayList.class,
         Object2ReferenceOpenCustomHashMap.class,
-        Reference2ByteOpenHashMap.class,
         Reference2LongOpenHashMap.class,
 },
         targets = {
@@ -33,7 +33,7 @@ import org.spongepowered.asm.mixin.Mixin;
                 "it.unimi.dsi.fastutil.objects.ObjectOpenCustomHashSet",
                 "it.unimi.dsi.fastutil.longs.Long2LongOpenHashMap$MapIterator",
                 "it.unimi.dsi.fastutil.longs.Long2ObjectLinkedOpenHashMap",
-                "it.unimi.dsi.fastutil.objects.ReferenceArrayList",
+                "it.unimi.dsi.fastutil.longs.Long2ReferenceOpenHashMap",
                 "it.unimi.dsi.fastutil.objects.Object2ReferenceOpenCustomHashMap",
                 "it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap",
                 "it.unimi.dsi.fastutil.ints.IntArrayList",
@@ -53,7 +53,6 @@ import org.spongepowered.asm.mixin.Mixin;
                 "it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap$EntryIterator",
                 "it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap$MapIterator",
                 "it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap$MapIterator",
-                "it.unimi.dsi.fastutil.objects.Reference2ByteOpenHashMap",
         }, priority = 50000)
 public class FastUtilSynchronizeMixin {
 }

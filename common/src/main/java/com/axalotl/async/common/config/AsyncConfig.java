@@ -1,6 +1,8 @@
 package com.axalotl.async.common.config;
 
+import com.axalotl.async.common.ParallelProcessor;
 import com.axalotl.async.common.platform.PlatformUtils;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
 import org.slf4j.Logger;
@@ -32,8 +34,19 @@ public class AsyncConfig {
     }
 
     public static int getParallelism() {
-        if (maxThreads <= 0) return Runtime.getRuntime().availableProcessors();
-        return Math.clamp(maxThreads, 1, Runtime.getRuntime().availableProcessors());
+        int cores = Runtime.getRuntime().availableProcessors();
+        if (maxThreads > 0) {
+            return Math.clamp(maxThreads, 1, cores);
+        }
+
+        boolean windows = System.getProperty("os.name", "").toLowerCase(Locale.ROOT).startsWith("windows");
+        int threads = (int) (cores / (windows ? 1.6 : 1.3));
+
+        MinecraftServer server = ParallelProcessor.getServer();
+        if (server != null && !server.isDedicatedServer()) {
+            threads--;
+        }
+        return Math.max(1, threads);
     }
 
     public static boolean isNamespaceWildcard(String input) {
@@ -77,6 +90,7 @@ public class AsyncConfig {
     }
 
     private static void rebuildCaches() {
+        ParallelProcessor.onSyncRulesChanged();
         syncCache.clear();
         exactEntities.clear();
         namespaceWildcards.clear();
@@ -116,6 +130,7 @@ public class AsyncConfig {
     }
 
     public static void clearCaches() {
+        ParallelProcessor.onSyncRulesChanged();
         syncCache.clear();
         exactEntities.clear();
         namespaceWildcards.clear();

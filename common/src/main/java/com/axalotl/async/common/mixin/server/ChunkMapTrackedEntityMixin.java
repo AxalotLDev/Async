@@ -37,4 +37,9 @@ public class ChunkMapTrackedEntityMixin {
     private synchronized void updatePlayer(ServerPlayer player, Operation<Void> original) {
         original.call(player);
     }
+
+    @WrapMethod(method = "broadcastRemoved")
+    private synchronized void broadcastRemoved(Operation<Void> original) {
+        original.call();
+    }
 }
