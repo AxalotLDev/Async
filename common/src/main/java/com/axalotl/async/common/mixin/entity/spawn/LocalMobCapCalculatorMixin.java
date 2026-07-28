@@ -20,7 +20,7 @@ public class LocalMobCapCalculatorMixin {
     @Shadow
     @Final
     @Mutable
-    private Long2ObjectMap<?> playersNearChunk;
+    public Long2ObjectMap<?> playersNearChunk;
 
     @Shadow
     @Final

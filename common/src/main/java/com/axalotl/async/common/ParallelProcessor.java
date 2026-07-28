@@ -47,6 +47,7 @@ public class ParallelProcessor {
     private static final Queue<Runnable> BACKGROUND_TASKS = new ConcurrentLinkedQueue<>();
 
     public static final Executor BACKGROUND = ParallelProcessor::executeBackground;
+    public static final Executor FOREGROUND = ParallelProcessor::executeForeground;
 
     //Blacklist
     private static final Set<UUID> BLACKLISTED_ENTITIES = ConcurrentHashMap.newKeySet();
@@ -75,12 +76,28 @@ public class ParallelProcessor {
 
     public static void executeForeground(Runnable task) {
         FOREGROUND_TASKS.add(task);
-        executor.execute(ParallelProcessor::runOnePrioritized);
+        submitSlot();
     }
 
     public static void executeBackground(Runnable task) {
         BACKGROUND_TASKS.add(task);
-        executor.execute(ParallelProcessor::runOnePrioritized);
+        submitSlot();
+    }
+
+    private static volatile boolean poolUnavailableLogged;
+
+    private static void submitSlot() {
+        ExecutorService pool = executor;
+        if (pool != null && !pool.isShutdown()) {
+            pool.execute(ParallelProcessor::runOnePrioritized);
+            return;
+        }
+        if (!poolUnavailableLogged) {
+            poolUnavailableLogged = true;
+            LOGGER.error("Async pool unavailable (executor={}); running tasks inline on {}",
+                    pool, Thread.currentThread().getName(), new IllegalStateException("pool unavailable"));
+        }
+        runOnePrioritized();
     }
 
     private static void runOnePrioritized() {
@@ -346,14 +363,16 @@ public class ParallelProcessor {
 
     private static final long POLL_INTERVAL_MICROS = 200;
 
-    private static final int STALLED_POLLS_BEFORE_DRAINING = 25;
-
     private static void finishParallel(ParallelBatch batch) {
         final CountDownLatch done = batch.done();
-        boolean interrupted = false;
-        long previous = done.getCount();
-        int stalledPolls = 0;
 
+        Runnable chunk;
+        while ((chunk = batch.queue().poll()) != null) {
+            chunk.run();
+            pumpMainThreadTasks();
+        }
+
+        boolean interrupted = false;
         while (done.getCount() > 0) {
             try {
                 if (done.await(POLL_INTERVAL_MICROS, TimeUnit.MICROSECONDS)) {
@@ -362,19 +381,7 @@ public class ParallelProcessor {
             } catch (InterruptedException e) {
                 interrupted = true;
             }
-
             pumpMainThreadTasks();
-
-            stalledPolls = done.getCount() == previous ? stalledPolls + 1 : 0;
-            if (stalledPolls >= STALLED_POLLS_BEFORE_DRAINING) {
-                Runnable chunk;
-                while ((chunk = batch.queue().poll()) != null) {
-                    chunk.run();
-                    pumpMainThreadTasks();
-                }
-                stalledPolls = 0;
-            }
-            previous = done.getCount();
         }
 
         if (interrupted) {
