@@ -2,14 +2,13 @@ package com.axalotl.async.common.mixin.server;
 
 import com.axalotl.async.common.ParallelProcessor;
 import com.axalotl.async.common.config.AsyncConfig;
+import net.minecraft.server.MinecraftServer;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import net.minecraft.server.level.*;
-import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.MobCategory;
 import net.minecraft.world.level.ChunkPos;
-import net.minecraft.world.level.LocalMobCapCalculator;
 import net.minecraft.world.level.NaturalSpawner;
 import net.minecraft.world.level.chunk.ChunkAccess;
 import net.minecraft.world.level.chunk.ChunkSource;
@@ -25,7 +24,6 @@ import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
@@ -95,13 +93,18 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
     private boolean wasAsyncSpawnEnabled;
 
     @Unique
-    private final Object lock = new Object();
-
-    @Unique
     private List<Runnable> batch;
 
     @Unique
-    private CompletableFuture<Void> pendingSpawnBatch;
+    private static final ThreadLocal<LastChunkSlot> LAST_CHUNK = ThreadLocal.withInitial(LastChunkSlot::new);
+
+    private static final class LastChunkSlot {
+        Object owner;
+        long pos;
+        ChunkStatus status;
+        ChunkAccess chunk;
+        int tick = Integer.MIN_VALUE;
+    }
 
     @Inject(method = "<init>", at = @At("RETURN"))
     private void init(CallbackInfo ci) {
@@ -109,16 +112,30 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
         this.readySpawnState = new AtomicReference<>();
         this.wasAsyncSpawnEnabled = false;
         this.batch = new ArrayList<>();
-        this.pendingSpawnBatch = CompletableFuture.completedFuture(null);
     }
 
-    @Inject(method = "getChunk(IILnet/minecraft/world/level/chunk/status/ChunkStatus;Z)Lnet/minecraft/world/level/chunk/ChunkAccess;", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "getChunk(IILnet/minecraft/world/level/chunk/status/ChunkStatus;Z)Lnet/minecraft/world/level/chunk/ChunkAccess;",
+            at = @At("HEAD"), cancellable = true)
     private void getChunk(int x, int z, ChunkStatus targetStatus, boolean loadOrGenerate, CallbackInfoReturnable<ChunkAccess> cir) {
         if (Thread.currentThread() == this.mainThread) return;
         if (!ParallelProcessor.isServerExecutionThread()) return;
 
+        final MinecraftServer server = ParallelProcessor.getServer();
+        final int currentTick = server != null ? server.getTickCount() : Integer.MIN_VALUE;
+        final long key = ChunkPos.pack(x, z);
+        final LastChunkSlot slot = LAST_CHUNK.get();
+        if (slot.owner == this && slot.pos == key && slot.status == targetStatus && slot.tick == currentTick) {
+            cir.setReturnValue(slot.chunk);
+            return;
+        }
+
         ChunkAccess access = tryGetChunk(x, z, targetStatus);
         if (access != null) {
+            slot.owner = this;
+            slot.pos = key;
+            slot.status = targetStatus;
+            slot.chunk = access;
+            slot.tick = currentTick;
             cir.setReturnValue(access);
             return;
         }
@@ -184,11 +201,11 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
             wasAsyncSpawnEnabled = true;
             readySpawnState.set(null);
             isSpawnStateComputing.set(false);
-            pendingSpawnBatch = CompletableFuture.completedFuture(null);
         }
     }
 
-    @WrapOperation(method = "tickChunks(Lnet/minecraft/util/profiling/ProfilerFiller;J)V", at = @At(value = "INVOKE", target = "Lnet/minecraft/server/level/ChunkMap;forEachBlockTickingChunk(Ljava/util/function/Consumer;)V"))
+    @WrapOperation(method = "tickChunks(Lnet/minecraft/util/profiling/ProfilerFiller;J)V",
+            at = @At(value = "INVOKE", target = "Lnet/minecraft/server/level/ChunkMap;forEachBlockTickingChunk(Ljava/util/function/Consumer;)V"))
     private void parallelRandomTicks(ChunkMap map, Consumer<LevelChunk> tickingChunkConsumer, Operation<Void> original) {
         if (AsyncConfig.disabled || !AsyncConfig.enableAsyncRandomTicks) {
             original.call(map, tickingChunkConsumer);
@@ -200,17 +217,6 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
         ParallelProcessor.forEachParallel(chunks, tickingChunkConsumer);
     }
 
-    @Redirect(method = "tickChunks(Lnet/minecraft/util/profiling/ProfilerFiller;J)V", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/NaturalSpawner;createState(ILjava/lang/Iterable;Lnet/minecraft/world/level/NaturalSpawner$ChunkGetter;Lnet/minecraft/world/level/LocalMobCapCalculator;)Lnet/minecraft/world/level/NaturalSpawner$SpawnState;"))
-    private NaturalSpawner.SpawnState redirectCreateSpawnState(int spawnableChunkCount, Iterable<Entity> entities, NaturalSpawner.ChunkGetter chunkGetter, LocalMobCapCalculator localMobCapCalculator) {
-        if (!AsyncConfig.disabled && AsyncConfig.enableAsyncSpawn) {
-            NaturalSpawner.SpawnState ready = readySpawnState.getAndSet(null);
-            if (ready != null) {
-                return ready;
-            }
-        }
-        return NaturalSpawner.createState(spawnableChunkCount, entities, chunkGetter, localMobCapCalculator);
-    }
-
     @WrapMethod(method = "tickSpawningChunk")
     private void redirectTickSpawningChunk(LevelChunk chunk, long timeDiff, List<MobCategory> spawningCategories, NaturalSpawner.SpawnState spawnCookie, Operation<Void> original) {
         if (AsyncConfig.disabled || !AsyncConfig.enableAsyncSpawn) {
@@ -219,43 +225,57 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
         }
 
         if (!spawningCategories.isEmpty()) {
-            spawnCookie.localMobCapCalculator.playersNearChunk.put(chunk.getPos().pack(), this.chunkMap.getPlayersCloseForSpawning(chunk.getPos()));
+            spawnCookie.localMobCapCalculator.playersNearChunk.put(chunk.getPos().pack(), playersCloseForSpawning(chunk.getPos()));
         }
 
-        synchronized (lock) {
-            batch.add(() -> original.call(chunk, timeDiff, spawningCategories, spawnCookie));
+        batch.add(() -> original.call(chunk, timeDiff, spawningCategories, spawnCookie));
+    }
+
+    @Unique
+    private List<ServerPlayer> playersCloseForSpawning(ChunkPos pos) {
+        List<ServerPlayer> players = this.chunkMap.getPlayersCloseForSpawning(pos);
+        if (!players.isEmpty()) {
+            return players;
         }
+        List<ServerPlayer> computed = null;
+        double centerX = pos.getMinBlockX() + 8;
+        double centerZ = pos.getMinBlockZ() + 8;
+        for (ServerPlayer player : level.players()) {
+            if (player.isSpectator()) continue;
+            double dx = player.getX() - centerX;
+            double dz = player.getZ() - centerZ;
+            if (dx * dx + dz * dz < 16384.0) {
+                if (computed == null) computed = new ArrayList<>();
+                computed.add(player);
+            }
+        }
+        return computed != null ? computed : players;
     }
 
     @Inject(method = "tickChunks(Lnet/minecraft/util/profiling/ProfilerFiller;J)V", at = @At("TAIL"))
     private void dispatchSpawnBatch(CallbackInfo ci) {
-        List<Runnable> currentBatch;
-        synchronized (lock) {
-            if (batch.isEmpty()) return;
-            currentBatch = new ArrayList<>(batch);
-            batch.clear();
-        }
+        if (batch.isEmpty()) return;
+        List<Runnable> currentBatch = new ArrayList<>(batch);
+        batch.clear();
 
         if (AsyncConfig.disabled || !AsyncConfig.enableAsyncSpawn) {
             runSpawnBatch(currentBatch);
             return;
         }
 
-        pendingSpawnBatch = pendingSpawnBatch
-                .exceptionally(_ -> null)
-                .thenCompose(_ -> runSpawnBatchParallel(currentBatch));
+        CompletableFuture.runAsync(() -> runSpawnBatch(currentBatch), ParallelProcessor.BACKGROUND)
+                .exceptionally(e -> {
+                    LOGGER.error("Async spawn batch failed", e);
+                    return null;
+                });
     }
 
     @Unique
-    private CompletableFuture<Void> runSpawnBatchParallel(List<Runnable> tasks) {
-        int chunkSize = ParallelProcessor.SPAWN_COST.chunkSize(tasks.size());
-        List<CompletableFuture<Void>> slices = new ArrayList<>();
-        for (int i = 0; i < tasks.size(); i += chunkSize) {
-            List<Runnable> slice = tasks.subList(i, Math.min(i + chunkSize, tasks.size()));
-            Runnable timed = ParallelProcessor.SPAWN_COST.wrap(slice.size(), () -> runSpawnBatch(slice));
-            slices.add(CompletableFuture.runAsync(timed, ParallelProcessor.BACKGROUND));
+    private void getFullChunkOffThread(long chunkKey, Consumer<LevelChunk> output) {
+        ChunkAccess chunk = tryGetChunk(ChunkPos.getX(chunkKey), ChunkPos.getZ(chunkKey), ChunkStatus.FULL);
+        if (chunk instanceof LevelChunk levelChunk) {
+            output.accept(levelChunk);
         }
-        return CompletableFuture.allOf(slices.toArray(new CompletableFuture[0]));
     }
 
     @Unique
@@ -267,23 +287,5 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
                 LOGGER.error("Error in async entity spawning", e);
             }
         }
-    }
-
-    @Inject(method = "tickChunks()V", at = @At("TAIL"))
-    private void scheduleSpawnStateRecompute(CallbackInfo ci) {
-        if (AsyncConfig.disabled || !AsyncConfig.enableAsyncSpawn) return;
-        if (readySpawnState.get() != null) return;
-        if (isSpawnStateComputing.getAndSet(true)) return;
-
-        final int chunkCount = distanceManager.getNaturalSpawnChunkCount();
-        final Iterable<Entity> entities = this.level.getAllEntities();
-        CompletableFuture.runAsync(() -> readySpawnState.set(NaturalSpawner.createState(
-                        chunkCount, entities, this::getFullChunk, new LocalMobCapCalculator(this.chunkMap))), ParallelProcessor.BACKGROUND)
-                .whenComplete((_, e) -> {
-                    isSpawnStateComputing.set(false);
-                    if (e != null) {
-                        LOGGER.error("Error computing async spawn state", e);
-                    }
-                });
     }
 }
