@@ -35,6 +35,12 @@ public final class Long2LongConcurrentHashMap implements Long2LongMap {
     private final ConcurrentHashMap<Long, Long> backing = new ConcurrentHashMap<>();
     private volatile long defaultReturnValue = 0L;
 
+    /**
+     * Creates an empty map.
+     */
+    public Long2LongConcurrentHashMap() {
+    }
+
     @Override
     public long get(long key) {
         Long value = backing.get(key);

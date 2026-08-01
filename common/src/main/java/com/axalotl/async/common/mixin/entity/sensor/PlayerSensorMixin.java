@@ -25,7 +25,7 @@ public abstract class PlayerSensorMixin {
      * @reason async distance cache
      */
     @Overwrite
-    protected void doTick(final ServerLevel level, final LivingEntity body) {
+    public void doTick(final ServerLevel level, final LivingEntity body) {
         List<Player> players = level.players()
                 .stream()
                 .filter(EntitySelector.NO_SPECTATORS)

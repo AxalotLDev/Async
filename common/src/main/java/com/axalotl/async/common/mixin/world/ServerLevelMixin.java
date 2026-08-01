@@ -44,7 +44,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -97,58 +96,50 @@ public abstract class ServerLevelMixin extends Level implements WorldGenLevel {
     @Redirect(method = "tick", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/entity/EntityTickList;forEach(Ljava/util/function/Consumer;)V"))
     private void overwriteEntityTicking(EntityTickList entityTickList, Consumer<Entity> consumer) {
         ProfilerFiller profiler = this.getProfiler();
+        boolean asynchronousDespawn = !AsyncConfig.disabled && AsyncConfig.enableAsyncSpawn;
 
         List<Entity> toTick = new ArrayList<>();
-        List<Entity> toDespawnCheck = new ArrayList<>();
+        List<Entity> despawnOnly = new ArrayList<>();
 
         this.entityTickList.forEach(entity -> {
             if (entity == null || entity.isRemoved()) return;
             if (this.tickRateManager().isEntityFrozen(entity)) return;
 
-            if (!AsyncConfig.disabled && AsyncConfig.enableAsyncSpawn) {
-                toDespawnCheck.add(entity);
-            } else {
+            if (!asynchronousDespawn) {
                 profiler.push("checkDespawn");
                 entity.checkDespawn();
                 profiler.pop();
             }
 
-            if (!this.chunkSource.chunkMap.getDistanceManager()
-                    .inEntityTickingRange(entity.chunkPosition().toLong())) return;
+            if (!(entity instanceof ServerPlayer)
+                    && !this.chunkSource.chunkMap.getDistanceManager()
+                    .inEntityTickingRange(entity.chunkPosition().toLong())) {
+                if (asynchronousDespawn) {
+                    despawnOnly.add(entity);
+                }
+                return;
+            }
 
             Entity vehicle = entity.getVehicle();
             if (vehicle != null) {
-                if (!vehicle.isRemoved() && vehicle.hasPassenger(entity)) return;
+                if (!vehicle.isRemoved() && vehicle.hasPassenger(entity)) {
+                    if (asynchronousDespawn) {
+                        despawnOnly.add(entity);
+                    }
+                    return;
+                }
                 entity.stopRiding();
             }
 
             toTick.add(entity);
         });
 
-        if (!toDespawnCheck.isEmpty()) {
-            int poolSize = Math.max(1, ParallelProcessor.getPoolSize());
-            int chunkSize = Math.max(1, toDespawnCheck.size() / poolSize);
-            List<Callable<Void>> despawnTasks = new ArrayList<>();
-            for (int i = 0; i < toDespawnCheck.size(); i += chunkSize) {
-                List<Entity> chunk = toDespawnCheck.subList(i, Math.min(i + chunkSize, toDespawnCheck.size()));
-                despawnTasks.add(() -> {
-                    for (Entity e : chunk) e.checkDespawn();
-                    return null;
-                });
-            }
-            try {
-                if (ParallelProcessor.executor != null && !ParallelProcessor.executor.isShutdown()) {
-                    ParallelProcessor.executor.invokeAll(despawnTasks);
-                } else {
-                    for (Entity e : toDespawnCheck) e.checkDespawn();
-                }
-            } catch (InterruptedException ignored) {
-                Thread.currentThread().interrupt();
-            }
-        }
-
         profiler.push("tick");
-        ParallelProcessor.callEntityTickBatch(this.getLevel(), toTick);
+        if (asynchronousDespawn) {
+            ParallelProcessor.callEntityTickBatch(this.getLevel(), toTick, despawnOnly);
+        } else {
+            ParallelProcessor.callEntityTickBatch(this.getLevel(), toTick);
+        }
         profiler.pop();
     }
 
@@ -194,7 +185,10 @@ public abstract class ServerLevelMixin extends Level implements WorldGenLevel {
                 && AsyncConfig.enableAsyncRandomTicks
                 && ParallelProcessor.executor != null
                 && !ParallelProcessor.executor.isShutdown()) {
-            CompletableFuture.runAsync(() -> original.call(chunk, randomTickSpeed), ParallelProcessor.executor).exceptionally(e -> {
+            CompletableFuture.runAsync(
+                    () -> original.call(chunk, randomTickSpeed),
+                    ParallelProcessor.FOREGROUND
+            ).exceptionally(exception -> {
                 original.call(chunk, randomTickSpeed);
                 return null;
             });

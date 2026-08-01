@@ -1,8 +1,10 @@
 package com.axalotl.async.common.config;
 
+import com.axalotl.async.common.ParallelProcessor;
 import com.axalotl.async.common.platform.PlatformUtils;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.MinecraftServer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -32,8 +34,21 @@ public class AsyncConfig {
     }
 
     public static int getParallelism() {
-        if (maxThreads <= 0) return Runtime.getRuntime().availableProcessors();
-        return Math.clamp(Runtime.getRuntime().availableProcessors(), 1, maxThreads);
+        int logicalProcessorCount = Runtime.getRuntime().availableProcessors();
+        if (maxThreads > 0) {
+            return Math.clamp(maxThreads, 1, logicalProcessorCount);
+        }
+
+        boolean isWindows = System.getProperty("os.name", "")
+                .toLowerCase(Locale.ROOT)
+                .startsWith("windows");
+        int workerThreadCount = (int) (logicalProcessorCount / (isWindows ? 1.6 : 1.3));
+
+        MinecraftServer minecraftServer = ParallelProcessor.getServer();
+        if (minecraftServer != null && !minecraftServer.isDedicatedServer()) {
+            workerThreadCount--;
+        }
+        return Math.max(1, workerThreadCount);
     }
 
     public static boolean isNamespaceWildcard(String input) {

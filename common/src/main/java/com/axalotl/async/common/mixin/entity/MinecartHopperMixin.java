@@ -52,7 +52,9 @@ public class MinecartHopperMixin {
     private boolean wrapItemPickup(Container container, ItemEntity entity, Operation<Boolean> original) {
         synchronized (entity) {
             if (!entity.isAlive()) return false;
-            return original.call(container, entity);
+            synchronized (container) {
+                return original.call(container, entity);
+            }
         }
     }
 }

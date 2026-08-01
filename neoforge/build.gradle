@@ -49,6 +49,7 @@ neoForge {
     mods {
         create("${mod_id}") {
             sourceSet sourceSets.main
+            sourceSet project(':api').sourceSets.main
         }
     }
 }

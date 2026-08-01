@@ -23,7 +23,7 @@ public abstract class NearestLivingEntitiesSensorMixin<T extends LivingEntity> e
      * @reason async distance cache
      */
     @Overwrite
-    protected void doTick(final ServerLevel level, final T body) {
+    public void doTick(final ServerLevel level, final T body) {
         double followRange = body.getAttributeValue(Attributes.FOLLOW_RANGE);
         AABB boundingBox = body.getBoundingBox().inflate(followRange, followRange, followRange);
         List<LivingEntity> livingEntities = level.getEntitiesOfClass(LivingEntity.class, boundingBox, mob -> mob != body && mob.isAlive());

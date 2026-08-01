@@ -1,16 +1,36 @@
 # Async - Minecraft Entity Multi-Threading Mod ⚙️
-**Async** is a Fabric mod designed to improve entity performance by processing them in parallel using multiple CPU cores and threads.
+
+**Async** improves entity performance by processing entities in parallel across multiple CPU cores and threads.
+
+<p>
+  <img alt="Supported on Fabric" height="56" src="https://raw.githubusercontent.com/intergrav/devins-badges/v3/assets/cozy/supported/fabric_vector.svg">
+  <img alt="Requires Fabric API" height="56" src="https://raw.githubusercontent.com/intergrav/devins-badges/v3/assets/cozy/requires/fabric-api_vector.svg">
+  <img alt="Available for NeoForge" height="56" src="https://raw.githubusercontent.com/cassiancc/Cassians-Badges/refs/heads/main/cozy/NeoForge.svg">
+</p>
+
+<p>
+  <a href="https://modrinth.com/mod/async"><img alt="Available on Modrinth" height="56" src="https://raw.githubusercontent.com/intergrav/devins-badges/v3/assets/cozy/available/modrinth_vector.svg"></a>
+  <a href="https://github.com/AxalotLDev/Async"><img alt="View source on GitHub" height="56" src="https://raw.githubusercontent.com/intergrav/devins-badges/v3/assets/cozy/social/github-singular_vector.svg"></a>
+  <a href="https://discord.com/invite/scvCQ2qKS3"><img alt="Chat with us on Discord" height="56" src="https://raw.githubusercontent.com/intergrav/devins-badges/v3/assets/cozy/social/discord-plural_vector.svg"></a>
+</p>
 
 ## Important❗
 **Async** is currently in alpha testing and is experimental. Its use may lead to incorrect entity behavior and crashes.
 
 ## What is Async? 🤔
-Async is a Fabric mod that enhances the performance of entity processing. The mod leverages multithreading, which allows multiple CPU cores to improve performance when handling a large number of entities.
+Async enhances the performance of entity processing. The mod leverages multithreading, which allows multiple CPU cores to improve performance when handling a large number of entities.
 
 ### 💡 Key Benefits:
 - ⚡ **Improved TPS**: Maintains stable tick times even with a large number of entities.
 - 🚀 **Multithreading**: Utilizes multiple CPU cores for parallel entity processing.
 - 🎲 **Async Random Ticks** (Experimental): Processes random ticks asynchronously for better performance.
+
+### Requirements
+
+- **Minecraft**: 1.21 or 1.21.1
+- **Java**: 21 or newer
+- **Loader**: Fabric, Quilt, or NeoForge
+- **Dependency**: Fabric API (on Fabric/Quilt)
 
 ### 📊 Performance Comparison (9000 Villagers)
 | Configuration           | TPS  | MSPT   |
@@ -33,20 +53,37 @@ Concurrent Chunk Management Engine, Fabric API, FerriteCore, Lithium, ScalableLu
 
 ## ⚠️ Incompatible Mods
 - ❌ Moonrise - Known incompatibility
+- ❌ Open Parties and Claims - Known incompatibility
 - ⚠️ ...and there may be conflicts with other mods.
 
 *If you encounter issues with other mods, please report them on our [GitHub](https://github.com/AxalotLDev/Async/issues) or [Discord](https://discord.com/invite/scvCQ2qKS3).*
 
 ## 🔧 Commands
-- `/async config toggle` — Enables or disables the mod in-game (no server restart required). Use this command to instantly see how Async improves your server.
-- `/async config setAsyncEntitySpawn` — Enables or disables parallel mob spawn processing (disabled by default). **Warning: Not compatible with Carpet mod lagFreeSpawning rule.**
-- `/async config setAsyncRandomTicks` — Enables or disables async random ticks processing (experimental feature).
-- `/async config synchronizedEntities add` — Adds selected entity to synchronized processing.
-- `/async config synchronizedEntities remove` — Removes selected entity from synchronized processing.
-- `/async stats` — Displays the number of threads in use.
-- `/async stats entity` — Shows the number of entities processed by Async in various worlds.
-- `/async stats entity [number]` — Shows the top [number] entity types by count in descending order. For example, `/async stats entity 10` displays the top 10 most numerous entity types. 
-- `/async stats entity [number] [ticks]` displays the top [number] most numerous entity types with their average mspt usage per [ticks].
+
+### Configuration commands
+
+- `/async config toggle` - Enables or disables the mod without restarting the server.
+- `/async config reload` - Reloads the configuration from disk.
+- `/async config setAsyncEntitySpawn [true|false]` - Enables or disables parallel mob spawning. Without an argument, shows the current value. **Warning: Not compatible with Carpet's lagFreeSpawning rule.**
+- `/async config setAsyncRandomTicks [true|false]` - Enables or disables experimental async random ticks. Without an argument, shows the current value.
+- `/async config synchronizedEntities` - Lists entities that are processed synchronously.
+- `/async config synchronizedEntities add <entity|namespace:*>` - Adds an entity type or namespace to synchronous processing.
+- `/async config synchronizedEntities remove <entity|namespace:*>` - Removes an entity type or namespace from synchronous processing.
+
+### Statistics commands
+
+- `/async stats` - Displays mod status, async feature states, entity count, and thread count.
+- `/async stats entity` - Shows entity counts by world and how many are processed asynchronously.
+- `/async stats entity <number>` - Shows the top `<number>` entity types by count, marked as `async` or `sync`.
+- `/async stats entity <number> <ticks>` - Records for `<ticks>` ticks, then shows average tick time for the top `<number>` entity types.
+
+## Configuration file
+
+- `disabled` - Fully disables the mod.
+- `maxThreads` - Worker threads to use. Defaults to `-1` for automatic sizing.
+- `enableAsyncSpawn` - Enables parallel mob spawning.
+- `enableAsyncRandomTicks` - Enables experimental async random ticks.
+- `synchronizedEntities` - Entity types that must be ticked on the main thread.
 
 ## 📥 Download
 The mod is available on [Modrinth](https://modrinth.com/mod/async)
