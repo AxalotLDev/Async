@@ -1,3 +1,16 @@
+- Fixed async chunk lookup interception affecting unrelated mod threads
+- Added a per-thread last-chunk cache and a timeout warning for async chunk access
+- Fixed natural spawning going quiet in dimensions with an empty cached player list
+- Rebuilt mob spawn state on the main thread each tick to prevent skipped spawn cycles
+- Added thread-local spawn random sources and synchronized local mob-cap counters
+- Added foreground/background task priorities so entity ticks are not delayed by spawn work
+- Improved entity batching with adaptive, spatially grouped tasks and main-thread queue draining
+- Integrated despawn checks into entity batches and kept players ticking outside entity distance checks
+- Fixed removed entities continuing through despawn or tick work with stacked-trade mods
+- Fixed a Lithium block-change tracker race and synchronized additional masked-list reads
+- Fixed hopper minecarts racing container writes with other item transfers
+- Improved automatic worker-thread sizing to leave capacity for the main thread and GC
+- Updated concurrent collection behavior, range views, API documentation, and API version
 - Fixed incompatibility with VMP
 - Fixed an error receiving a remote entity's packet
 - Config fixes (JordanOlivet)

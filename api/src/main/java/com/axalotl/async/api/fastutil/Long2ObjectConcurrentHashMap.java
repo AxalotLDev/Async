@@ -1,5 +1,6 @@
 package com.axalotl.async.api.fastutil;
 
+import it.unimi.dsi.fastutil.longs.Long2ObjectFunction;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.LongSet;
 import it.unimi.dsi.fastutil.objects.ObjectCollection;
@@ -107,6 +108,12 @@ public final class Long2ObjectConcurrentHashMap<V> implements Long2ObjectMap<V> 
     public V computeIfAbsent(long key, @NotNull LongFunction<? extends V> mappingFunction) {
         Objects.requireNonNull(mappingFunction);
         return backing.computeIfAbsent(key, mappingFunction::apply);
+    }
+
+    @Override
+    public V computeIfAbsent(long key, @NotNull Long2ObjectFunction<? extends V> mappingFunction) {
+        Objects.requireNonNull(mappingFunction);
+        return backing.computeIfAbsent(key, boxedKey -> mappingFunction.get((long) boxedKey));
     }
 
     @Override

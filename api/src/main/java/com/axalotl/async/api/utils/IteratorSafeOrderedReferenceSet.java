@@ -34,6 +34,13 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public final class IteratorSafeOrderedReferenceSet<E> {
 
+    /**
+     * Iterator flag: the iterator also returns elements appended after it was created.
+     * <p>
+     * Without this flag an iterator stops at the size captured at creation time.
+     *
+     * @see #iterator(int)
+     */
     public static final int ITERATOR_FLAG_SEE_ADDITIONS = 1;
 
     private final Reference2IntLinkedOpenHashMap<E> indexMap;
@@ -108,6 +115,12 @@ public final class IteratorSafeOrderedReferenceSet<E> {
         return 1.0 - ((double) this.indexMap.size() / (double) this.listSize);
     }
 
+    /**
+     * Releases one active iterator.
+     * <p>
+     * Once the last iterator is released, the set is defragmented if fragmentation has
+     * reached {@code maxFragFactor}. Must be paired with each iterator handed out.
+     */
     public void finishRawIterator() {
         if (--this.iteratorCount == 0) {
             if (this.getFragFactor() >= this.maxFragFactor) {
@@ -286,6 +299,8 @@ public final class IteratorSafeOrderedReferenceSet<E> {
 
     /**
      * Extended iterator that supports explicit completion signaling.
+     *
+     * @param <E> element type
      */
     public interface Iterator<E> extends java.util.Iterator<E> {
         /**

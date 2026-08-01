@@ -11,6 +11,7 @@ import org.spongepowered.asm.mixin.Shadow;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Spliterator;
 
 @Mixin(value = ReferenceMaskedList.class, priority = 1500, remap = false)
 public class ReferenceMaskedListMixin<E> {
@@ -64,6 +65,29 @@ public class ReferenceMaskedListMixin<E> {
     private int totalSize(Operation<Integer> original) {
         synchronized (this) {
             return original.call();
+        }
+    }
+
+    @WrapMethod(method = "get")
+    private E get(int index, Operation<E> original) {
+        synchronized (this) {
+            return original.call(index);
+        }
+    }
+
+    @WrapMethod(method = "size")
+    private int size(Operation<Integer> original) {
+        synchronized (this) {
+            return original.call();
+        }
+    }
+
+    @WrapMethod(method = "spliterator")
+    private Spliterator<E> spliterator(Operation<Spliterator<E>> original) {
+        synchronized (this) {
+            List<E> snapshot = new ArrayList<>();
+            original.call().forEachRemaining(snapshot::add);
+            return snapshot.spliterator();
         }
     }
 }

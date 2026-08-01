@@ -20,7 +20,7 @@ public class NearestItemSensorMixin {
      * @reason async distance cache
      */
     @Overwrite
-    protected void doTick(final ServerLevel level, final Mob body) {
+    public void doTick(final ServerLevel level, final Mob body) {
         Brain<?> brain = body.getBrain();
         List<ItemEntity> items = level.getEntitiesOfClass(ItemEntity.class, body.getBoundingBox().inflate(32.0, 16.0, 32.0), ignored -> true);
         items.sort(SensorUtils.comparingDouble(body));
