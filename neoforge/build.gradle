@@ -6,6 +6,7 @@ plugins {
 }
 
 repositories {
+    maven { url = 'https://maven.ryanhcode.dev/releases' }
     maven { url 'https://api.modrinth.com/maven' }
 }
 
@@ -58,6 +59,10 @@ dependencies {
     compileOnly(annotationProcessor("com.github.bawnorton.mixinsquared:mixinsquared-common:${mixinsquared_version}"))
     implementation(jarJar("com.github.bawnorton.mixinsquared:mixinsquared-neoforge:${mixinsquared_version}"))
     implementation "maven.modrinth:lithium:${lithium_version}-neoforge"
+    compileOnly("dev.ryanhcode.sable:sable-neoforge-${minecraft_version}:${sable_version}") {
+        transitive = false
+    }
+    compileOnly "dev.ryanhcode.sable-companion:sable-companion-common-${minecraft_version}:${sable_companion_version}"
     compileOnly 'org.projectlombok:lombok:1.18.44'
     annotationProcessor 'org.projectlombok:lombok:1.18.44'
     implementation project(':api')

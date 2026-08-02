@@ -18,6 +18,8 @@ import java.util.TreeSet;
 
 public class SynchronisePlugin implements IMixinConfigPlugin {
     private static final Logger LOGGER = LoggerFactory.getLogger(SynchronisePlugin.class);
+    private static final String SABLE_MIXIN_PREFIX = "com.axalotl.async.common.mixin.compat.sable.";
+    private static final String SABLE_MOD_ID = "sable";
 
     private static final int FINAL_STATIC_PRIVATE_ABSTRACT = 0x1548; // final, static, private, abstract
     private static final int SYNCHRONIZED = 0x20; // synchronized
@@ -39,6 +41,9 @@ public class SynchronisePlugin implements IMixinConfigPlugin {
 
     @Override
     public boolean shouldApplyMixin(String targetClassName, String mixinClassName) {
+        if (mixinClassName.startsWith(SABLE_MIXIN_PREFIX)) {
+            return PlatformUtils.isModLoaded(SABLE_MOD_ID);
+        }
         return true;
     }
 
