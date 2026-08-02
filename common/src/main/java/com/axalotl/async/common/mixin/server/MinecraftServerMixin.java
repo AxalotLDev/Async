@@ -16,7 +16,7 @@ public class MinecraftServerMixin {
 
     @Redirect(method = "reloadResources", at = @At(value = "INVOKE", target = "Lnet/minecraft/server/MinecraftServer;isSameThread()Z"))
     private boolean onServerExecutionThreadPatch(MinecraftServer minecraftServer) {
-        return ParallelProcessor.isServerExecutionThread();
+        return minecraftServer.isSameThread() || ParallelProcessor.isServerExecutionThread();
     }
 
     @Inject(method = "tickServer", at = @At("TAIL"))

@@ -1,7 +1,9 @@
 package com.axalotl.async.common;
 
 import com.axalotl.async.api.utils.AsyncCompatible;
+import com.axalotl.async.common.compat.SableCompatibility;
 import com.axalotl.async.common.config.AsyncConfig;
+import com.axalotl.async.common.platform.PlatformUtils;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import lombok.Getter;
@@ -36,6 +38,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.function.Consumer;
@@ -51,8 +54,11 @@ public class ParallelProcessor {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ParallelProcessor.class);
     private static final String ASYNC_TICK_POOL = "Async-Tick";
+    private static final String SABLE_MOD_ID = "sable";
     private static final int SECTION_SHIFT = 2;
     private static final long POLL_INTERVAL_MICROSECONDS = 200L;
+    private static final boolean SABLE_LOADED = PlatformUtils.isModLoaded(SABLE_MOD_ID);
+    private static final AtomicBoolean SABLE_COMPATIBILITY_FAILURE_LOGGED = new AtomicBoolean();
 
     @Getter
     @Setter
@@ -531,7 +537,26 @@ public class ParallelProcessor {
                 || entity instanceof Player
                 || BLOCKED_ENTITIES.contains(entity.getClass())
                 || BLACKLISTED_ENTITIES.contains(entityId)
+                || requiresSableSynchronization(entity)
                 || AsyncConfig.isEntitySynchronized(EntityType.getKey(entity.getType()));
+    }
+
+    private static boolean requiresSableSynchronization(Entity entity) {
+        if (!SABLE_LOADED) {
+            return false;
+        }
+
+        try {
+            return SableCompatibility.shouldTickSynchronously(entity);
+        } catch (LinkageError | RuntimeException exception) {
+            if (SABLE_COMPATIBILITY_FAILURE_LOGGED.compareAndSet(false, true)) {
+                LOGGER.error(
+                        "Sable compatibility detection failed; keeping all entities on the server thread",
+                        exception
+                );
+            }
+            return true;
+        }
     }
 
     /**

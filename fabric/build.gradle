@@ -8,6 +8,7 @@ plugins {
 
 repositories {
     maven { url 'https://maven.parchmentmc.org' }
+    maven { url = 'https://maven.ryanhcode.dev/releases' }
     maven { url 'https://api.modrinth.com/maven' }
 }
 
@@ -48,6 +49,10 @@ dependencies {
     }
     modImplementation "net.fabricmc:fabric-loader:${fabric_loader_version}"
     modImplementation "net.fabricmc.fabric-api:fabric-api:${fabric_version}"
+    modCompileOnly("dev.ryanhcode.sable:sable-fabric-${minecraft_version}:${sable_version}") {
+        transitive = false
+    }
+    compileOnly "dev.ryanhcode.sable-companion:sable-companion-common-${minecraft_version}:${sable_companion_version}"
 
     include(implementation(annotationProcessor("com.github.bawnorton.mixinsquared:mixinsquared-fabric:${mixinsquared_version}")))
     modImplementation 'com.electronwill.night-config:toml:3.8.1'
