@@ -485,7 +485,7 @@ public class ParallelProcessor {
         Runnable chunk;
         while ((chunk = batch.queue().poll()) != null) {
             chunk.run();
-            pumpMainThreadTasks();
+            pumpMainThreadTasks(done);
         }
 
         boolean interrupted = false;
@@ -497,7 +497,7 @@ public class ParallelProcessor {
             } catch (InterruptedException exception) {
                 interrupted = true;
             }
-            pumpMainThreadTasks();
+            pumpMainThreadTasks(done);
         }
 
         if (interrupted) {
@@ -512,12 +512,15 @@ public class ParallelProcessor {
         }
     }
 
-    private static void pumpMainThreadTasks() {
+    private static void pumpMainThreadTasks(CountDownLatch done) {
         MinecraftServer minecraftServer = server;
         if (minecraftServer == null) {
             return;
         }
         for (ServerLevel level : minecraftServer.getAllLevels()) {
+            if (done.getCount() == 0L) {
+                return;
+            }
             level.getChunkSource().pollTask();
         }
     }
