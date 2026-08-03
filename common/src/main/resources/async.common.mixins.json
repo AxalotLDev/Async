@@ -72,6 +72,7 @@
     "utils.ThreadSafeLegacyRandomSourceMixin",
     "vmp.VMPChunkMapMixin",
     "world.BlockMixin",
+    "world.ChunkAccessMixin",
     "world.ChunkHolderMixin",
     "world.CollectingNeighborUpdaterMixin",
     "world.DistanceManagerMixin",
