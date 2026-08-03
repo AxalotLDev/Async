@@ -215,14 +215,7 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
             return;
         }
 
-        ChunkHolder chunkHolder = this.getVisibleChunkIfPresent(ChunkPos.asLong(chunkX, chunkZ));
-        if (chunkHolder == null) {
-            return;
-        }
-
-        CompletableFuture<ChunkResult<ChunkAccess>> chunkFuture =
-                chunkHolder.scheduleChunkGenerationTask(ChunkStatus.FULL, this.chunkMap);
-        ChunkAccess chunk = chunkFuture.getNow(ChunkHolder.UNLOADED_CHUNK).orElse(null);
+        ChunkAccess chunk = async$tryGetChunk(chunkX, chunkZ, ChunkStatus.FULL);
         if (chunk instanceof LevelChunk levelChunk) {
             callbackInfo.setReturnValue(levelChunk);
         }
