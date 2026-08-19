@@ -44,6 +44,7 @@
     "entity.movement.EntitySectionMixin",
     "entity.movement.EntitySectionStorageMixin",
     "entity.movement.PathFinderMixin",
+    "entity.movement.PathNavigationMixin",
     "entity.movement.PoiManagerMixin",
     "entity.sensor.NearestItemSensorMixin",
     "entity.sensor.NearestLivingEntitiesSensorMixin",

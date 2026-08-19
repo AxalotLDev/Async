@@ -26,6 +26,7 @@ import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.LongAdder;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
 
 import static com.axalotl.async.common.utils.TickStats.*;
@@ -404,6 +405,30 @@ public class ParallelProcessor {
     private static void pumpMainThreadTasks() {
         for (ServerLevel lvl : server.getAllLevels()) {
             lvl.getChunkSource().pollTask();
+        }
+    }
+
+    private static final long LOCK_POLL_MICROS = 200;
+
+    public static boolean isMainServerThread() {
+        return server != null && server.isSameThread();
+    }
+
+    public static void lockCooperatively(ReentrantLock lock) {
+        if (lock.tryLock()) {
+            return;
+        }
+        if (!isMainServerThread()) {
+            lock.lock();
+            return;
+        }
+        try {
+            while (!lock.tryLock(LOCK_POLL_MICROS, TimeUnit.MICROSECONDS)) {
+                pumpMainThreadTasks();
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            lock.lock();
         }
     }
 

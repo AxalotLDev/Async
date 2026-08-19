@@ -22,6 +22,7 @@ public class SynchronisePlugin implements IMixinConfigPlugin {
     private static final int SYNCHRONIZED = 0x20; // synchronized
     private final Multimap<String, String> mixin2MethodsMap = ArrayListMultimap.create();
     private final Multimap<String, String> mixin2MethodsExcludeMap = ArrayListMultimap.create();
+    private final Multimap<String, String> classMethodExcludeMap = ArrayListMultimap.create();
     private final TreeSet<String> syncAllSet = new TreeSet<>();
 
     @Override
@@ -29,6 +30,10 @@ public class SynchronisePlugin implements IMixinConfigPlugin {
         mixin2MethodsExcludeMap.put("com.axalotl.async.common.mixin.utils.SyncAllMixin", "net.minecraft.world.level.chunk.ChunkStatus.isOrAfter");
         syncAllSet.add("com.axalotl.async.common.mixin.utils.FastUtilSynchronizeMixin");
         syncAllSet.add("com.axalotl.async.common.mixin.utils.SyncAllMixin");
+        classMethodExcludeMap.putAll("net.minecraft.world.entity.ai.navigation.PathNavigation", List.of(
+                "tick", "moveTo", "recomputePath", "stop", "shouldRecomputePath", "setSpeedModifier",
+                "isDone", "isInProgress", "getPath"
+        ));
     }
 
     @Override
@@ -58,12 +63,14 @@ public class SynchronisePlugin implements IMixinConfigPlugin {
     public void postApply(String targetClassName, ClassNode targetClass, String mixinClassName, IMixinInfo mixinInfo) {
         Collection<String> targetMethods = mixin2MethodsMap.get(mixinClassName);
         Collection<String> excludedMethods = mixin2MethodsExcludeMap.get(mixinClassName);
+        Collection<String> classExcludedMethods = classMethodExcludeMap.get(targetClassName);
 
         if (!targetMethods.isEmpty()) {
             applySynchronizeBit(targetClass, targetMethods, targetClassName);
         } else if (syncAllSet.contains(mixinClassName)) {
             for (MethodNode method : targetClass.methods) {
-                if ((method.access & FINAL_STATIC_PRIVATE_ABSTRACT) == 0 && !method.name.equals("<init>") && !excludedMethods.contains(method.name)) {
+                if ((method.access & FINAL_STATIC_PRIVATE_ABSTRACT) == 0 && !method.name.equals("<init>")
+                        && !excludedMethods.contains(method.name) && !classExcludedMethods.contains(method.name)) {
                     method.access |= SYNCHRONIZED;
                     logSynchronize(method.name, targetClassName, mixinClassName);
                 }
