@@ -1,5 +1,6 @@
 package com.axalotl.async.common.mixin.entity;
 
+import com.axalotl.async.common.ParallelProcessor;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
@@ -19,6 +20,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
@@ -26,6 +28,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReentrantLock;
 
 @Mixin(value = LivingEntity.class)
 public abstract class LivingEntityMixin extends Entity {
@@ -33,31 +36,50 @@ public abstract class LivingEntityMixin extends Entity {
     @Shadow
     final private Map<Holder<MobEffect>, MobEffectInstance> activeEffects = new ConcurrentHashMap<>();
 
+    @Unique
+    private final ReentrantLock entityLock = new ReentrantLock();
+
     public LivingEntityMixin(EntityType<?> type, Level world) {
         super(type, world);
     }
 
     @WrapMethod(method = "die")
-    private synchronized void die(DamageSource source, Operation<Void> original) {
-        original.call(source);
+    private void die(DamageSource source, Operation<Void> original) {
+        ParallelProcessor.lockCooperatively(this.entityLock);
+        try {
+            original.call(source);
+        } finally {
+            this.entityLock.unlock();
+        }
     }
 
     @WrapMethod(method = "dropFromLootTable(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/world/damagesource/DamageSource;Z)V")
-    private synchronized void dropFromLootTable(ServerLevel level, DamageSource source, boolean playerKilled, Operation<Void> original) {
-        original.call(level, source, playerKilled);
+    private void dropFromLootTable(ServerLevel level, DamageSource source, boolean playerKilled, Operation<Void> original) {
+        ParallelProcessor.lockCooperatively(this.entityLock);
+        try {
+            original.call(level, source, playerKilled);
+        } finally {
+            this.entityLock.unlock();
+        }
     }
 
     @WrapMethod(method = "knockback(DDDLnet/minecraft/world/damagesource/DamageSource;FZ)V")
     private void knockback(double power, double xd, double zd, DamageSource source, float damage, boolean comesFromEffect, Operation<Void> original) {
-        synchronized (this) {
+        ParallelProcessor.lockCooperatively(this.entityLock);
+        try {
             original.call(power, xd, zd, source, damage, comesFromEffect);
+        } finally {
+            this.entityLock.unlock();
         }
     }
 
     @WrapMethod(method = "tickEffects")
     private void tickStatusEffects(Operation<Void> original) {
-        synchronized (this) {
+        ParallelProcessor.lockCooperatively(this.entityLock);
+        try {
             original.call();
+        } finally {
+            this.entityLock.unlock();
         }
     }
 
@@ -69,7 +91,7 @@ public abstract class LivingEntityMixin extends Entity {
             )
     )
     private boolean wrapTickEffect(MobEffectInstance instance, ServerLevel serverLevel, LivingEntity target, Runnable onEffectUpdate, Operation<Boolean> original) {
-        return instance != null ? original.call(instance, serverLevel, target, onEffectUpdate) : false;
+        return instance != null && original.call(instance, serverLevel, target, onEffectUpdate);
     }
 
     @WrapOperation(
@@ -85,27 +107,36 @@ public abstract class LivingEntityMixin extends Entity {
 
     @WrapMethod(method = "addEffect(Lnet/minecraft/world/effect/MobEffectInstance;Lnet/minecraft/world/entity/Entity;)Z")
     private boolean addEffect(MobEffectInstance newEffect, Entity source, Operation<Boolean> original) {
-        synchronized (this) {
-            return newEffect != null ? original.call(newEffect, source) : false;
+        ParallelProcessor.lockCooperatively(this.entityLock);
+        try {
+            return newEffect != null && original.call(newEffect, source);
+        } finally {
+            this.entityLock.unlock();
         }
     }
 
     @WrapMethod(method = "removeEffect")
     private boolean removeEffect(Holder<MobEffect> effect, Operation<Boolean> original) {
-        synchronized (this) {
-            return effect != null ? original.call(effect) : false;
+        ParallelProcessor.lockCooperatively(this.entityLock);
+        try {
+            return effect != null && original.call(effect);
+        } finally {
+            this.entityLock.unlock();
         }
     }
 
     @WrapMethod(method = "hasEffect")
     public boolean hasEffect(Holder<MobEffect> effect, Operation<Boolean> original) {
-        return effect != null ? original.call(effect) : false;
+        return effect != null && original.call(effect);
     }
 
     @WrapMethod(method = "removeAllEffects")
     private boolean removeAllEffects(Operation<Boolean> original) {
-        synchronized (this) {
+        ParallelProcessor.lockCooperatively(this.entityLock);
+        try {
             return original.call();
+        } finally {
+            this.entityLock.unlock();
         }
     }
 
@@ -122,9 +153,12 @@ public abstract class LivingEntityMixin extends Entity {
     @Redirect(method = "refreshDirtyAttributes", at = @At(value = "INVOKE", target = "Ljava/util/Set;iterator()Ljava/util/Iterator;"))
     private Iterator<AttributeInstance> snapshotIterator(Set<AttributeInstance> set) {
         Set<AttributeInstance> snapshot;
-        synchronized (this) {
+        ParallelProcessor.lockCooperatively(this.entityLock);
+        try {
             snapshot = new HashSet<>(set);
             set.clear();
+        } finally {
+            this.entityLock.unlock();
         }
         return snapshot.iterator();
     }
