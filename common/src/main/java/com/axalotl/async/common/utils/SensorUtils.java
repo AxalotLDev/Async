@@ -1,4 +1,4 @@
-package com.axalotl.async.api.utils;
+package com.axalotl.async.common.utils;
 
 import net.minecraft.world.entity.Entity;
 
@@ -6,11 +6,15 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
 
-
 /**
  * Utility class for entity-related sensor operations.
+ *
+ * <p>Internal to the mod: must live in {@code common} (compiled directly into
+ * the mod jar's game-layer classloader) rather than the published {@code api}
+ * module, which is embedded via jarJar as a separate library and does not
+ * have visibility into mixin-patched {@code net.minecraft} classes.</p>
  */
-public class SensorUtils {
+public final class SensorUtils {
 
     /**
      * Hidden constructor to prevent instantiation.
@@ -22,7 +26,7 @@ public class SensorUtils {
     /**
      * Creates a comparator that sorts entities by squared distance to a source entity.
      *
-     * @param <T> type of entity being compared
+     * @param <T>    type of entity being compared
      * @param source reference entity used as distance origin
      * @return comparator ordering entities by distance to the source
      */

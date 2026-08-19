@@ -22,3 +22,4 @@
 - Improved the parallel tick barrier: the main thread now helps drain the work queue instead of idling while workers finish
 - Fixed hopper minecarts crashing with `IndexOutOfBoundsException` from a race in Lithium's shared entity-movement trackers
 - Fixed a race between async mob spawning and scoreboard team assignment that could desync a player's team and kick them (compat: Incendium)
+- Fixed piglins (and other mobs) crashing the server with `NoClassDefFoundError` when nearest-item/living-entity/player sensors ticked (#193)
