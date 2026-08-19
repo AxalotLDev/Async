@@ -21,3 +21,4 @@
 - Improved async chunk access with a per-thread last-chunk cache and safer fallback when the worker pool is unavailable
 - Improved the parallel tick barrier: the main thread now helps drain the work queue instead of idling while workers finish
 - Fixed hopper minecarts crashing with `IndexOutOfBoundsException` from a race in Lithium's shared entity-movement trackers
+- Fixed a race between async mob spawning and scoreboard team assignment that could desync a player's team and kick them (compat: Incendium)
