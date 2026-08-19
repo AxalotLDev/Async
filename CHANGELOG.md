@@ -20,3 +20,4 @@
 - Simplified async spawning to dispatch each tick's batch as a single background task instead of splitting it across the pool
 - Improved async chunk access with a per-thread last-chunk cache and safer fallback when the worker pool is unavailable
 - Improved the parallel tick barrier: the main thread now helps drain the work queue instead of idling while workers finish
+- Fixed hopper minecarts crashing with `IndexOutOfBoundsException` from a race in Lithium's shared entity-movement trackers

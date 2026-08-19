@@ -54,6 +54,8 @@
     "entity.spawn.NaturalSpawnerMixin",
     "entity.spawn.SpawnStateMixin",
     "lithium.LithiumChunkSectionChangeCallbackMixin",
+    "lithium.LithiumEntityMovementTrackingMixin",
+    "lithium.LithiumEntityMovementTrackerMixin",
     "lithium.LithiumGameEventDispatcherStorage",
     "lithium.LithiumInternerMixin",
     "lithium.LithiumSectionedBlockChangeTrackerMixin",
