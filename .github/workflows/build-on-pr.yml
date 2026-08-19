@@ -1,6 +1,5 @@
-name: Async Build Script
+name: Pull Request Builds
 on:
-  push: { }
   pull_request: { }
 jobs:
   build:
