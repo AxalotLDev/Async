@@ -13,7 +13,6 @@ import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 
-import java.util.Objects;
 import java.util.stream.Stream;
 
 @Mixin(EntitySection.class)
@@ -40,11 +39,17 @@ public class EntitySectionMixin<T extends EntityAccess> {
         }
     }
 
+    @WrapMethod(method = "updateChunkStatus")
+    private Visibility updateChunkStatus(Visibility chunkStatus, Operation<Visibility> original) {
+        synchronized (this) {
+            return original.call(chunkStatus);
+        }
+    }
+
     @WrapMethod(method = "getEntities()Ljava/util/stream/Stream;")
     private Stream<T> getEntities(Operation<Stream<T>> original) {
         synchronized (this) {
             return storage.stream()
-                    .filter(Objects::nonNull)
                     .toList()
                     .stream();
         }
