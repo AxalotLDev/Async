@@ -1,6 +1,6 @@
 package com.axalotl.async.common.mixin.entity;
 
-import com.axalotl.async.api.utils.SyncItemPickup;
+import com.axalotl.async.common.utils.SyncItemPickup;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import net.minecraft.server.level.ServerLevel;
