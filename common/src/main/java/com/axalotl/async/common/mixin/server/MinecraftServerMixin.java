@@ -1,6 +1,7 @@
 package com.axalotl.async.common.mixin.server;
 
 import com.axalotl.async.common.ParallelProcessor;
+import com.axalotl.async.common.utils.SynchronizationStats;
 import com.axalotl.async.common.utils.TickStats;
 import net.minecraft.server.MinecraftServer;
 import org.spongepowered.asm.mixin.Mixin;
@@ -19,8 +20,14 @@ public class MinecraftServerMixin {
         return minecraftServer.isSameThread() || ParallelProcessor.isServerExecutionThread();
     }
 
+    @Inject(method = "tickServer", at = @At("HEAD"))
+    private void asyncStatsTickStart(BooleanSupplier haveTime, CallbackInfo callbackInfo) {
+        SynchronizationStats.onServerTickStart();
+    }
+
     @Inject(method = "tickServer", at = @At("TAIL"))
-    private void asyncStatsTick(BooleanSupplier haveTime, CallbackInfo ci) {
+    private void asyncStatsTickEnd(BooleanSupplier haveTime, CallbackInfo callbackInfo) {
         TickStats.onServerTick();
+        SynchronizationStats.onServerTickEnd();
     }
 }

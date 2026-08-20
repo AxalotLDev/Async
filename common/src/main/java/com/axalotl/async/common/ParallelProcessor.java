@@ -4,6 +4,8 @@ import com.axalotl.async.api.utils.AsyncCompatible;
 import com.axalotl.async.common.compat.SableCompatibility;
 import com.axalotl.async.common.config.AsyncConfig;
 import com.axalotl.async.common.platform.PlatformUtils;
+import com.axalotl.async.common.utils.SynchronizationReason;
+import com.axalotl.async.common.utils.SynchronizationStats;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import lombok.Getter;
@@ -24,6 +26,8 @@ import org.slf4j.LoggerFactory;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
@@ -296,18 +300,38 @@ public class ParallelProcessor {
             if (despawnChecksEnabled) {
                 despawnOnlyEntities.forEach(ParallelProcessor::checkDespawn);
             }
-            entities.forEach(entity -> tickOne(world, entity, false, despawnChecksEnabled));
+            boolean recordSynchronizationStats = SynchronizationStats.isRecording();
+            for (Entity entity : entities) {
+                if (entity == null || entity.isRemoved()) {
+                    continue;
+                }
+                if (recordSynchronizationStats) {
+                    SynchronizationStats.record(entity, getSynchronizationReasons(entity));
+                }
+                tickOne(world, entity, false, despawnChecksEnabled);
+            }
             return;
         }
 
         List<Entity> asynchronousEntities = new ArrayList<>();
         List<Entity> synchronousEntities = new ArrayList<>();
+        boolean recordSynchronizationStats = SynchronizationStats.isRecording();
         for (Entity entity : entities) {
             if (entity == null || entity.isRemoved()) {
                 continue;
             }
-            if (shouldTickSynchronously(entity)) {
+
+            Set<SynchronizationReason> synchronizationReasons = recordSynchronizationStats
+                    ? getSynchronizationReasons(entity)
+                    : Set.of();
+            boolean tickSynchronously = recordSynchronizationStats
+                    ? !synchronizationReasons.isEmpty()
+                    : shouldTickSynchronously(entity);
+            if (tickSynchronously) {
                 synchronousEntities.add(entity);
+                if (recordSynchronizationStats) {
+                    SynchronizationStats.record(entity, synchronizationReasons);
+                }
             } else {
                 asynchronousEntities.add(entity);
             }
@@ -529,19 +553,99 @@ public class ParallelProcessor {
      * Returns whether an entity must remain on the main thread.
      */
     public static boolean shouldTickSynchronously(Entity entity) {
-        if (isShuttingDown || entity.level().isClientSide() || entity.portalProcess != null) {
-            return true;
+        return getSynchronizationReasonMask(entity, true) != 0L;
+    }
+
+    /**
+     * Returns every condition that currently keeps an entity on the main thread.
+     */
+    public static Set<SynchronizationReason> getSynchronizationReasons(Entity entity) {
+        long reasonMask = getSynchronizationReasonMask(entity, false);
+        if (reasonMask == 0L) {
+            return Set.of();
         }
 
-        UUID entityId = entity.getUUID();
-        return AsyncConfig.disabled
-                || entitySupportsAsyncApi(entity)
-                || entity instanceof Projectile
-                || entity instanceof Player
-                || BLOCKED_ENTITIES.contains(entity.getClass())
-                || BLACKLISTED_ENTITIES.contains(entityId)
-                || requiresSableSynchronization(entity)
-                || AsyncConfig.isEntitySynchronized(EntityType.getKey(entity.getType()));
+        Set<SynchronizationReason> reasons = EnumSet.noneOf(SynchronizationReason.class);
+        for (SynchronizationReason reason : SynchronizationReason.values()) {
+            if ((reasonMask & maskFor(reason)) != 0L) {
+                reasons.add(reason);
+            }
+        }
+        return Collections.unmodifiableSet(reasons);
+    }
+
+    private static long getSynchronizationReasonMask(Entity entity, boolean stopAfterFirstReason) {
+        long reasonMask = 0L;
+
+        if (isShuttingDown) {
+            reasonMask |= maskFor(SynchronizationReason.PROCESSOR_SHUTTING_DOWN);
+            if (stopAfterFirstReason) {
+                return reasonMask;
+            }
+        }
+        if (entity.level().isClientSide()) {
+            reasonMask |= maskFor(SynchronizationReason.CLIENT_SIDE_LEVEL);
+            if (stopAfterFirstReason) {
+                return reasonMask;
+            }
+        }
+        if (entity.portalProcess != null) {
+            reasonMask |= maskFor(SynchronizationReason.ACTIVE_PORTAL_PROCESS);
+            if (stopAfterFirstReason) {
+                return reasonMask;
+            }
+        }
+        if (AsyncConfig.disabled) {
+            reasonMask |= maskFor(SynchronizationReason.ASYNC_DISABLED);
+            if (stopAfterFirstReason) {
+                return reasonMask;
+            }
+        }
+        if (entitySupportsAsyncApi(entity)) {
+            reasonMask |= maskFor(SynchronizationReason.MISSING_ASYNC_COMPATIBILITY);
+            if (stopAfterFirstReason) {
+                return reasonMask;
+            }
+        }
+        if (entity instanceof Projectile) {
+            reasonMask |= maskFor(SynchronizationReason.PROJECTILE);
+            if (stopAfterFirstReason) {
+                return reasonMask;
+            }
+        }
+        if (entity instanceof Player) {
+            reasonMask |= maskFor(SynchronizationReason.PLAYER);
+            if (stopAfterFirstReason) {
+                return reasonMask;
+            }
+        }
+        if (BLOCKED_ENTITIES.contains(entity.getClass())) {
+            reasonMask |= maskFor(SynchronizationReason.BLOCKED_ENTITY_CLASS);
+            if (stopAfterFirstReason) {
+                return reasonMask;
+            }
+        }
+        if (BLACKLISTED_ENTITIES.contains(entity.getUUID())) {
+            reasonMask |= maskFor(SynchronizationReason.RUNTIME_BLACKLIST);
+            if (stopAfterFirstReason) {
+                return reasonMask;
+            }
+        }
+        if (requiresSableSynchronization(entity)) {
+            reasonMask |= maskFor(SynchronizationReason.SABLE_COMPATIBILITY);
+            if (stopAfterFirstReason) {
+                return reasonMask;
+            }
+        }
+        if (AsyncConfig.isEntitySynchronized(EntityType.getKey(entity.getType()))) {
+            reasonMask |= maskFor(SynchronizationReason.SYNCHRONIZED_ENTITY_CONFIG);
+        }
+
+        return reasonMask;
+    }
+
+    private static long maskFor(SynchronizationReason reason) {
+        return 1L << reason.ordinal();
     }
 
     private static boolean requiresSableSynchronization(Entity entity) {
@@ -634,6 +738,7 @@ public class ParallelProcessor {
         BACKGROUND_TASKS.clear();
         AsyncConfig.clearCaches();
         BLACKLISTED_ENTITIES.clear();
+        SynchronizationStats.reset();
         resetEntityTickStats();
     }
 }

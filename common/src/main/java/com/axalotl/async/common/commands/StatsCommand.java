@@ -3,6 +3,8 @@ package com.axalotl.async.common.commands;
 import com.axalotl.async.common.ParallelProcessor;
 import com.axalotl.async.common.config.AsyncConfig;
 import com.axalotl.async.common.platform.PlatformPermission;
+import com.axalotl.async.common.utils.SynchronizationReason;
+import com.axalotl.async.common.utils.SynchronizationStats;
 import com.axalotl.async.common.utils.TickStats;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
@@ -15,8 +17,12 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.entity.EntityType;
 
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.StringJoiner;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.axalotl.async.common.ParallelProcessor.getPoolSize;
@@ -50,7 +56,12 @@ public class StatsCommand {
                                             int ticks = IntegerArgumentType.getInteger(cmdCtx, "ticks");
                                             startRecordingAndShow(cmdCtx.getSource(), count, ticks);
                                             return 1;
-                                        })))));
+                                        }))))
+                .then(literal("synced")
+                        .executes(cmdCtx -> {
+                            showSynchronizedEntityStats(cmdCtx.getSource());
+                            return 1;
+                        })));
     }
 
     private static void startRecordingAndShow(CommandSourceStack source, int topCount, int ticks) {
@@ -96,6 +107,70 @@ public class StatsCommand {
 
                 .append(Component.literal("\nMax Threads: ").withStyle(ChatFormatting.WHITE))
                 .append(Component.literal(String.valueOf(threads)).withStyle(ChatFormatting.YELLOW));
+
+        source.sendSuccess(() -> message, false);
+    }
+
+    private static void showSynchronizedEntityStats(CommandSourceStack source) {
+        source.sendSuccess(
+                () -> prefix.copy().append(Component.literal(
+                        "Recording synchronized entities for the next server tick..."
+                ).withStyle(ChatFormatting.YELLOW)),
+                false
+        );
+        SynchronizationStats.captureNextTick(
+                snapshot -> sendSynchronizedEntityStats(source, snapshot)
+        );
+    }
+
+    private static void sendSynchronizedEntityStats(
+            CommandSourceStack source,
+            SynchronizationStats.Snapshot snapshot
+    ) {
+        int uniqueEntityTypeCount = snapshot.synchronizedEntityTypes().size();
+
+        MutableComponent message = prefix.copy()
+                .append(Component.literal("Synchronized Entity Statistics")
+                        .withStyle(ChatFormatting.GOLD))
+                .append(Component.literal("\nSynchronized Entities: ")
+                        .withStyle(ChatFormatting.WHITE))
+                .append(Component.literal(String.valueOf(snapshot.synchronizedEntityCount()))
+                        .withStyle(ChatFormatting.GREEN))
+                .append(Component.literal("\nUnique Entity Types: ")
+                        .withStyle(ChatFormatting.WHITE))
+                .append(Component.literal(String.valueOf(uniqueEntityTypeCount))
+                        .withStyle(ChatFormatting.YELLOW));
+
+        if (uniqueEntityTypeCount == 0) {
+            message.append(Component.literal("\nNo entities were synchronized during the tick.")
+                    .withStyle(ChatFormatting.RED));
+            source.sendSuccess(() -> message, false);
+            return;
+        }
+
+        List<Map.Entry<ResourceLocation, SynchronizationStats.EntityTypeStats>> entityTypes =
+                new ArrayList<>(snapshot.entityTypes().entrySet());
+        entityTypes.sort(Comparator.comparing(entry -> entry.getKey().toString()));
+
+        for (Map.Entry<ResourceLocation, SynchronizationStats.EntityTypeStats> entry
+                : entityTypes) {
+            SynchronizationStats.EntityTypeStats entityTypeStats = entry.getValue();
+            StringJoiner reasonDescriptions = new StringJoiner(", ");
+            for (SynchronizationReason reason : SynchronizationReason.values()) {
+                if (entityTypeStats.reasons().contains(reason)) {
+                    reasonDescriptions.add(reason.description());
+                }
+            }
+
+            message.append(Component.literal("\n- ").withStyle(ChatFormatting.GREEN))
+                    .append(Component.literal(entry.getKey().toString())
+                            .withStyle(ChatFormatting.YELLOW))
+                    .append(Component.literal(" x" + entityTypeStats.entityCount())
+                            .withStyle(ChatFormatting.GREEN))
+                    .append(Component.literal(": ").withStyle(ChatFormatting.GRAY))
+                    .append(Component.literal(reasonDescriptions.toString())
+                            .withStyle(ChatFormatting.AQUA));
+        }
 
         source.sendSuccess(() -> message, false);
     }
