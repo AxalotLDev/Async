@@ -26,3 +26,4 @@
 - Fixed server deadlocks between the tick pool and the server thread during entity locking and off-thread chunk loading (#191)
 - Fixed hoppers crashing with `IllegalClassLoadError` from a mixin-package helper class being referenced directly in Lithium's entity-movement trackers
 - Fixed a race in `ServerLevel#tickChunk` over the shared RNG/random-pos state when async random ticks are enabled
+- Fixed a lock-order deadlock between section and Lithium entity-movement-tracking locks that could freeze/kick clients (#194)
