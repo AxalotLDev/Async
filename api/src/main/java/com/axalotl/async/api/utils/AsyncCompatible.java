@@ -9,10 +9,10 @@ import java.lang.annotation.Target;
  * Marks a class as explicitly compatible with asynchronous processing.
  *
  * <p>
- * By default, all modded entities are assumed to be
- * <b>not thread-safe</b> and will be executed synchronously on the main thread.
- * Entity classes annotated with {@code @AsyncCompatible} indicate that they are
- * designed to be safely used in asynchronous contexts.
+ * When {@code synchronizeUnannotatedModEntities} is enabled, modded entities are
+ * assumed to be <b>not thread-safe</b> and execute synchronously unless their class
+ * has {@code @AsyncCompatible}. The option is disabled by default, so this annotation
+ * only affects servers that explicitly enable the compatibility gate.
  * </p>
  *
  * <h2>Usage</h2>

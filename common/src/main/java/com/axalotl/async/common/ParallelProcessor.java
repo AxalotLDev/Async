@@ -601,7 +601,7 @@ public class ParallelProcessor {
                 return reasonMask;
             }
         }
-        if (entitySupportsAsyncApi(entity)) {
+        if (AsyncConfig.synchronizeUnannotatedModEntities && entitySupportsAsyncApi(entity)) {
             reasonMask |= maskFor(SynchronizationReason.MISSING_ASYNC_COMPATIBILITY);
             if (stopAfterFirstReason) {
                 return reasonMask;

@@ -31,6 +31,7 @@ public class ConfigCommand {
                 .then(buildSynchronizedEntitiesCommand())
                 .then(buildAsyncEntitySpawnCommand())
                 .then(buildAsyncRandomTicksCommand())
+                .then(buildSynchronizeUnannotatedModEntitiesCommand())
         );
     }
 
@@ -150,6 +151,34 @@ public class ConfigCommand {
                             sendMessage(ctx, "Async Random Ticks set to ",
                                     String.valueOf(value),
                                     true);
+                            return 1;
+                        })
+                );
+    }
+
+    private static LiteralArgumentBuilder<CommandSourceStack> buildSynchronizeUnannotatedModEntitiesCommand() {
+        return literal("setSynchronizeUnannotatedModEntities")
+                .executes(commandContext -> {
+                    sendMessage(
+                            commandContext,
+                            "Synchronize unannotated mod entities: ",
+                            String.valueOf(AsyncConfig.synchronizeUnannotatedModEntities),
+                            false
+                    );
+                    return 1;
+                })
+                .then(Commands.argument("value", BoolArgumentType.bool())
+                        .executes(commandContext -> {
+                            boolean value = BoolArgumentType.getBool(commandContext, "value");
+                            AsyncConfig.synchronizeUnannotatedModEntities = value;
+                            PlatformUtils.saveConfig();
+
+                            sendMessage(
+                                    commandContext,
+                                    "Synchronize unannotated mod entities set to ",
+                                    String.valueOf(value),
+                                    true
+                            );
                             return 1;
                         })
                 );
