@@ -26,6 +26,7 @@ public class MixinCanceller implements com.bawnorton.mixinsquared.api.MixinCance
                 mixinClassName.endsWith("com.axalotl.async.common.mixin.lithium.LithiumEntityMovementTrackerMixin") ||
                 mixinClassName.endsWith("com.axalotl.async.common.mixin.lithium.LithiumInternerMixin") ||
                 mixinClassName.endsWith("com.axalotl.async.common.mixin.lithium.LithiumGameEventDispatcherStorage") ||
+                mixinClassName.endsWith("com.axalotl.async.common.mixin.lithium.LithiumItemEntityListMixin") ||
                 mixinClassName.endsWith("com.axalotl.async.common.mixin.lithium.ReferenceMaskedListMixin")
         ) {
             return !LITHIUM;
