@@ -30,6 +30,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -114,8 +115,10 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
         this.batch = new ArrayList<>();
     }
 
-    @Inject(method = "getChunk(IILnet/minecraft/world/level/chunk/status/ChunkStatus;Z)Lnet/minecraft/world/level/chunk/ChunkAccess;",
-            at = @At("HEAD"), cancellable = true)
+    @Unique
+    private static final Semaphore CHUNK_WAIT_PERMITS = new Semaphore(2, true);
+
+    @Inject(method = "getChunk(IILnet/minecraft/world/level/chunk/status/ChunkStatus;Z)Lnet/minecraft/world/level/chunk/ChunkAccess;", at = @At("HEAD"), cancellable = true)
     private void getChunk(int x, int z, ChunkStatus targetStatus, boolean loadOrGenerate, CallbackInfoReturnable<ChunkAccess> cir) {
         if (Thread.currentThread() == this.mainThread) return;
         if (!ParallelProcessor.isServerExecutionThread()) return;
@@ -140,30 +143,49 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
             return;
         }
 
-        CompletableFuture<ChunkResult<ChunkAccess>> future = CompletableFuture.supplyAsync(
-                () -> this.getChunkFutureMainThread(x, z, targetStatus, loadOrGenerate),
-                this.mainThreadProcessor
-        ).thenCompose(f -> f);
+        if (!loadOrGenerate) return;
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
 
-        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(60);
-        while (!future.isDone()) {
-            if (System.nanoTime() > deadline) {
-                future.cancel(false);
-                LOGGER.warn("Timed out after 60s waiting for chunk [{}, {}] at status {}; falling back to the vanilla blocking path", x, z, targetStatus);
-                return;
-            }
-            ChunkAccess cached = tryGetChunk(x, z, targetStatus);
-            if (cached != null) {
-                future.cancel(false);
-                cir.setReturnValue(cached);
-                return;
-            }
-            LockSupport.parkNanos(10_000);
+        long permitWaitNanos = deadline - System.nanoTime();
+        boolean acquired;
+        try {
+            acquired = permitWaitNanos > 0 && CHUNK_WAIT_PERMITS.tryAcquire(permitWaitNanos, TimeUnit.NANOSECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return;
+        }
+        if (!acquired) {
+            LOGGER.warn("Timed out after 5s waiting for a chunk-wait slot for chunk [{}, {}] at status {}; falling back to the vanilla blocking path", x, z, targetStatus);
+            return;
         }
 
-        ChunkAccess chunk = future.join().orElse(null);
-        if (chunk instanceof ImposterProtoChunk imp) chunk = imp.getWrapped();
-        cir.setReturnValue(chunk);
+        try {
+            CompletableFuture<ChunkResult<ChunkAccess>> future = CompletableFuture.supplyAsync(
+                    () -> this.getChunkFutureMainThread(x, z, targetStatus, true),
+                    this.mainThreadProcessor
+            ).thenCompose(f -> f);
+
+            while (!future.isDone()) {
+                if (System.nanoTime() > deadline) {
+                    future.cancel(false);
+                    LOGGER.warn("Timed out after 5s waiting for chunk [{}, {}] at status {}; falling back to the vanilla blocking path", x, z, targetStatus);
+                    return;
+                }
+                ChunkAccess cached = tryGetChunk(x, z, targetStatus);
+                if (cached != null) {
+                    future.cancel(false);
+                    cir.setReturnValue(cached);
+                    return;
+                }
+                LockSupport.parkNanos(10_000);
+            }
+
+            ChunkAccess chunk = future.join().orElse(null);
+            if (chunk instanceof ImposterProtoChunk imp) chunk = imp.getWrapped();
+            cir.setReturnValue(chunk);
+        } finally {
+            CHUNK_WAIT_PERMITS.release();
+        }
     }
 
     @Unique
