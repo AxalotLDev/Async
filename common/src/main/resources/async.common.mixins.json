@@ -59,6 +59,7 @@
     "lithium.LithiumEntityMovementTrackerMixin",
     "lithium.LithiumGameEventDispatcherStorage",
     "lithium.LithiumInternerMixin",
+    "lithium.LithiumItemEntityListMixin",
     "lithium.LithiumSectionedBlockChangeTrackerMixin",
     "lithium.LithiumServerLevel",
     "lithium.ReferenceMaskedListMixin",
