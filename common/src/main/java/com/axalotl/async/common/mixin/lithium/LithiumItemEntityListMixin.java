@@ -4,6 +4,7 @@ import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import net.caffeinemc.mods.lithium.common.entity.item.ItemEntityList;
 import net.minecraft.util.AbortableIterationConsumer;
+import net.minecraft.util.Continuation;
 import net.minecraft.world.entity.item.ItemEntity;
 import org.spongepowered.asm.mixin.Mixin;
 
@@ -177,7 +178,7 @@ public class LithiumItemEntityListMixin {
     }
 
     @WrapMethod(method = "consumeForEntityStacking")
-    private AbortableIterationConsumer.Continuation consumeForEntityStacking(ItemEntity searchingEntity, AbortableIterationConsumer<ItemEntity> itemEntityConsumer, Operation<AbortableIterationConsumer.Continuation> original) {
+    private Continuation consumeForEntityStacking(ItemEntity searchingEntity, AbortableIterationConsumer<ItemEntity> itemEntityConsumer, Operation<Continuation> original) {
         synchronized (this) {
             return original.call(searchingEntity, itemEntityConsumer);
         }

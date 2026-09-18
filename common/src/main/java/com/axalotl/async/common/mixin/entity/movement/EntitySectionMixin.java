@@ -4,6 +4,7 @@ import com.axalotl.async.common.utils.LithiumMovementTrackingLock;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import net.minecraft.util.AbortableIterationConsumer;
+import net.minecraft.util.Continuation;
 import net.minecraft.util.ClassInstanceMultiMap;
 import net.minecraft.world.level.entity.EntityAccess;
 import net.minecraft.world.level.entity.EntitySection;
@@ -63,15 +64,15 @@ public class EntitySectionMixin<T extends EntityAccess> {
         }
     }
 
-    @WrapMethod(method = "getEntities(Lnet/minecraft/world/phys/AABB;Lnet/minecraft/util/AbortableIterationConsumer;)Lnet/minecraft/util/AbortableIterationConsumer$Continuation;")
-    private AbortableIterationConsumer.Continuation getEntities(AABB bb, AbortableIterationConsumer<T> entities, Operation<AbortableIterationConsumer.Continuation> original) {
+    @WrapMethod(method = "getEntities(Lnet/minecraft/world/phys/AABB;Lnet/minecraft/util/AbortableIterationConsumer;)Lnet/minecraft/util/Continuation;")
+    private Continuation getEntities(AABB bb, AbortableIterationConsumer<T> entities, Operation<Continuation> original) {
         synchronized (this) {
             return original.call(bb, entities);
         }
     }
 
-    @WrapMethod(method = "getEntities(Lnet/minecraft/world/level/entity/EntityTypeTest;Lnet/minecraft/world/phys/AABB;Lnet/minecraft/util/AbortableIterationConsumer;)Lnet/minecraft/util/AbortableIterationConsumer$Continuation;")
-    private <U extends T> AbortableIterationConsumer.Continuation getEntities(EntityTypeTest<T, U> type, AABB bb, AbortableIterationConsumer<? super U> consumer, Operation<AbortableIterationConsumer.Continuation> original) {
+    @WrapMethod(method = "getEntities(Lnet/minecraft/world/level/entity/EntityTypeTest;Lnet/minecraft/world/phys/AABB;Lnet/minecraft/util/AbortableIterationConsumer;)Lnet/minecraft/util/Continuation;")
+    private <U extends T> Continuation getEntities(EntityTypeTest<T, U> type, AABB bb, AbortableIterationConsumer<? super U> consumer, Operation<Continuation> original) {
         synchronized (this) {
             return original.call(type, bb, consumer);
         }

@@ -82,7 +82,7 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
     private boolean spawnEnemies;
 
     @Shadow
-    public abstract void tickSpawningChunk(LevelChunk chunk, long timeDiff, List<MobCategory> spawningCategories, NaturalSpawner.SpawnState spawnCookie);
+    public abstract void tickSpawningChunk(LevelChunk chunk, List<MobCategory> spawningCategories, NaturalSpawner.SpawnState spawnCookie);
 
     @Unique
     private AtomicBoolean isSpawnStateComputing;
@@ -210,7 +210,7 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
         }
     }
 
-    @Inject(method = "tickChunks(Lnet/minecraft/util/profiling/ProfilerFiller;J)V", at = @At("HEAD"))
+    @Inject(method = "tickChunks(Lnet/minecraft/util/profiling/ProfilerFiller;)V", at = @At("HEAD"))
     private void onSpawnTickStart(CallbackInfo ci) {
         boolean asyncEnabled = !AsyncConfig.disabled && AsyncConfig.enableAsyncSpawn;
 
@@ -226,7 +226,7 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
         }
     }
 
-    @WrapOperation(method = "tickChunks(Lnet/minecraft/util/profiling/ProfilerFiller;J)V",
+    @WrapOperation(method = "tickChunks(Lnet/minecraft/util/profiling/ProfilerFiller;)V",
             at = @At(value = "INVOKE", target = "Lnet/minecraft/server/level/ChunkMap;forEachBlockTickingChunk(Ljava/util/function/Consumer;)V"))
     private void parallelRandomTicks(ChunkMap map, Consumer<LevelChunk> tickingChunkConsumer, Operation<Void> original) {
         if (AsyncConfig.disabled || !AsyncConfig.enableAsyncRandomTicks) {
@@ -240,9 +240,9 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
     }
 
     @WrapMethod(method = "tickSpawningChunk")
-    private void redirectTickSpawningChunk(LevelChunk chunk, long timeDiff, List<MobCategory> spawningCategories, NaturalSpawner.SpawnState spawnCookie, Operation<Void> original) {
+    private void redirectTickSpawningChunk(LevelChunk chunk, List<MobCategory> spawningCategories, NaturalSpawner.SpawnState spawnCookie, Operation<Void> original) {
         if (AsyncConfig.disabled || !AsyncConfig.enableAsyncSpawn) {
-            original.call(chunk, timeDiff, spawningCategories, spawnCookie);
+            original.call(chunk, spawningCategories, spawnCookie);
             return;
         }
 
@@ -250,7 +250,7 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
             spawnCookie.localMobCapCalculator.playersNearChunk.put(chunk.getPos().pack(), playersCloseForSpawning(chunk.getPos()));
         }
 
-        batch.add(() -> original.call(chunk, timeDiff, spawningCategories, spawnCookie));
+        batch.add(() -> original.call(chunk, spawningCategories, spawnCookie));
     }
 
     @Unique
@@ -274,7 +274,7 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
         return computed != null ? computed : players;
     }
 
-    @Inject(method = "tickChunks(Lnet/minecraft/util/profiling/ProfilerFiller;J)V", at = @At("TAIL"))
+    @Inject(method = "tickChunks(Lnet/minecraft/util/profiling/ProfilerFiller;)V", at = @At("TAIL"))
     private void dispatchSpawnBatch(CallbackInfo ci) {
         if (batch.isEmpty()) return;
         List<Runnable> currentBatch = new ArrayList<>(batch);

@@ -6,6 +6,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.MobCategory;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.NaturalSpawner;
 import net.minecraft.world.level.chunk.ChunkAccess;
 import org.spongepowered.asm.mixin.Mixin;
@@ -14,9 +15,9 @@ import org.spongepowered.asm.mixin.Mixin;
 public class SpawnStateMixin {
 
     @WrapMethod(method = "canSpawn")
-    private boolean canSpawn(EntityType<?> type, BlockPos testPos, ChunkAccess chunk, Operation<Boolean> original) {
+    private boolean canSpawn(EntityType<?> type, Level level, BlockPos testPos, ChunkAccess chunk, Operation<Boolean> original) {
         synchronized (this) {
-            return original.call(type, testPos, chunk);
+            return original.call(type, level, testPos, chunk);
         }
     }
 
