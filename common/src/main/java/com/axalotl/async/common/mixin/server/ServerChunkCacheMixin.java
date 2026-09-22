@@ -293,14 +293,6 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
     }
 
     @Unique
-    private void getFullChunkOffThread(long chunkKey, Consumer<LevelChunk> output) {
-        ChunkAccess chunk = tryGetChunk(ChunkPos.getX(chunkKey), ChunkPos.getZ(chunkKey), ChunkStatus.FULL);
-        if (chunk instanceof LevelChunk levelChunk) {
-            output.accept(levelChunk);
-        }
-    }
-
-    @Unique
     private void runSpawnBatch(List<Runnable> tasks) {
         for (Runnable task : tasks) {
             try {
