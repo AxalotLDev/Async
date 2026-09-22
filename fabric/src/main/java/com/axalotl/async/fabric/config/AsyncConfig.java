@@ -39,14 +39,12 @@ public class AsyncConfig {
             if (!CONFIG.getFile().exists()) {
                 LOGGER.warn("Configuration not found. Creating defaults...");
                 setDefaultValues();
-                saveConfig();
-                com.axalotl.async.common.config.AsyncConfig.onConfigLoaded();
             } else {
                 CONFIG.load();
                 loadConfigValues();
-                saveConfig();
-                com.axalotl.async.common.config.AsyncConfig.onConfigLoaded();
             }
+            saveConfig();
+            com.axalotl.async.common.config.AsyncConfig.onConfigLoaded();
         } catch (Throwable t) {
             LOGGER.error("Error loading configuration. Resetting to defaults.", t);
             setDefaultValues();

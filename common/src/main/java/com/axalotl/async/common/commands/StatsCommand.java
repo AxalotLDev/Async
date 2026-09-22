@@ -171,9 +171,8 @@ public class StatsCommand {
                                     .append(Component.literal("]").withStyle(ChatFormatting.DARK_GRAY));
 
                             if (showTickStats && ticks > 0) {
-                                double mspt = TickStats.getMSPTForType(type, ticks);
                                 message.append(Component.literal(" "))
-                                        .append(Component.literal(String.format("%.3fms avg", mspt)).withStyle(ChatFormatting.GREEN));
+                                        .append(Component.literal(String.format("%.3fms avg", TickStats.getMSPTForType(type, ticks))).withStyle(ChatFormatting.GREEN));
                             }
 
                             rank[0]++;

@@ -12,7 +12,6 @@ import org.spongepowered.asm.mixin.extensibility.IMixinInfo;
 
 import java.util.Collection;
 import java.util.List;
-import java.util.Set;
 import java.util.TreeSet;
 
 public class SynchronisePlugin implements IMixinConfigPlugin {
@@ -34,29 +33,6 @@ public class SynchronisePlugin implements IMixinConfigPlugin {
                 "tick", "moveTo", "recomputePath", "stop", "shouldRecomputePath", "setSpeedModifier",
                 "isDone", "isInProgress", "getPath"
         ));
-    }
-
-    @Override
-    public String getRefMapperConfig() {
-        return null;
-    }
-
-    @Override
-    public boolean shouldApplyMixin(String targetClassName, String mixinClassName) {
-        return true;
-    }
-
-    @Override
-    public void acceptTargets(Set<String> myTargets, Set<String> otherTargets) {
-    }
-
-    @Override
-    public List<String> getMixins() {
-        return null;
-    }
-
-    @Override
-    public void preApply(String targetClassName, ClassNode targetClass, String mixinClassName, IMixinInfo mixinInfo) {
     }
 
     @Override
