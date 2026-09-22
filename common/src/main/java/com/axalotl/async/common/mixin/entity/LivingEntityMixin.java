@@ -83,24 +83,12 @@ public abstract class LivingEntityMixin extends Entity {
         }
     }
 
-    @WrapOperation(
-            method = "tickEffects",
-            at = @At(
-                    value = "INVOKE",
-                    target = "Lnet/minecraft/world/effect/MobEffectInstance;tickServer(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/world/entity/LivingEntity;Ljava/lang/Runnable;)Z"
-            )
-    )
+    @WrapOperation(method = "tickEffects", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/effect/MobEffectInstance;tickServer(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/world/entity/LivingEntity;Ljava/lang/Runnable;)Z"))
     private boolean wrapTickEffect(MobEffectInstance instance, ServerLevel serverLevel, LivingEntity target, Runnable onEffectUpdate, Operation<Boolean> original) {
         return instance != null && original.call(instance, serverLevel, target, onEffectUpdate);
     }
 
-    @WrapOperation(
-            method = "tickEffects",
-            at = @At(
-                    value = "INVOKE",
-                    target = "Ljava/util/List;of(Ljava/lang/Object;)Ljava/util/List;"
-            )
-    )
+    @WrapOperation(method = "tickEffects", at = @At(value = "INVOKE", target = "Ljava/util/List;of(Ljava/lang/Object;)Ljava/util/List;"))
     private List<?> wrapListOf(Object e1, Operation<List<?>> original) {
         return e1 != null ? original.call(e1) : Collections.emptyList();
     }

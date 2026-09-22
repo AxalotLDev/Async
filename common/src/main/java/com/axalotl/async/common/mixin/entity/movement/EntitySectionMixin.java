@@ -42,11 +42,6 @@ public class EntitySectionMixin<T extends EntityAccess> {
 
     @WrapMethod(method = "updateChunkStatus")
     private Visibility updateChunkStatus(Visibility chunkStatus, Operation<Visibility> original) {
-        // Lock order must match LithiumEntityMovementTrackerMixin / LithiumEntityMovementTrackingMixin:
-        // the global Lithium tracking lock is always acquired before this section's own monitor.
-        // Reversing this order deadlocks, since a chunk-status transition here synchronously
-        // re-enters SectionedEntityMovementTracker#onSectionEnteredRange/onSectionLeftRange,
-        // which is wrapped by the global lock from the other side.
         synchronized (LithiumMovementTrackingLock.LOCK) {
             synchronized (this) {
                 return original.call(chunkStatus);
