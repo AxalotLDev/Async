@@ -38,5 +38,12 @@ versionRange = ""
 ordering = "NONE"
 side = "BOTH"
 
+[[dependencies.async]]
+modId = "acceleratedrecoiling"
+type = "incompatible"
+versionRange = ""
+ordering = "NONE"
+side = "BOTH"
+
 ["lithium:options"]
 "mixin.alloc.chunk_random" = false
