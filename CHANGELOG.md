@@ -32,3 +32,5 @@
 - Fixed an `IllegalClassLoadError` in Lithium's block-change tracker mixins (#195)
 - Fixed a chunk-wait contention/timeout deadlock (#195)
 - Fixed an `ItemEntityList` concurrency race in Lithium's item stacking (#195)
+- Listed Accelerated Recoiling as an incompatible mod: it keeps single-threaded entity-collision state, so parallel entity ticking corrupts it and spams `IllegalStateException: Unbalanced section view release` (#207)
+- Minecarts are now always ticked on the main thread, fixing the crash when re-entering a chunk full of hopper minecarts through a nether portal (#204)
