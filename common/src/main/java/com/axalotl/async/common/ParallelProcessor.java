@@ -17,7 +17,7 @@ import net.minecraft.world.entity.monster.Shulker;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.entity.vehicle.boat.AbstractBoat;
-import net.minecraft.world.entity.vehicle.boat.Boat;
+import net.minecraft.world.entity.vehicle.minecart.AbstractMinecart;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -48,7 +48,6 @@ public class ParallelProcessor {
     private static final Queue<Runnable> BACKGROUND_TASKS = new ConcurrentLinkedQueue<>();
 
     public static final Executor BACKGROUND = ParallelProcessor::executeBackground;
-    public static final Executor FOREGROUND = ParallelProcessor::executeForeground;
 
     //Blacklist
     private static final Set<UUID> BLACKLISTED_ENTITIES = ConcurrentHashMap.newKeySet();
@@ -56,8 +55,8 @@ public class ParallelProcessor {
             FallingBlockEntity.class,
             Shulker.class,
             AbstractBoat.class,
-            Boat.class,
-            EnderDragon.class
+            EnderDragon.class,
+            AbstractMinecart.class
     );
 
     //Cache
@@ -115,7 +114,6 @@ public class ParallelProcessor {
     public static final CostModel ENTITY_TICK_COST = new CostModel(25_000);
     public static final CostModel DESPAWN_COST = new CostModel(2_000);
     public static final CostModel GENERIC_COST = new CostModel(100_000);
-    public static final CostModel SPAWN_COST = new CostModel(100_000);
 
     public static final class CostModel {
         private static final long TARGET_TASK_NANOS = 250_000;
@@ -450,10 +448,19 @@ public class ParallelProcessor {
         boolean sync = entitySupportsAsyncApi(entity)
                 || entity instanceof Projectile
                 || entity instanceof Player
-                || BLOCKED_ENTITIES.contains(entity.getClass())
+                || isBlockedEntityClass(entity.getClass())
                 || AsyncConfig.isEntitySynchronized(EntityType.getKey(entity.getType()));
         SYNC_BY_CLASS.put(entity.getClass(), sync);
         return sync;
+    }
+
+    private static boolean isBlockedEntityClass(Class<?> entityClass) {
+        for (Class<?> current = entityClass; current != null; current = current.getSuperclass()) {
+            if (BLOCKED_ENTITIES.contains(current)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public static boolean entitySupportsAsyncApi(Entity entity) {
