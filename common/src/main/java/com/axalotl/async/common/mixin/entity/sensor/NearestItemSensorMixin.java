@@ -1,6 +1,6 @@
 package com.axalotl.async.common.mixin.entity.sensor;
 
-import com.axalotl.async.api.utils.SensorUtils;
+import com.axalotl.async.common.utils.SensorUtils;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.ai.Brain;

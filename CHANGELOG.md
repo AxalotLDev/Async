@@ -1,24 +1,14 @@
-- Fixed incompatibility with VMP
-- Fixed an error receiving a remote entity's packet
-- Config fixes (JordanOlivet)
-- Fixed dead entities staying visible to clients as unremovable ghosts
-- Fixed mob farms spawning much slower with `enableAsyncSpawn`
-- Fixed `ArrayIndexOutOfBoundsException` during async spawning
-- Fixed the ender dragon no longer landing or shooting fireballs
-- Fixed chunk corruption on save caused by unsynchronized palette access
-- Fixed one failing chunk cancelling the remaining spawn attempts in a tick
-- Fixed a crash with mods that cache the ticking chunk list (ServerCore)
-- Fixed `enableAsyncSpawn` rebuilding the spawn state on the main thread every tick on large worlds
-- Fixed a race in Lithium's block change trackers that could lose trackers or throw during a block change
-- Fixed hopper minecarts writing to a container while another mob hauled from it, losing or duplicating items
-- Fixed entities continuing to tick past the barrier when the server thread was interrupted
-- Improved block reads: the palette no longer takes a lock to read
-- Improved mob spawning: thread-local random, and the mob cap check no longer serializes every worker
-- Improved thread pool utilization and reduced barrier overhead
-- Reduced lock contention with Lithium, VMP and C2ME
-- Default thread count now scales down from the logical thread count, leaving room for the main thread and GC
-- Fixed natural spawning silently going quiet in some dimensions
-- Fixed mob spawning skipping ticks: spawn state is now rebuilt on the main thread every tick instead of an async recompute that could lag or be skipped
-- Simplified async spawning to dispatch each tick's batch as a single background task instead of splitting it across the pool
-- Improved async chunk access with a per-thread last-chunk cache and safer fallback when the worker pool is unavailable
-- Improved the parallel tick barrier: the main thread now helps drain the work queue instead of idling while workers finish
+- Fixed hopper minecarts crashing with `IndexOutOfBoundsException` from a race in Lithium's shared entity-movement trackers
+- Fixed a race between async mob spawning and scoreboard team assignment that could desync a player's team and kick them (compat: Incendium)
+- Fixed piglins (and other mobs) crashing the server with `NoClassDefFoundError` when nearest-item/living-entity/player sensors ticked (#193)
+- Fixed server deadlocks between the tick pool and the server thread during entity locking and off-thread chunk loading (#191)
+- Fixed hoppers crashing with `IllegalClassLoadError` from a mixin-package helper class being referenced directly in Lithium's entity-movement trackers
+- Fixed a race in `ServerLevel#tickChunk` over the shared RNG/random-pos state when async random ticks are enabled
+- Fixed a lock-order deadlock between section and Lithium entity-movement-tracking locks that could freeze/kick clients (#194)
+- Fixed an `IndexOutOfBoundsException` race in Lithium's block-change tracker (#195)
+- Fixed a lock-order-inversion deadlock in Lithium's block-change tracker mixins (#195)
+- Fixed an `IllegalClassLoadError` in Lithium's block-change tracker mixins (#195)
+- Fixed a chunk-wait contention/timeout deadlock (#195)
+- Fixed an `ItemEntityList` concurrency race in Lithium's item stacking (#195)
+- Listed Accelerated Recoiling as an incompatible mod: it keeps single-threaded entity-collision state, so parallel entity ticking corrupts it and spams `IllegalStateException: Unbalanced section view release` (#207)
+- Minecarts are now always ticked on the main thread, fixing the crash when re-entering a chunk full of hopper minecarts through a nether portal (#204)

@@ -35,7 +35,8 @@
   },
   "breaks": {
     "moonrise": "*",
-    "openpartiesandclaims": "*"
+    "openpartiesandclaims": "*",
+    "acceleratedrecoiling": "*"
   },
   "custom": {
     "lithium:options": {

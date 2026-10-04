@@ -90,7 +90,10 @@ public class ConfigCommand {
                                     .forEach(ns -> builder.suggest(ns + ":*"));
                             return builder.buildFuture();
                         })
-                        .executes(ConfigCommand::addEntity)
+                        .executes(ctx -> {
+                            addEntity(ctx);
+                            return 1;
+                        })
                 )
                 .then(Commands.argument("namespace", StringArgumentType.greedyString())
                         .executes(ConfigCommand::addNamespace)
@@ -104,10 +107,16 @@ public class ConfigCommand {
                             AsyncConfig.synchronizedEntities.forEach(builder::suggest);
                             return builder.buildFuture();
                         })
-                        .executes(ConfigCommand::removeEntity)
+                        .executes(ctx -> {
+                            removeEntity(ctx);
+                            return 1;
+                        })
                 )
                 .then(Commands.argument("namespace", StringArgumentType.greedyString())
-                        .executes(ConfigCommand::removeNamespace)
+                        .executes(ctx -> {
+                            removeNamespace(ctx);
+                            return 1;
+                        })
                 );
     }
 
@@ -176,23 +185,22 @@ public class ConfigCommand {
         ctx.getSource().sendSuccess(() -> message, false);
     }
 
-    private static int addEntity(CommandContext<CommandSourceStack> ctx) {
+    private static void addEntity(CommandContext<CommandSourceStack> ctx) {
         Identifier id = IdentifierArgument.getId(ctx, "entity");
 
         if (!BuiltInRegistries.ENTITY_TYPE.containsKey(id)) {
             sendErrorMessage(ctx, "Error entity class ", id.toString(), " does not exist.");
-            return 1;
+            return;
         }
 
         if (AsyncConfig.synchronizedEntities.contains(id.toString())) {
             sendErrorMessage(ctx, "Error entity class ", id.toString(), " is already synchronized.");
-            return 1;
+            return;
         }
 
         AsyncConfig.syncEntity(id.toString());
         sendMessage(ctx, "Entity class ", id.toString(),
                 " has been added to the synchronized list.");
-        return 1;
     }
 
     private static int addNamespace(CommandContext<CommandSourceStack> ctx) {
@@ -208,32 +216,30 @@ public class ConfigCommand {
         return 1;
     }
 
-    private static int removeEntity(CommandContext<CommandSourceStack> ctx) {
+    private static void removeEntity(CommandContext<CommandSourceStack> ctx) {
         Identifier id = IdentifierArgument.getId(ctx, "entity");
 
         if (!AsyncConfig.synchronizedEntities.contains(id.toString())) {
             sendErrorMessage(ctx, "Error entity class ", id.toString(), " is not in the synchronized list.");
-            return 1;
+            return;
         }
 
         AsyncConfig.removeEntity(id.toString());
         sendMessage(ctx, "Entity class ", id.toString(),
                 " has been removed from synchronized list.");
-        return 1;
     }
 
-    private static int removeNamespace(CommandContext<CommandSourceStack> ctx) {
+    private static void removeNamespace(CommandContext<CommandSourceStack> ctx) {
         String namespace = StringArgumentType.getString(ctx, "namespace");
 
         if (!AsyncConfig.synchronizedEntities.contains(namespace)) {
             sendErrorMessage(ctx, "Error namespace ", namespace, " is not in the synchronized list.");
-            return 1;
+            return;
         }
 
         AsyncConfig.removeEntity(namespace);
         sendMessage(ctx, "All entities with namespace ", namespace,
                 " has been removed from synchronized list.");
-        return 1;
     }
 
     private static void sendMessage(CommandContext<CommandSourceStack> ctx, String prefix,

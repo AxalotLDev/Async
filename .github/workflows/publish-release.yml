@@ -1,0 +1,56 @@
+name: Publish Release
+on:
+  release:
+    types: [published]
+jobs:
+  build-and-attach:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: true
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v2
+        with:
+          distribution: 'zulu'
+          java-version: 25
+          java-package: jdk
+
+      - name: Install required dependencies
+        run: sudo apt update && sudo apt install libtinfo5
+
+      - name: Grant execute permission to gradlew
+        run: chmod +x ./gradlew
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+            ./.gradle/loom-cache
+          key: ${{ runner.os }}-gradle4-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle4-
+
+      - name: Build Async
+        run: |
+          ./gradlew clean processIncludeJars build --stacktrace
+
+      - name: Prepare artifact directory
+        run: |
+          mkdir jars
+          find neoforge/build/libs fabric/build/libs -type f -name '*.jar' \
+            ! -name '*-dev.jar' ! -name '*-sources.jar' -exec cp {} jars/ \;
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: async-artifacts
+          path: jars/*.jar
+
+      - name: Attach jars to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: jars/*.jar

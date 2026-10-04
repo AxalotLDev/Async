@@ -1,5 +1,6 @@
 package com.axalotl.async.common.mixin.entity.movement;
 
+import com.axalotl.async.common.utils.LithiumMovementTrackingLock;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import net.minecraft.util.AbortableIterationConsumer;
@@ -13,7 +14,6 @@ import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 
-import java.util.Objects;
 import java.util.stream.Stream;
 
 @Mixin(EntitySection.class)
@@ -40,11 +40,19 @@ public class EntitySectionMixin<T extends EntityAccess> {
         }
     }
 
+    @WrapMethod(method = "updateChunkStatus")
+    private Visibility updateChunkStatus(Visibility chunkStatus, Operation<Visibility> original) {
+        synchronized (LithiumMovementTrackingLock.LOCK) {
+            synchronized (this) {
+                return original.call(chunkStatus);
+            }
+        }
+    }
+
     @WrapMethod(method = "getEntities()Ljava/util/stream/Stream;")
     private Stream<T> getEntities(Operation<Stream<T>> original) {
         synchronized (this) {
             return storage.stream()
-                    .filter(Objects::nonNull)
                     .toList()
                     .stream();
         }

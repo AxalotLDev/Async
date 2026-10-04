@@ -24,10 +24,8 @@ public abstract class TurtleMixin extends BreedGoal {
     private void redirectSetHasEgg(Turtle instance, boolean onOff) {
         if (this.partner == null) return;
 
-        Turtle t1 = this.turtle.getId() < this.partner.getId()
-                ? this.turtle : (Turtle) this.partner;
-        Turtle t2 = t1 == this.turtle
-                ? (Turtle) this.partner : this.turtle;
+        Turtle t1 = this.turtle.getId() < this.partner.getId() ? this.turtle : (Turtle) this.partner;
+        Turtle t2 = t1 == this.turtle ? (Turtle) this.partner : this.turtle;
 
         synchronized (t1) {
             synchronized (t2) {
