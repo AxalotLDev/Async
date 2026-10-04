@@ -19,26 +19,6 @@ public abstract class PalettedContainerMixin<T> {
     @Unique
     private final StampedLock lock = new StampedLock();
 
-    @WrapMethod(method = "get(III)Ljava/lang/Object;")
-    private T get(int x, int y, int z, Operation<T> original) {
-        long stamp = lock.tryOptimisticRead();
-        if (stamp != 0L) {
-            try {
-                T result = original.call(x, y, z);
-                if (lock.validate(stamp)) {
-                    return result;
-                }
-            } catch (Throwable ignored) {
-            }
-        }
-        stamp = lock.readLock();
-        try {
-            return original.call(x, y, z);
-        } finally {
-            lock.unlockRead(stamp);
-        }
-    }
-
     @WrapMethod(method = "getAndSet(IIILjava/lang/Object;)Ljava/lang/Object;")
     private T getAndSet(int x, int y, int z, T value, Operation<T> original) {
         long stamp = lock.writeLock();

@@ -22,8 +22,11 @@ public class MixinCanceller implements com.bawnorton.mixinsquared.api.MixinCance
         if (mixinClassName.endsWith("com.axalotl.async.common.mixin.lithium.LithiumServerLevel") ||
                 mixinClassName.endsWith("com.axalotl.async.common.mixin.lithium.LithiumChunkSectionChangeCallbackMixin") ||
                 mixinClassName.endsWith("com.axalotl.async.common.mixin.lithium.LithiumSectionedBlockChangeTrackerMixin") ||
+                mixinClassName.endsWith("com.axalotl.async.common.mixin.lithium.LithiumEntityMovementTrackingMixin") ||
+                mixinClassName.endsWith("com.axalotl.async.common.mixin.lithium.LithiumEntityMovementTrackerMixin") ||
                 mixinClassName.endsWith("com.axalotl.async.common.mixin.lithium.LithiumInternerMixin") ||
                 mixinClassName.endsWith("com.axalotl.async.common.mixin.lithium.LithiumGameEventDispatcherStorage") ||
+                mixinClassName.endsWith("com.axalotl.async.common.mixin.lithium.LithiumItemEntityListMixin") ||
                 mixinClassName.endsWith("com.axalotl.async.common.mixin.lithium.ReferenceMaskedListMixin")
         ) {
             return !LITHIUM;

@@ -6,6 +6,7 @@ import com.axalotl.async.common.config.AsyncConfig;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import it.unimi.dsi.fastutil.objects.ObjectLinkedOpenHashSet;
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.particles.ExplosionParticleInfo;
@@ -16,6 +17,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.util.profiling.Profiler;
+import net.minecraft.util.RandomSource;
 import net.minecraft.util.profiling.ProfilerFiller;
 import net.minecraft.util.random.WeightedList;
 import net.minecraft.world.damagesource.DamageSource;
@@ -66,6 +68,12 @@ public abstract class ServerLevelMixin extends Level implements WorldGenLevel {
     @Shadow
     @Final
     private ServerChunkCache chunkSource;
+
+    @Unique
+    private static final ThreadLocal<RandomSource> ASYNC_RANDOM_TICK_RANDOM = ThreadLocal.withInitial(RandomSource::createThreadLocalInstance);
+
+    @Unique
+    private static final ThreadLocal<int[]> ASYNC_RANDOM_TICK_POS_STATE = ThreadLocal.withInitial(() -> new int[1]);
 
     protected ServerLevelMixin(WritableLevelData levelData, ResourceKey<Level> dimension, RegistryAccess registryAccess, Holder<DimensionType> dimensionTypeRegistration, boolean isClientSide, boolean isDebug, long biomeZoomSeed, int maxChainedNeighborUpdates) {
         super(levelData, dimension, registryAccess, dimensionTypeRegistration, isClientSide, isDebug, biomeZoomSeed, maxChainedNeighborUpdates);
@@ -160,6 +168,25 @@ public abstract class ServerLevelMixin extends Level implements WorldGenLevel {
 
     @Redirect(method = "sendBlockUpdated", at = @At(value = "FIELD", target = "Lnet/minecraft/server/level/ServerLevel;isUpdatingNavigations:Z", opcode = Opcodes.PUTFIELD))
     private void skipSendBlockUpdatedCheck(ServerLevel instance, boolean value) {
+    }
+
+    @Redirect(method = "tickChunk(Lnet/minecraft/world/level/chunk/LevelChunk;I)V", at = @At(value = "FIELD", target = "Lnet/minecraft/server/level/ServerLevel;random:Lnet/minecraft/util/RandomSource;", opcode = Opcodes.GETFIELD))
+    private RandomSource asyncTickChunkRandom(ServerLevel level) {
+        if (AsyncConfig.disabled || !AsyncConfig.enableAsyncRandomTicks) {
+            return level.getRandom();
+        }
+        return ASYNC_RANDOM_TICK_RANDOM.get();
+    }
+
+    @Redirect(method = "tickChunk(Lnet/minecraft/world/level/chunk/LevelChunk;I)V", at = @At(value = "INVOKE", target = "Lnet/minecraft/server/level/ServerLevel;getBlockRandomPos(IIII)Lnet/minecraft/core/BlockPos;"))
+    private BlockPos asyncTickChunkBlockRandomPos(ServerLevel level, int xo, int yo, int zo, int yMask) {
+        if (AsyncConfig.disabled || !AsyncConfig.enableAsyncRandomTicks) {
+            return level.getBlockRandomPos(xo, yo, zo, yMask);
+        }
+        int[] state = ASYNC_RANDOM_TICK_POS_STATE.get();
+        state[0] = state[0] * 3 + 1013904223;
+        int val = state[0] >> 2;
+        return new BlockPos(xo + (val & 15), yo + (val >> 16 & yMask), zo + (val >> 8 & 15));
     }
 
     @WrapMethod(method = "explode")

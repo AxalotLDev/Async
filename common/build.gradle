@@ -1,4 +1,5 @@
 plugins {
+    id 'multiloader-common'
     id 'idea'
     id 'net.fabricmc.fabric-loom'
 }
