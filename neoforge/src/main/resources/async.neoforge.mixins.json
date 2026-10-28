@@ -6,7 +6,6 @@
   "mixins": [
     "server.ServerWatchdogMixin",
     "utils.ClassInstanceMultiMapMixin",
-    "utils.UtilMixin",
     "world.LevelMixin"
   ],
   "client": [],

@@ -4,7 +4,10 @@
   "package": "com.axalotl.async.common.mixin",
   "compatibilityLevel": "JAVA_21",
   "mixins": [
+    "compat.sable.SableCommonEventsMixin",
+    "compat.sable.SableExplosionMixin",
     "compat.sable.SableLevelMixin",
+    "compat.sable.SableTamableAnimalMixin",
     "entity.AllayMixin",
     "entity.AnimalMixin",
     "entity.AreaEffectCloudMixin",

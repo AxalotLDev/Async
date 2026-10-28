@@ -7,6 +7,7 @@ import com.google.common.collect.Lists;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import net.minecraft.Util;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ChunkHolder;
 import net.minecraft.server.level.ChunkMap;
@@ -20,8 +21,10 @@ import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.LocalMobCapCalculator;
 import net.minecraft.world.level.NaturalSpawner;
+import net.minecraft.world.level.biome.Biomes;
 import net.minecraft.world.level.chunk.ChunkAccess;
 import net.minecraft.world.level.chunk.ChunkSource;
+import net.minecraft.world.level.chunk.EmptyLevelChunk;
 import net.minecraft.world.level.chunk.ImposterProtoChunk;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.chunk.status.ChunkStatus;
@@ -60,6 +63,12 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
     @Unique
     private static final ThreadLocal<LastChunkCache> LAST_CHUNK =
             ThreadLocal.withInitial(LastChunkCache::new);
+
+    /**
+     * Shared stand-in for unoccupied Sable plot-grid chunks, mirroring Sable's own empty chunk.
+     */
+    @Unique
+    private volatile @Nullable EmptyLevelChunk async$emptyPlotChunk;
 
     @Shadow
     @Final
@@ -124,6 +133,15 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
             return;
         }
         if (!ParallelProcessor.isServerExecutionThread()) {
+            return;
+        }
+
+        // Sable answers plot-grid lookups from its plot container, but its chunk holders never fill
+        // the status futures the fast path reads, so every ship block read would otherwise wait for
+        // the server thread.
+        if (ParallelProcessor.isInSablePlotGrid(this.level, chunkX, chunkZ)) {
+            LevelChunk plotChunk = ParallelProcessor.getSablePlotChunk(this.level, chunkX, chunkZ);
+            callbackInfo.setReturnValue(plotChunk != null ? plotChunk : this.async$getEmptyPlotChunk());
             return;
         }
 
@@ -200,6 +218,22 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
             return imposterProtoChunk.getWrapped();
         }
         return chunk;
+    }
+
+    @Unique
+    private EmptyLevelChunk async$getEmptyPlotChunk() {
+        EmptyLevelChunk emptyChunk = this.async$emptyPlotChunk;
+        if (emptyChunk == null) {
+            emptyChunk = new EmptyLevelChunk(
+                    this.level,
+                    new ChunkPos(0, 0),
+                    this.level.registryAccess()
+                            .registryOrThrow(Registries.BIOME)
+                            .getHolderOrThrow(Biomes.PLAINS)
+            );
+            this.async$emptyPlotChunk = emptyChunk;
+        }
+        return emptyChunk;
     }
 
     @Inject(method = "getChunkNow", at = @At("HEAD"), cancellable = true)

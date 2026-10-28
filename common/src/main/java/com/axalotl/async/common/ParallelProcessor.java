@@ -20,10 +20,11 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.entity.vehicle.Boat;
 import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.chunk.LevelChunk;
+import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -45,6 +46,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.LongAdder;
+import java.util.concurrent.locks.Lock;
 import java.util.function.Consumer;
 
 import static com.axalotl.async.common.utils.TickStats.ASYNC_TICK_COUNT;
@@ -57,12 +59,14 @@ import static com.axalotl.async.common.utils.TickStats.resetEntityTickStats;
 public class ParallelProcessor {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ParallelProcessor.class);
-    private static final String ASYNC_TICK_POOL = "Async-Tick";
+    private static final String ASYNC_TICK_THREAD_NAME_PREFIX = "Async-Tick-Pool-Thread-";
     private static final String SABLE_MOD_ID = "sable";
     private static final int SECTION_SHIFT = 2;
     private static final long POLL_INTERVAL_MICROSECONDS = 200L;
     private static final boolean SABLE_LOADED = PlatformUtils.isModLoaded(SABLE_MOD_ID);
     private static final AtomicBoolean SABLE_COMPATIBILITY_FAILURE_LOGGED = new AtomicBoolean();
+    private static final AtomicBoolean SABLE_PLOT_ACCESS_FAILURE_LOGGED = new AtomicBoolean();
+    private static final long SABLE_COMPATIBILITY_MASK = maskFor(SynchronizationReason.SABLE_COMPATIBILITY);
 
     @Getter
     @Setter
@@ -86,7 +90,6 @@ public class ParallelProcessor {
     );
 
     private static final Map<Class<?>, Boolean> ASYNC_API_CACHE = new ConcurrentHashMap<>();
-    private static final Map<String, Set<WeakReference<Thread>>> MC_THREAD_TRACKER = new ConcurrentHashMap<>();
 
     private static final CostModel ENTITY_TICK_COST = new CostModel(25_000.0);
     private static final CostModel DESPAWN_COST = new CostModel(2_000.0);
@@ -209,11 +212,10 @@ public class ParallelProcessor {
         isShuttingDown = false;
 
         ThreadFactory threadFactory = runnable -> {
-            Thread thread = new Thread(
+            Thread thread = new AsyncTickThread(
                     runnable,
-                    "Async-Tick-Pool-Thread-" + THREAD_POOL_ID.getAndIncrement()
+                    ASYNC_TICK_THREAD_NAME_PREFIX + THREAD_POOL_ID.getAndIncrement()
             );
-            registerThread(ASYNC_TICK_POOL, thread);
             thread.setDaemon(true);
             thread.setPriority(Thread.NORM_PRIORITY - 1);
             thread.setContextClassLoader(asyncClass.getClassLoader());
@@ -237,32 +239,19 @@ public class ParallelProcessor {
     }
 
     /**
-     * Records a thread as belonging to a named Minecraft worker pool.
+     * Marks threads created for the entity tick pool, making pool membership a type check.
      */
-    public static void registerThread(String poolName, Thread thread) {
-        MC_THREAD_TRACKER
-                .computeIfAbsent(poolName, ignoredPoolName -> ConcurrentHashMap.newKeySet())
-                .add(new WeakReference<>(thread));
-    }
-
-    private static boolean isThreadInPool(Thread thread) {
-        Set<WeakReference<Thread>> threadReferences = MC_THREAD_TRACKER.getOrDefault(
-                ASYNC_TICK_POOL,
-                Set.of()
-        );
-        for (WeakReference<Thread> threadReference : threadReferences) {
-            if (threadReference.get() == thread) {
-                return true;
-            }
+    private static final class AsyncTickThread extends Thread {
+        private AsyncTickThread(Runnable runnable, String name) {
+            super(runnable, name);
         }
-        return false;
     }
 
     /**
      * Returns whether the current thread belongs to the entity tick pool.
      */
     public static boolean isServerExecutionThread() {
-        return isThreadInPool(Thread.currentThread());
+        return Thread.currentThread() instanceof AsyncTickThread;
     }
 
     /**
@@ -315,25 +304,25 @@ public class ParallelProcessor {
 
         List<Entity> asynchronousEntities = new ArrayList<>();
         List<Entity> synchronousEntities = new ArrayList<>();
+        List<Entity> sableEntities = new ArrayList<>();
         boolean recordSynchronizationStats = SynchronizationStats.isRecording();
         for (Entity entity : entities) {
             if (entity == null || entity.isRemoved()) {
                 continue;
             }
 
-            Set<SynchronizationReason> synchronizationReasons = recordSynchronizationStats
-                    ? getSynchronizationReasons(entity)
-                    : Set.of();
-            boolean tickSynchronously = recordSynchronizationStats
-                    ? !synchronizationReasons.isEmpty()
-                    : shouldTickSynchronously(entity);
-            if (tickSynchronously) {
-                synchronousEntities.add(entity);
-                if (recordSynchronizationStats) {
-                    SynchronizationStats.record(entity, synchronizationReasons);
-                }
-            } else {
+            long reasonMask = getSynchronizationReasonMask(entity, !recordSynchronizationStats);
+            if (reasonMask == 0L) {
                 asynchronousEntities.add(entity);
+                continue;
+            }
+            if ((reasonMask & SABLE_COMPATIBILITY_MASK) != 0L) {
+                sableEntities.add(entity);
+            } else {
+                synchronousEntities.add(entity);
+            }
+            if (recordSynchronizationStats) {
+                SynchronizationStats.record(entity, toReasons(reasonMask));
             }
         }
 
@@ -345,6 +334,9 @@ public class ParallelProcessor {
                     entity -> tickOne(world, entity, false, despawnChecksEnabled)
             );
             synchronousEntities.forEach(
+                    entity -> tickOne(world, entity, false, despawnChecksEnabled)
+            );
+            sableEntities.forEach(
                     entity -> tickOne(world, entity, false, despawnChecksEnabled)
             );
             return;
@@ -369,6 +361,12 @@ public class ParallelProcessor {
                 entity -> tickOne(world, entity, false, despawnChecksEnabled)
         );
         finishParallel(batch);
+
+        // Sable mutates sub-level and native physics state without synchronization, so entities that
+        // reach it tick only after every worker tick of this batch has finished.
+        sableEntities.forEach(
+                entity -> tickOne(world, entity, false, despawnChecksEnabled)
+        );
     }
 
     private static void tickOne(
@@ -537,15 +535,50 @@ public class ParallelProcessor {
     }
 
     private static void pumpMainThreadTasks(CountDownLatch done) {
+        while (done.getCount() > 0L && pumpChunkTasks()) {
+            // Workers waiting on chunks need every queued task, not one per polling interval.
+        }
+    }
+
+    /**
+     * Runs one pending chunk task per level and returns whether any level had work.
+     */
+    private static boolean pumpChunkTasks() {
         MinecraftServer minecraftServer = server;
         if (minecraftServer == null) {
+            return false;
+        }
+        boolean ranTask = false;
+        for (ServerLevel level : minecraftServer.getAllLevels()) {
+            ranTask |= level.getChunkSource().pollTask();
+        }
+        return ranTask;
+    }
+
+    /**
+     * Acquires a lock that worker ticks may hold while they wait for the server thread to provide a
+     * chunk. On the server thread, chunk tasks keep running while it waits, so the holder can finish.
+     */
+    public static void lockServicingChunkTasks(Lock lock) {
+        MinecraftServer minecraftServer = server;
+        if (minecraftServer == null || !minecraftServer.isSameThread()) {
+            lock.lock();
             return;
         }
-        for (ServerLevel level : minecraftServer.getAllLevels()) {
-            if (done.getCount() == 0L) {
-                return;
+
+        boolean interrupted = false;
+        while (true) {
+            try {
+                if (lock.tryLock(POLL_INTERVAL_MICROSECONDS, TimeUnit.MICROSECONDS)) {
+                    break;
+                }
+            } catch (InterruptedException exception) {
+                interrupted = true;
             }
-            level.getChunkSource().pollTask();
+            pumpChunkTasks();
+        }
+        if (interrupted) {
+            Thread.currentThread().interrupt();
         }
     }
 
@@ -560,7 +593,10 @@ public class ParallelProcessor {
      * Returns every condition that currently keeps an entity on the main thread.
      */
     public static Set<SynchronizationReason> getSynchronizationReasons(Entity entity) {
-        long reasonMask = getSynchronizationReasonMask(entity, false);
+        return toReasons(getSynchronizationReasonMask(entity, false));
+    }
+
+    private static Set<SynchronizationReason> toReasons(long reasonMask) {
         if (reasonMask == 0L) {
             return Set.of();
         }
@@ -574,6 +610,10 @@ public class ParallelProcessor {
         return Collections.unmodifiableSet(reasons);
     }
 
+    /**
+     * Collects synchronization reasons. Sable compatibility is checked before every other entity-specific reason
+     * so that a first-reason result still identifies Sable-sensitive entities, which tick in their own phase.
+     */
     private static long getSynchronizationReasonMask(Entity entity, boolean stopAfterFirstReason) {
         long reasonMask = 0L;
 
@@ -589,14 +629,20 @@ public class ParallelProcessor {
                 return reasonMask;
             }
         }
-        if (entity.portalProcess != null) {
-            reasonMask |= maskFor(SynchronizationReason.ACTIVE_PORTAL_PROCESS);
+        if (AsyncConfig.disabled) {
+            reasonMask |= maskFor(SynchronizationReason.ASYNC_DISABLED);
             if (stopAfterFirstReason) {
                 return reasonMask;
             }
         }
-        if (AsyncConfig.disabled) {
-            reasonMask |= maskFor(SynchronizationReason.ASYNC_DISABLED);
+        if (requiresSableSynchronization(entity)) {
+            reasonMask |= SABLE_COMPATIBILITY_MASK;
+            if (stopAfterFirstReason) {
+                return reasonMask;
+            }
+        }
+        if (entity.portalProcess != null) {
+            reasonMask |= maskFor(SynchronizationReason.ACTIVE_PORTAL_PROCESS);
             if (stopAfterFirstReason) {
                 return reasonMask;
             }
@@ -619,6 +665,12 @@ public class ParallelProcessor {
                 return reasonMask;
             }
         }
+        if (carriesPlayer(entity)) {
+            reasonMask |= maskFor(SynchronizationReason.PLAYER_PASSENGER);
+            if (stopAfterFirstReason) {
+                return reasonMask;
+            }
+        }
         if (BLOCKED_ENTITIES.contains(entity.getClass())) {
             reasonMask |= maskFor(SynchronizationReason.BLOCKED_ENTITY_CLASS);
             if (stopAfterFirstReason) {
@@ -631,17 +683,27 @@ public class ParallelProcessor {
                 return reasonMask;
             }
         }
-        if (requiresSableSynchronization(entity)) {
-            reasonMask |= maskFor(SynchronizationReason.SABLE_COMPATIBILITY);
-            if (stopAfterFirstReason) {
-                return reasonMask;
-            }
-        }
         if (AsyncConfig.isEntitySynchronized(EntityType.getKey(entity.getType()))) {
             reasonMask |= maskFor(SynchronizationReason.SYNCHRONIZED_ENTITY_CONFIG);
         }
 
         return reasonMask;
+    }
+
+    /**
+     * A vehicle ticks its passengers, so a player's rideTick (dismounting included) runs wherever the
+     * vehicle ticks.
+     */
+    private static boolean carriesPlayer(Entity entity) {
+        if (!entity.isVehicle()) {
+            return false;
+        }
+        for (Entity passenger : entity.getIndirectPassengers()) {
+            if (passenger instanceof Player) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static long maskFor(SynchronizationReason reason) {
@@ -663,6 +725,50 @@ public class ParallelProcessor {
                 );
             }
             return true;
+        }
+    }
+
+    /**
+     * Returns whether Sable ticks entities in the chunk although it lies outside vanilla's
+     * entity-ticking range; Sable plot chunks carry no vanilla tickets.
+     */
+    public static boolean isTickingSablePlotChunk(ServerLevel level, long chunkPosition) {
+        if (!SABLE_LOADED) {
+            return false;
+        }
+        try {
+            return SableCompatibility.isTickingPlotChunk(level, chunkPosition);
+        } catch (LinkageError | RuntimeException exception) {
+            logSablePlotAccessFailure(exception);
+            return false;
+        }
+    }
+
+    /**
+     * Returns whether the chunk lies in Sable's plot grid, whose chunks Sable serves itself.
+     */
+    public static boolean isInSablePlotGrid(ServerLevel level, int chunkX, int chunkZ) {
+        if (!SABLE_LOADED) {
+            return false;
+        }
+        try {
+            return SableCompatibility.isInPlotGrid(level, chunkX, chunkZ);
+        } catch (LinkageError | RuntimeException exception) {
+            logSablePlotAccessFailure(exception);
+            return false;
+        }
+    }
+
+    /**
+     * Returns the occupied Sable plot chunk at a plot-grid position, or null for an empty one.
+     */
+    public static @Nullable LevelChunk getSablePlotChunk(ServerLevel level, int chunkX, int chunkZ) {
+        return SableCompatibility.getPlotChunk(level, chunkX, chunkZ);
+    }
+
+    private static void logSablePlotAccessFailure(Throwable exception) {
+        if (SABLE_PLOT_ACCESS_FAILURE_LOGGED.compareAndSet(false, true)) {
+            LOGGER.error("Sable plot lookup failed; treating plot chunks as vanilla chunks", exception);
         }
     }
 

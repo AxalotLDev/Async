@@ -1,10 +1,12 @@
 package com.axalotl.async.common.mixin.world;
 
+import com.axalotl.async.api.fastutil.Int2ObjectConcurrentHashMap;
 import com.axalotl.async.api.utils.ConcurrentCollections;
 import com.axalotl.async.common.ParallelProcessor;
 import com.axalotl.async.common.config.AsyncConfig;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.objects.ObjectLinkedOpenHashSet;
 import net.minecraft.core.Holder;
 import net.minecraft.core.RegistryAccess;
@@ -18,6 +20,7 @@ import net.minecraft.util.profiling.ProfilerFiller;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.boss.EnderDragonPart;
 import net.minecraft.world.level.BlockEventData;
 import net.minecraft.world.level.Explosion;
 import net.minecraft.world.level.ExplosionDamageCalculator;
@@ -83,6 +86,15 @@ public abstract class ServerLevelMixin extends Level implements WorldGenLevel {
     @Final
     private List<ServerPlayer> players;
 
+    /**
+     * Part entities are registered by the server thread while worker ticks iterate them through
+     * Level.getEntities (NeoForge's getPartEntities() returns this map's live values view).
+     */
+    @Shadow
+    @Final
+    @Mutable
+    Int2ObjectMap<EnderDragonPart> dragonParts;
+
     @Unique
     private static final Object lock = new Object();
 
@@ -91,6 +103,7 @@ public abstract class ServerLevelMixin extends Level implements WorldGenLevel {
         navigatingMobs = ConcurrentCollections.newHashSet();
         async$syncedBlockEventQueue = new ConcurrentLinkedQueue<>();
         players = new CopyOnWriteArrayList<>();
+        dragonParts = new Int2ObjectConcurrentHashMap<>();
     }
 
     @Redirect(method = "tick", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/entity/EntityTickList;forEach(Ljava/util/function/Consumer;)V"))
@@ -112,8 +125,7 @@ public abstract class ServerLevelMixin extends Level implements WorldGenLevel {
             }
 
             if (!(entity instanceof ServerPlayer)
-                    && !this.chunkSource.chunkMap.getDistanceManager()
-                    .inEntityTickingRange(entity.chunkPosition().toLong())) {
+                    && !this.async$isEntityTickingChunk(entity.chunkPosition().toLong())) {
                 if (asynchronousDespawn) {
                     despawnOnly.add(entity);
                 }
@@ -141,6 +153,17 @@ public abstract class ServerLevelMixin extends Level implements WorldGenLevel {
             ParallelProcessor.callEntityTickBatch(this.getLevel(), toTick);
         }
         profiler.pop();
+    }
+
+    /**
+     * This loop replaces vanilla's entity lambda, so mods that wrap its inEntityTickingRange call never
+     * see it. Sable does that to tick entities in plot chunks (seats and contraptions on sub-levels),
+     * which carry no vanilla tickets (issue #209).
+     */
+    @Unique
+    private boolean async$isEntityTickingChunk(long chunkPosition) {
+        return this.chunkSource.chunkMap.getDistanceManager().inEntityTickingRange(chunkPosition)
+                || ParallelProcessor.isTickingSablePlotChunk(this.getLevel(), chunkPosition);
     }
 
     @Redirect(method = "blockEvent", at = @At(value = "INVOKE", target = "Lit/unimi/dsi/fastutil/objects/ObjectLinkedOpenHashSet;add(Ljava/lang/Object;)Z", remap = false))

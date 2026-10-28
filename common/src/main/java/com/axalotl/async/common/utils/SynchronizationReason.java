@@ -11,6 +11,7 @@ public enum SynchronizationReason {
     MISSING_ASYNC_COMPATIBILITY("non-Minecraft class is not @AsyncCompatible"),
     PROJECTILE("projectile"),
     PLAYER("player"),
+    PLAYER_PASSENGER("carries a player passenger"),
     BLOCKED_ENTITY_CLASS("hardcoded blocked entity class"),
     RUNTIME_BLACKLIST("runtime entity blacklist"),
     SABLE_COMPATIBILITY("Sable compatibility"),
