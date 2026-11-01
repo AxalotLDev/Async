@@ -18,6 +18,7 @@ public class AsyncConfig {
     private static final ModConfigSpec.ConfigValue<List<? extends String>> synchronizedEntities;
     private static final ModConfigSpec.BooleanValue enableAsyncSpawn;
     private static final ModConfigSpec.BooleanValue enableAsyncRandomTicks;
+    private static final ModConfigSpec.BooleanValue synchronizeUnannotatedModEntities;
 
     static {
         BUILDER.push("Async Config");
@@ -46,6 +47,14 @@ public class AsyncConfig {
         enableAsyncRandomTicks = BUILDER.comment("Experimental! Enables async random ticks.")
                 .define("enableAsyncRandomTicks", com.axalotl.async.common.config.AsyncConfig.enableAsyncRandomTicks);
 
+        synchronizeUnannotatedModEntities = BUILDER.comment(
+                        "Ticks non-Minecraft entities without @AsyncCompatible on the main thread."
+                )
+                .define(
+                        "synchronizeUnannotatedModEntities",
+                        com.axalotl.async.common.config.AsyncConfig.synchronizeUnannotatedModEntities
+                );
+
         BUILDER.pop();
         SPEC = BUILDER.build();
         LOGGER.info("Configuration initialized.");
@@ -56,6 +65,8 @@ public class AsyncConfig {
         com.axalotl.async.common.config.AsyncConfig.maxThreads = maxThreads.get();
         com.axalotl.async.common.config.AsyncConfig.enableAsyncSpawn = enableAsyncSpawn.get();
         com.axalotl.async.common.config.AsyncConfig.enableAsyncRandomTicks = enableAsyncRandomTicks.get();
+        com.axalotl.async.common.config.AsyncConfig.synchronizeUnannotatedModEntities =
+                synchronizeUnannotatedModEntities.get();
 
         List<? extends String> entries = synchronizedEntities.get();
         Set<String> entities = new HashSet<>();
@@ -75,6 +86,9 @@ public class AsyncConfig {
         maxThreads.set(com.axalotl.async.common.config.AsyncConfig.maxThreads);
         enableAsyncSpawn.set(com.axalotl.async.common.config.AsyncConfig.enableAsyncSpawn);
         enableAsyncRandomTicks.set(com.axalotl.async.common.config.AsyncConfig.enableAsyncRandomTicks);
+        synchronizeUnannotatedModEntities.set(
+                com.axalotl.async.common.config.AsyncConfig.synchronizeUnannotatedModEntities
+        );
         synchronizedEntities.set(new ArrayList<>(com.axalotl.async.common.config.AsyncConfig.synchronizedEntities));
         SPEC.save();
         com.axalotl.async.common.config.AsyncConfig.onConfigLoaded();
