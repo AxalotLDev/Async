@@ -12,3 +12,6 @@
 - Fixed an `ItemEntityList` concurrency race in Lithium's item stacking (#195)
 - Listed Accelerated Recoiling as an incompatible mod: it keeps single-threaded entity-collision state, so parallel entity ticking corrupts it and spams `IllegalStateException: Unbalanced section view release` (#207)
 - Minecarts are now always ticked on the main thread, fixing the crash when re-entering a chunk full of hopper minecarts through a nether portal (#204)
+- Async mob spawning no longer queues an unbounded backlog: each level keeps at most one spawn batch in the tick pool, joined on the following `ServerChunkCache#tickChunks` tick
+- Fixed `IllegalArgumentException: Modifier is already applied on this attribute!` when async mob spawning ran with Carpet's `lagFreeSpawning`, and dropped that incompatibility warning
+- Fixed mob spawning on tick-pool threads drawing from the server thread's `Level#random`: pool threads now get a private stream seeded from the chunk being processed

@@ -1,5 +1,9 @@
 package com.axalotl.async.common.mixin.entity.spawn;
 
+import it.unimi.dsi.fastutil.objects.Object2IntMap;
+import it.unimi.dsi.fastutil.objects.Object2IntMaps;
+import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
+
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import net.minecraft.core.BlockPos;
@@ -31,6 +35,13 @@ public class SpawnStateMixin {
     private boolean canSpawnForCategoryGlobal(MobCategory mobCategory, Operation<Boolean> original) {
         synchronized (this) {
             return original.call(mobCategory);
+        }
+    }
+
+    @WrapMethod(method = "getMobCategoryCounts")
+    private Object2IntMap<MobCategory> getMobCategoryCounts(Operation<Object2IntMap<MobCategory>> original) {
+        synchronized (this) {
+            return Object2IntMaps.unmodifiable(new Object2IntOpenHashMap<>(original.call()));
         }
     }
 }

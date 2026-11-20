@@ -74,8 +74,7 @@ or [Discord](https://discord.com/invite/scvCQ2qKS3).*
   instantly see how Async improves your server.
 - `/async config reload` — Reloads the configuration from disk.
 - `/async config setAsyncEntitySpawn [true|false]` — Enables or disables parallel mob spawn processing (disabled by
-  default). Without an argument, shows the current value. **Warning: Not compatible with Carpet mod lagFreeSpawning
-  rule.**
+  default). Without an argument, shows the current value.
 - `/async config setAsyncRandomTicks [true|false]` — Enables or disables async random ticks processing (experimental
   feature, disabled by default). Without an argument, shows the current value.
 - `/async config synchronizedEntities` — Lists entities that are currently processed synchronously. Defaults to
