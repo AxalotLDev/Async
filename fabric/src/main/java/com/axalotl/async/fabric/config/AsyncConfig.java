@@ -64,7 +64,7 @@ public class AsyncConfig {
                           - 'minecraft:zombie' = specific entity
                           - 'minecraft:*'      = all entities in namespace""");
         setWithComment("enableAsyncSpawn", enableAsyncSpawn,
-                "Enables async entity spawning. WARNING: incompatible with Carpet's lagFreeSpawning.");
+                "Enables async entity spawning.");
         setWithComment("enableAsyncRandomTicks", enableAsyncRandomTicks,
                 "Experimental! Enables async random ticks.");
 
@@ -102,7 +102,7 @@ public class AsyncConfig {
                 Entity IDs or namespaces (*):
                   - 'minecraft:zombie' = specific entity
                   - 'minecraft:*'      = all entities in namespace""");
-        setCommentIfExists("enableAsyncSpawn", "Enables async entity spawning. WARNING: incompatible with Carpet's lagFreeSpawning.");
+        setCommentIfExists("enableAsyncSpawn", "Enables async entity spawning.");
         setCommentIfExists("enableAsyncRandomTicks", "Experimental! Enables async random ticks.");
     }
 

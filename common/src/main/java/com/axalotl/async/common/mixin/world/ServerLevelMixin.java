@@ -17,7 +17,6 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.util.profiling.Profiler;
-import net.minecraft.util.RandomSource;
 import net.minecraft.util.profiling.ProfilerFiller;
 import net.minecraft.util.random.WeightedList;
 import net.minecraft.world.damagesource.DamageSource;
@@ -68,9 +67,6 @@ public abstract class ServerLevelMixin extends Level implements WorldGenLevel {
     @Shadow
     @Final
     private ServerChunkCache chunkSource;
-
-    @Unique
-    private static final ThreadLocal<RandomSource> ASYNC_RANDOM_TICK_RANDOM = ThreadLocal.withInitial(RandomSource::createThreadLocalInstance);
 
     @Unique
     private static final ThreadLocal<int[]> ASYNC_RANDOM_TICK_POS_STATE = ThreadLocal.withInitial(() -> new int[1]);
@@ -168,14 +164,6 @@ public abstract class ServerLevelMixin extends Level implements WorldGenLevel {
 
     @Redirect(method = "sendBlockUpdated", at = @At(value = "FIELD", target = "Lnet/minecraft/server/level/ServerLevel;isUpdatingNavigations:Z", opcode = Opcodes.PUTFIELD))
     private void skipSendBlockUpdatedCheck(ServerLevel instance, boolean value) {
-    }
-
-    @Redirect(method = "tickChunk(Lnet/minecraft/world/level/chunk/LevelChunk;I)V", at = @At(value = "FIELD", target = "Lnet/minecraft/server/level/ServerLevel;random:Lnet/minecraft/util/RandomSource;", opcode = Opcodes.GETFIELD))
-    private RandomSource asyncTickChunkRandom(ServerLevel level) {
-        if (AsyncConfig.disabled || !AsyncConfig.enableAsyncRandomTicks) {
-            return level.getRandom();
-        }
-        return ASYNC_RANDOM_TICK_RANDOM.get();
     }
 
     @Redirect(method = "tickChunk(Lnet/minecraft/world/level/chunk/LevelChunk;I)V", at = @At(value = "INVOKE", target = "Lnet/minecraft/server/level/ServerLevel;getBlockRandomPos(IIII)Lnet/minecraft/core/BlockPos;"))

@@ -6,6 +6,7 @@ import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import lombok.Getter;
 import lombok.Setter;
+import lombok.extern.slf4j.Slf4j;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
@@ -18,8 +19,6 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.entity.vehicle.boat.AbstractBoat;
 import net.minecraft.world.entity.vehicle.minecart.AbstractMinecart;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.lang.ref.WeakReference;
 import java.util.*;
@@ -31,9 +30,8 @@ import java.util.function.Consumer;
 
 import static com.axalotl.async.common.utils.TickStats.*;
 
+@Slf4j
 public class ParallelProcessor {
-
-    private static final Logger LOGGER = LoggerFactory.getLogger(ParallelProcessor.class);
 
     @Getter
     @Setter
@@ -94,7 +92,7 @@ public class ParallelProcessor {
         }
         if (!poolUnavailableLogged) {
             poolUnavailableLogged = true;
-            LOGGER.error("Async pool unavailable (executor={}); running tasks inline on {}",
+            log.error("Async pool unavailable (executor={}); running tasks inline on {}",
                     pool, Thread.currentThread().getName(), new IllegalStateException("pool unavailable"));
         }
         runOnePrioritized();
@@ -107,7 +105,7 @@ public class ParallelProcessor {
         try {
             task.run();
         } catch (Throwable e) {
-            LOGGER.error("Error in pool task", e);
+            log.error("Error in pool task", e);
         }
     }
 
@@ -188,7 +186,7 @@ public class ParallelProcessor {
         pool.prestartAllCoreThreads();
 
         executor = pool;
-        LOGGER.info("Initialized Pool with {} threads", parallelism);
+        log.info("Initialized Pool with {} threads", parallelism);
     }
 
     public static void registerThread(String poolName, Thread thread) {
@@ -271,7 +269,7 @@ public class ParallelProcessor {
         try {
             entity.checkDespawn();
         } catch (Exception e) {
-            LOGGER.error("Error during despawn check. Entity: {}, UUID: {}", entity.getType(), entity.getUUID(), e);
+            log.error("Error during despawn check. Entity: {}, UUID: {}", entity.getType(), entity.getUUID(), e);
         }
     }
 
@@ -335,7 +333,7 @@ public class ParallelProcessor {
         runParallel(work);
     }
 
-    private record ParallelBatch(Queue<Runnable> queue, CountDownLatch done) {
+    public record ParallelBatch(Queue<Runnable> queue, CountDownLatch done) {
     }
 
     private static ParallelBatch submitParallel(List<Runnable> work) {
@@ -346,7 +344,7 @@ public class ParallelProcessor {
                 try {
                     task.run();
                 } catch (Throwable e) {
-                    LOGGER.error("Error during parallel tick chunk", e);
+                    log.error("Error during parallel tick chunk", e);
                 } finally {
                     done.countDown();
                 }
@@ -391,6 +389,20 @@ public class ParallelProcessor {
     private static void runParallel(List<Runnable> work) {
         if (work.isEmpty()) return;
         finishParallel(submitParallel(work));
+    }
+
+    public static ParallelBatch submitBatch(Runnable task) {
+        if (AsyncConfig.disabled || getPoolSize() == 0) {
+            task.run();
+            return null;
+        }
+        return submitParallel(List.of(task));
+    }
+
+    public static void finishBatch(ParallelBatch batch) {
+        if (batch != null) {
+            finishParallel(batch);
+        }
     }
 
     private static void drain(Queue<Runnable> queue) {
@@ -478,7 +490,7 @@ public class ParallelProcessor {
         try {
             world.tickNonPassenger(entity);
         } catch (Exception e) {
-            LOGGER.error("Error during {} tick. Entity: {}, UUID: {}",
+            log.error("Error during {} tick. Entity: {}, UUID: {}",
                     async ? "async" : "sync", entity.getType(), entity.getUUID(), e);
         } finally {
             if (recording) {
@@ -501,13 +513,13 @@ public class ParallelProcessor {
         isShuttingDown = true;
 
         if (executor != null) {
-            LOGGER.info("Waiting for Async poll to shutdown...");
+            log.info("Waiting for Async poll to shutdown...");
             executor.shutdown();
             try {
                 executor.awaitTermination(60L, TimeUnit.SECONDS);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
-                LOGGER.warn("Interrupted while waiting for thread pool shutdown", e);
+                log.warn("Interrupted while waiting for thread pool shutdown", e);
             }
         }
 
