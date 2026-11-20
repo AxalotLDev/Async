@@ -1,7 +1,9 @@
 package com.axalotl.async.common.mixin.world;
 
+import com.axalotl.async.common.utils.AsyncLevelRandom;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import net.minecraft.util.RandomSource;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.ExplosionDamageCalculator;
@@ -9,9 +11,12 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.LevelAccessor;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Mutable;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(value = Level.class, priority = 1500)
 public abstract class LevelMixin implements LevelAccessor, AutoCloseable {
@@ -19,6 +24,16 @@ public abstract class LevelMixin implements LevelAccessor, AutoCloseable {
     @Shadow
     @Final
     private Thread thread;
+
+    @Shadow
+    @Mutable
+    @Final
+    protected RandomSource random;
+
+    @Inject(method = "<init>", at = @At("RETURN"))
+    private void installAsyncRandom(CallbackInfo ci) {
+        this.random = new AsyncLevelRandom((Level) (Object) this, this.random);
+    }
 
     @Redirect(method = "getBlockEntity", at = @At(value = "INVOKE", target = "Ljava/lang/Thread;currentThread()Ljava/lang/Thread;"))
     private Thread overwriteCurrentThread() {

@@ -121,7 +121,7 @@ public final class IteratorSafeOrderedReferenceSet<E> {
      * Once the last iterator is released, the set is defragmented if fragmentation has
      * reached {@code maxFragFactor}. Must be paired with each iterator handed out.
      */
-    public void finishRawIterator() {
+    public synchronized void finishRawIterator() {
         if (--this.iteratorCount == 0) {
             if (this.getFragFactor() >= this.maxFragFactor) {
                 this.defrag();
@@ -140,7 +140,7 @@ public final class IteratorSafeOrderedReferenceSet<E> {
      *
      * @throws IllegalStateException if internal array consistency is violated
      */
-    public boolean remove(final E element) {
+    public synchronized boolean remove(final E element) {
         final int index = this.indexMap.removeInt(element);
         if (index >= 0) {
 
@@ -171,7 +171,7 @@ public final class IteratorSafeOrderedReferenceSet<E> {
      * @param element element to check
      * @return true if present
      */
-    public boolean contains(final E element) {
+    public synchronized boolean contains(final E element) {
         return this.indexMap.containsKey(element);
     }
 
@@ -182,7 +182,7 @@ public final class IteratorSafeOrderedReferenceSet<E> {
      * @return true if added, false if already present
      *
      */
-    public boolean add(final E element) {
+    public synchronized boolean add(final E element) {
         final int listSize = this.listSize;
 
         final int previous = this.indexMap.putIfAbsent(element, listSize);
@@ -261,7 +261,7 @@ public final class IteratorSafeOrderedReferenceSet<E> {
      *
      * @return logical size of the set
      */
-    public int size() {
+    public synchronized int size() {
         return this.indexMap.size();
     }
 
@@ -285,7 +285,7 @@ public final class IteratorSafeOrderedReferenceSet<E> {
      *
      * @see #ITERATOR_FLAG_SEE_ADDITIONS
      */
-    public Iterator<E> iterator(final int flags) {
+    public synchronized Iterator<E> iterator(final int flags) {
         if (this.allowSafeIteration()) {
             ++this.iteratorCount;
         }
@@ -341,6 +341,12 @@ public final class IteratorSafeOrderedReferenceSet<E> {
          */
         @Override
         public boolean hasNext() {
+            synchronized (this.set) {
+                return hasNextUnsafe();
+            }
+        }
+
+        private boolean hasNextUnsafe() {
             if (this.finished) {
                 return false;
             }
@@ -375,7 +381,13 @@ public final class IteratorSafeOrderedReferenceSet<E> {
          */
         @Override
         public E next() {
-            if (!this.hasNext()) {
+            synchronized (this.set) {
+                return nextUnsafe();
+            }
+        }
+
+        private E nextUnsafe() {
+            if (!hasNextUnsafe()) {
                 throw new NoSuchElementException();
             }
 
@@ -394,6 +406,12 @@ public final class IteratorSafeOrderedReferenceSet<E> {
          */
         @Override
         public void remove() {
+            synchronized (this.set) {
+                removeUnsafe();
+            }
+        }
+
+        private void removeUnsafe() {
             final E lastReturned = this.lastReturned;
 
             if (lastReturned == null) {
@@ -413,6 +431,12 @@ public final class IteratorSafeOrderedReferenceSet<E> {
          */
         @Override
         public void finishedIterating() {
+            synchronized (this.set) {
+                finishedIteratingUnsafe();
+            }
+        }
+
+        private void finishedIteratingUnsafe() {
             if (this.finished || !this.canFinish) {
                 throw new IllegalStateException();
             }

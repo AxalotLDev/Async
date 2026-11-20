@@ -40,7 +40,7 @@ public class AsyncConfig {
                         obj -> obj instanceof String
                 );
 
-        enableAsyncSpawn = BUILDER.comment("Enables async entity spawning. WARNING: incompatible with Carpet's lagFreeSpawning.")
+        enableAsyncSpawn = BUILDER.comment("Enables async entity spawning.")
                 .define("enableAsyncSpawn", com.axalotl.async.common.config.AsyncConfig.enableAsyncSpawn);
 
         enableAsyncRandomTicks = BUILDER.comment("Experimental! Enables async random ticks.")
