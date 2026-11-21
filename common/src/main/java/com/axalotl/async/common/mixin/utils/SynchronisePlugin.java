@@ -3,10 +3,9 @@ package com.axalotl.async.common.mixin.utils;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Multimap;
 
+import lombok.extern.slf4j.Slf4j;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.spongepowered.asm.mixin.extensibility.IMixinConfigPlugin;
 import org.spongepowered.asm.mixin.extensibility.IMixinInfo;
 
@@ -15,8 +14,8 @@ import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
 
+@Slf4j
 public class SynchronisePlugin implements IMixinConfigPlugin {
-    private static final Logger LOGGER = LoggerFactory.getLogger(SynchronisePlugin.class);
 
     private static final int FINAL_STATIC_PRIVATE_ABSTRACT = 0x1548; // final, static, private, abstract
     private static final int SYNCHRONIZED = 0x20; // synchronized
@@ -92,7 +91,7 @@ public class SynchronisePlugin implements IMixinConfigPlugin {
     private void logSynchronize(String methodName, String targetClassName, String mixinClassName) {
         if (mixinClassName == null || !mixinClassName.equals("com.axalotl.async.mixin.utils.FastUtilSynchronizeMixin")) {
             String message = "Setting synchronize bit for " + methodName + " in " + targetClassName + ".";
-            LOGGER.debug(message);
+            log.debug(message);
         }
     }
 }

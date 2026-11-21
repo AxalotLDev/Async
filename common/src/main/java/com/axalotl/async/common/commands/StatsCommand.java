@@ -1,8 +1,8 @@
 package com.axalotl.async.common.commands;
 
-import com.axalotl.async.common.ParallelProcessor;
 import com.axalotl.async.common.config.AsyncConfig;
 import com.axalotl.async.common.platform.PlatformPermission;
+import com.axalotl.async.common.ticking.TickingPolicy;
 import com.axalotl.async.common.utils.TickStats;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
@@ -123,7 +123,7 @@ public class StatsCommand {
                         totalEntities.incrementAndGet();
                         entityTypeCounts.merge(entityType, 1, Integer::sum);
 
-                        boolean isAsync = !ParallelProcessor.shouldTickSynchronously(entity);
+                        boolean isAsync = !TickingPolicy.shouldTickSynchronously(entity);
                         entityTypeAsync.put(entityType, isAsync);
 
                         if (isAsync) {
