@@ -15,12 +15,10 @@ import net.minecraft.world.entity.vehicle.minecart.AbstractMinecart;
 
 import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class TickingPolicy {
 
-    private static final Set<UUID> BLACKLISTED_ENTITIES = ConcurrentHashMap.newKeySet();
     private static final Set<Class<?>> BLOCKED_ENTITIES = Set.of(
             FallingBlockEntity.class,
             Shulker.class,
@@ -34,10 +32,6 @@ public class TickingPolicy {
 
     public static boolean shouldTickSynchronously(Entity entity) {
         if (ParallelProcessor.isShuttingDown() || AsyncConfig.disabled || entity.portalProcess != null || entity.level().isClientSide()) {
-            return true;
-        }
-
-        if (!BLACKLISTED_ENTITIES.isEmpty() && BLACKLISTED_ENTITIES.contains(entity.getUUID())) {
             return true;
         }
 
@@ -69,7 +63,6 @@ public class TickingPolicy {
     }
 
     public static void reset() {
-        BLACKLISTED_ENTITIES.clear();
         ASYNC_API_CACHE.clear();
         SYNC_BY_CLASS.clear();
     }
