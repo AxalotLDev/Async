@@ -31,7 +31,7 @@ public class AsyncNeoForge extends AsyncCommon {
         LOGGER.info("Initializing Async...");
         NeoForge.EVENT_BUS.register(this);
         LOGGER.info("Initializing Async Config...");
-        container.registerConfig(ModConfig.Type.COMMON, SPEC, "async.toml");
+        container.registerConfig(ModConfig.Type.LOCAL, SPEC, "async.toml");
         LOGGER.info("Async Initialized Successfully!");
     }
 
