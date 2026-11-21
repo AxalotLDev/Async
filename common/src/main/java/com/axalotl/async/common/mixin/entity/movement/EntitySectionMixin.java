@@ -13,11 +13,23 @@ import net.minecraft.world.phys.AABB;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.stream.Stream;
 
 @Mixin(EntitySection.class)
 public class EntitySectionMixin<T extends EntityAccess> {
+
+    @Unique
+    private static final ThreadLocal<ArrayList<Object>> async$matches = ThreadLocal.withInitial(ArrayList::new);
+
+    @Unique
+    private static final AbortableIterationConsumer<EntityAccess> async$collector = entity -> {
+        async$matches.get().add(entity);
+        return AbortableIterationConsumer.Continuation.CONTINUE;
+    };
 
     @Shadow
     @Final
@@ -60,15 +72,40 @@ public class EntitySectionMixin<T extends EntityAccess> {
 
     @WrapMethod(method = "getEntities(Lnet/minecraft/world/phys/AABB;Lnet/minecraft/util/AbortableIterationConsumer;)Lnet/minecraft/util/AbortableIterationConsumer$Continuation;")
     private AbortableIterationConsumer.Continuation getEntities(AABB bb, AbortableIterationConsumer<T> entities, Operation<AbortableIterationConsumer.Continuation> original) {
+        ArrayList<Object> matches = async$matches.get();
+        int from = matches.size();
         synchronized (this) {
-            return original.call(bb, entities);
+            original.call(bb, async$collector);
         }
+        return drain(matches, from, entities);
     }
 
     @WrapMethod(method = "getEntities(Lnet/minecraft/world/level/entity/EntityTypeTest;Lnet/minecraft/world/phys/AABB;Lnet/minecraft/util/AbortableIterationConsumer;)Lnet/minecraft/util/AbortableIterationConsumer$Continuation;")
     private <U extends T> AbortableIterationConsumer.Continuation getEntities(EntityTypeTest<T, U> type, AABB bb, AbortableIterationConsumer<? super U> consumer, Operation<AbortableIterationConsumer.Continuation> original) {
+        ArrayList<Object> matches = async$matches.get();
+        int from = matches.size();
         synchronized (this) {
-            return original.call(type, bb, consumer);
+            original.call(type, bb, async$collector);
         }
+        return drain(matches, from, consumer);
+    }
+
+    @Unique
+    @SuppressWarnings("unchecked")
+    private static <E> AbortableIterationConsumer.Continuation drain(List<?> matches, int from, AbortableIterationConsumer<E> consumer) {
+        boolean aborted = false;
+        try {
+            for (int i = from; i < matches.size(); i++) {
+                if (consumer.accept((E) matches.get(i)).shouldAbort()) {
+                    aborted = true;
+                    break;
+                }
+            }
+        } finally {
+            while (matches.size() > from) {
+                matches.removeLast();
+            }
+        }
+        return aborted ? AbortableIterationConsumer.Continuation.ABORT : AbortableIterationConsumer.Continuation.CONTINUE;
     }
 }
