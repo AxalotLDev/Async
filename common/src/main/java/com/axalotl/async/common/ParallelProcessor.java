@@ -2,16 +2,11 @@ package com.axalotl.async.common;
 
 import com.axalotl.async.common.config.AsyncConfig;
 import com.axalotl.async.common.ticking.TickingPolicy;
-import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
-import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
-import net.minecraft.world.level.ChunkPos;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.EntityType;
 
 import java.lang.ref.WeakReference;
 import java.util.*;
@@ -21,7 +16,7 @@ import java.util.concurrent.atomic.LongAdder;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
 
-import static com.axalotl.async.common.utils.TickStats.*;
+import static com.axalotl.async.common.utils.TickStats.resetEntityTickStats;
 
 @Slf4j
 public class ParallelProcessor {
@@ -43,9 +38,6 @@ public class ParallelProcessor {
 
     //Threads
     private static final Map<String, Set<WeakReference<Thread>>> MC_THREAD_TRACKER = new ConcurrentHashMap<>();
-
-    //Batch
-    private static final int SECTION_SHIFT = 2;
 
     public static void executeForeground(Runnable task) {
         FOREGROUND_TASKS.add(task);
@@ -84,8 +76,6 @@ public class ParallelProcessor {
         }
     }
 
-    public static final CostModel ENTITY_TICK_COST = new CostModel(25_000);
-    public static final CostModel DESPAWN_COST = new CostModel(2_000);
     public static final CostModel GENERIC_COST = new CostModel(100_000);
 
     public static final class CostModel {
@@ -97,7 +87,7 @@ public class ParallelProcessor {
         private final LongAdder batchItems = new LongAdder();
         private volatile double nanosPerItem;
 
-        CostModel(double seedNanosPerItem) {
+        public CostModel(double seedNanosPerItem) {
             this.nanosPerItem = seedNanosPerItem;
         }
 
@@ -188,109 +178,11 @@ public class ParallelProcessor {
         return 0;
     }
 
-    public static void callEntityTickBatch(ServerLevel world, List<Entity> entities) {
-        callEntityTickBatch(world, entities, null);
-    }
-
-    public static void callEntityTickBatch(ServerLevel world, List<Entity> entities, List<Entity> despawnOnly) {
-        final boolean despawn = despawnOnly != null;
-        if (entities.isEmpty() && (!despawn || despawnOnly.isEmpty())) return;
-
-        if (AsyncConfig.disabled) {
-            if (despawn) despawnOnly.forEach(ParallelProcessor::checkDespawn);
-            entities.forEach(e -> tickOne(world, e, false, despawn));
-            return;
-        }
-
-        List<Entity> asyncEntities = new ArrayList<>();
-        List<Entity> syncEntities = new ArrayList<>();
-        for (Entity entity : entities) {
-            if (entity == null || entity.isRemoved()) {
-                continue;
-            }
-            if (TickingPolicy.shouldTickSynchronously(entity)) {
-                syncEntities.add(entity);
-            } else {
-                asyncEntities.add(entity);
-            }
-        }
-        if (ENTITY_TICK_COST.shouldRunSequentially(asyncEntities.size())) {
-            if (despawn) despawnOnly.forEach(ParallelProcessor::checkDespawn);
-            asyncEntities.forEach(e -> tickOne(world, e, false, despawn));
-            syncEntities.forEach(e -> tickOne(world, e, false, despawn));
-            return;
-        }
-
-        final List<Runnable> work = buildSpatialWork(asyncEntities,
-                e -> tickOne(world, e, true, despawn));
-        if (despawn && !despawnOnly.isEmpty()) {
-            addSlices(work, despawnOnly, DESPAWN_COST.chunkSize(despawnOnly.size()), DESPAWN_COST,
-                    ParallelProcessor::checkDespawn);
-        }
-
-        ParallelBatch batch = submitParallel(work);
-        syncEntities.forEach(e -> tickOne(world, e, false, despawn));
-        finishParallel(batch);
-    }
-
-    private static void tickOne(ServerLevel world, Entity entity, boolean async, boolean despawn) {
-        if (entity.isRemoved()) return;
-        if (despawn) checkDespawn(entity);
-        tickEntity(world, entity, async);
-    }
-
-    private static void checkDespawn(Entity entity) {
-        if (entity.isRemoved()) return;
-        try {
-            entity.checkDespawn();
-        } catch (Exception e) {
-            log.error("Error during despawn check. Entity: {}, UUID: {}", entity.getType(), entity.getUUID(), e);
-        }
-    }
-
-    private static long sectionKey(Entity entity) {
-        ChunkPos pos = entity.chunkPosition();
-        return (((long) (pos.x() >> SECTION_SHIFT)) << 32) | ((pos.z() >> SECTION_SHIFT) & 0xFFFFFFFFL);
-    }
-
-    private static List<Runnable> buildSpatialWork(List<Entity> entities, Consumer<Entity> action) {
-        CostModel cost = ENTITY_TICK_COST;
-        Long2ObjectMap<List<Entity>> bySection = new Long2ObjectOpenHashMap<>();
-        for (Entity entity : entities) {
-            bySection.computeIfAbsent(sectionKey(entity), _ -> new ArrayList<>()).add(entity);
-        }
-        int maxPerTask = cost.chunkSize(entities.size());
-        long[] keys = bySection.keySet().toLongArray();
-        Arrays.sort(keys);
-
-        List<Runnable> work = new ArrayList<>();
-        for (long key : keys) {
-            List<Entity> section = bySection.get(key);
-            if (section.size() >= maxPerTask) {
-                addSlices(work, section, maxPerTask, cost, action);
-            }
-        }
-        List<Entity> pending = new ArrayList<>();
-        for (long key : keys) {
-            List<Entity> section = bySection.get(key);
-            if (section.size() >= maxPerTask) continue;
-            if (!pending.isEmpty() && pending.size() + section.size() > maxPerTask) {
-                emit(work, pending, cost, action);
-                pending = new ArrayList<>();
-            }
-            pending.addAll(section);
-        }
-        if (!pending.isEmpty()) {
-            emit(work, pending, cost, action);
-        }
-        return work;
-    }
-
-    private static <T> void emit(List<Runnable> work, List<T> batch, CostModel cost, Consumer<T> action) {
+    public static <T> void emit(List<Runnable> work, List<T> batch, CostModel cost, Consumer<T> action) {
         work.add(cost.wrap(batch.size(), () -> batch.forEach(action)));
     }
 
-    private static <T> void addSlices(List<Runnable> work, List<T> items, int maxPerTask, CostModel cost, Consumer<T> action) {
+    public static <T> void addSlices(List<Runnable> work, List<T> items, int maxPerTask, CostModel cost, Consumer<T> action) {
         for (int i = 0; i < items.size(); i += maxPerTask) {
             emit(work, items.subList(i, Math.min(i + maxPerTask, items.size())), cost, action);
         }
@@ -311,7 +203,7 @@ public class ParallelProcessor {
     public record ParallelBatch(Queue<Runnable> queue, CountDownLatch done) {
     }
 
-    private static ParallelBatch submitParallel(List<Runnable> work) {
+    public static ParallelBatch submitParallel(List<Runnable> work) {
         final CountDownLatch done = new CountDownLatch(work.size());
         final Queue<Runnable> queue = new ConcurrentLinkedQueue<>();
         for (Runnable task : work) {
@@ -414,30 +306,6 @@ public class ParallelProcessor {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             lock.lock();
-        }
-    }
-
-    private static void tickEntity(ServerLevel world, Entity entity, boolean async) {
-        final boolean recording = RECORDING_TICKS_LEFT.get() > 0;
-        final long start = recording ? System.nanoTime() : 0L;
-        try {
-            world.tickNonPassenger(entity);
-        } catch (Exception e) {
-            log.error("Error during {} tick. Entity: {}, UUID: {}",
-                    async ? "async" : "sync", entity.getType(), entity.getUUID(), e);
-        } finally {
-            if (recording) {
-                EntityType<?> type = entity.getType();
-                long elapsed = System.nanoTime() - start;
-
-                if (async) {
-                    ASYNC_TICK_TIME_NS.computeIfAbsent(type, _ -> new LongAdder()).add(elapsed);
-                    ASYNC_TICK_COUNT.computeIfAbsent(type, _ -> new LongAdder()).increment();
-                } else {
-                    TICK_TIME_NS.computeIfAbsent(type, _ -> new LongAdder()).add(elapsed);
-                    TICK_COUNT.computeIfAbsent(type, _ -> new LongAdder()).increment();
-                }
-            }
         }
     }
 
