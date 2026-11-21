@@ -2,17 +2,17 @@ package com.axalotl.async.common.config;
 
 import com.axalotl.async.common.ParallelProcessor;
 import com.axalotl.async.common.platform.PlatformUtils;
+import com.axalotl.async.common.ticking.TickingPolicy;
+import lombok.extern.slf4j.Slf4j;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
+@Slf4j
 public class AsyncConfig {
-    public static final Logger LOGGER = LoggerFactory.getLogger(AsyncConfig.class);
 
     public static boolean disabled = false;
     public static int maxThreads = -1;
@@ -73,9 +73,9 @@ public class AsyncConfig {
         if (synchronizedEntities.add(entity)) {
             rebuildCaches();
             PlatformUtils.saveConfig();
-            LOGGER.info("Added sync entity: {}", entity);
+            log.info("Added sync entity: {}", entity);
         } else {
-            LOGGER.warn("Entity already synchronized: {}", entity);
+            log.warn("Entity already synchronized: {}", entity);
         }
     }
 
@@ -83,14 +83,14 @@ public class AsyncConfig {
         if (synchronizedEntities.remove(entity)) {
             rebuildCaches();
             PlatformUtils.saveConfig();
-            LOGGER.info("Removed sync entity: {}", entity);
+            log.info("Removed sync entity: {}", entity);
         } else {
-            LOGGER.warn("Entity not found: {}", entity);
+            log.warn("Entity not found: {}", entity);
         }
     }
 
     private static void rebuildCaches() {
-        ParallelProcessor.onSyncRulesChanged();
+        TickingPolicy.onSyncRulesChanged();
         syncCache.clear();
         exactEntities.clear();
         namespaceWildcards.clear();
@@ -126,11 +126,11 @@ public class AsyncConfig {
 
     public static void onConfigLoaded() {
         rebuildCaches();
-        LOGGER.info("Configuration loaded.");
+        log.info("Configuration loaded.");
     }
 
     public static void clearCaches() {
-        ParallelProcessor.onSyncRulesChanged();
+        TickingPolicy.onSyncRulesChanged();
         syncCache.clear();
         exactEntities.clear();
         namespaceWildcards.clear();

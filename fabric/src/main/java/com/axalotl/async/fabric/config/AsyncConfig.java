@@ -2,6 +2,7 @@ package com.axalotl.async.fabric.config;
 
 import com.electronwill.nightconfig.core.CommentedConfig;
 import com.electronwill.nightconfig.core.file.CommentedFileConfig;
+import lombok.extern.slf4j.Slf4j;
 import net.fabricmc.loader.api.FabricLoader;
 
 import java.util.ArrayList;
@@ -12,6 +13,7 @@ import java.util.function.Supplier;
 
 import static com.axalotl.async.common.config.AsyncConfig.*;
 
+@Slf4j
 public class AsyncConfig {
 
     private static final Supplier<CommentedFileConfig> configSupplier =
@@ -32,12 +34,12 @@ public class AsyncConfig {
     );
 
     public static void init() {
-        LOGGER.info("Initializing Async Config...");
+        log.info("Initializing Async Config...");
         CONFIG = configSupplier.get();
 
         try {
             if (!CONFIG.getFile().exists()) {
-                LOGGER.warn("Configuration not found. Creating defaults...");
+                log.warn("Configuration not found. Creating defaults...");
                 setDefaultValues();
             } else {
                 CONFIG.load();
@@ -46,7 +48,7 @@ public class AsyncConfig {
             saveConfig();
             com.axalotl.async.common.config.AsyncConfig.onConfigLoaded();
         } catch (Throwable t) {
-            LOGGER.error("Error loading configuration. Resetting to defaults.", t);
+            log.error("Error loading configuration. Resetting to defaults.", t);
             setDefaultValues();
             saveConfig();
             com.axalotl.async.common.config.AsyncConfig.onConfigLoaded();
@@ -69,7 +71,7 @@ public class AsyncConfig {
                 "Experimental! Enables async random ticks.");
 
         CONFIG.save();
-        LOGGER.info("Configuration saved.");
+        log.info("Configuration saved.");
     }
 
     private static void setWithComment(String key, Object value, String comment) {
@@ -124,7 +126,7 @@ public class AsyncConfig {
 
         for (String key : keysToRemove) {
             CONFIG.remove(key);
-            LOGGER.warn("Removed unused config key: {}", key);
+            log.warn("Removed unused config key: {}", key);
         }
     }
 

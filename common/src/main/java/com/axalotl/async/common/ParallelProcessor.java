@@ -1,7 +1,7 @@
 package com.axalotl.async.common;
 
-import com.axalotl.async.api.utils.AsyncCompatible;
 import com.axalotl.async.common.config.AsyncConfig;
+import com.axalotl.async.common.ticking.TickingPolicy;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import lombok.Getter;
@@ -12,13 +12,6 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.boss.enderdragon.EnderDragon;
-import net.minecraft.world.entity.item.FallingBlockEntity;
-import net.minecraft.world.entity.monster.Shulker;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.entity.projectile.Projectile;
-import net.minecraft.world.entity.vehicle.boat.AbstractBoat;
-import net.minecraft.world.entity.vehicle.minecart.AbstractMinecart;
 
 import java.lang.ref.WeakReference;
 import java.util.*;
@@ -40,31 +33,13 @@ public class ParallelProcessor {
     //Thread pool
     public static ExecutorService executor;
     private static final AtomicInteger THREAD_POOL_ID = new AtomicInteger();
+    @Getter
     private static volatile boolean isShuttingDown = false;
 
     private static final Queue<Runnable> FOREGROUND_TASKS = new ConcurrentLinkedQueue<>();
     private static final Queue<Runnable> BACKGROUND_TASKS = new ConcurrentLinkedQueue<>();
 
     public static final Executor BACKGROUND = ParallelProcessor::executeBackground;
-
-    //Blacklist
-    private static final Set<UUID> BLACKLISTED_ENTITIES = ConcurrentHashMap.newKeySet();
-    private static final Set<Class<?>> BLOCKED_ENTITIES = Set.of(
-            FallingBlockEntity.class,
-            Shulker.class,
-            AbstractBoat.class,
-            EnderDragon.class,
-            AbstractMinecart.class
-    );
-
-    //Cache
-    private static final Map<Class<?>, Boolean> ASYNC_API_CACHE = new ConcurrentHashMap<>();
-
-    private static final Map<Class<?>, Boolean> SYNC_BY_CLASS = new ConcurrentHashMap<>();
-
-    public static void onSyncRulesChanged() {
-        SYNC_BY_CLASS.clear();
-    }
 
     //Threads
     private static final Map<String, Set<WeakReference<Thread>>> MC_THREAD_TRACKER = new ConcurrentHashMap<>();
@@ -233,7 +208,7 @@ public class ParallelProcessor {
             if (entity == null || entity.isRemoved()) {
                 continue;
             }
-            if (shouldTickSynchronously(entity)) {
+            if (TickingPolicy.shouldTickSynchronously(entity)) {
                 syncEntities.add(entity);
             } else {
                 asyncEntities.add(entity);
@@ -442,48 +417,6 @@ public class ParallelProcessor {
         }
     }
 
-
-    public static boolean shouldTickSynchronously(Entity entity) {
-        if (isShuttingDown || AsyncConfig.disabled || entity.portalProcess != null || entity.level().isClientSide()) {
-            return true;
-        }
-
-        if (!BLACKLISTED_ENTITIES.isEmpty() && BLACKLISTED_ENTITIES.contains(entity.getUUID())) {
-            return true;
-        }
-
-        Boolean cached = SYNC_BY_CLASS.get(entity.getClass());
-        if (cached != null) {
-            return cached;
-        }
-
-        boolean sync = entitySupportsAsyncApi(entity)
-                || entity instanceof Projectile
-                || entity instanceof Player
-                || isBlockedEntityClass(entity.getClass())
-                || AsyncConfig.isEntitySynchronized(EntityType.getKey(entity.getType()));
-        SYNC_BY_CLASS.put(entity.getClass(), sync);
-        return sync;
-    }
-
-    private static boolean isBlockedEntityClass(Class<?> entityClass) {
-        for (Class<?> current = entityClass; current != null; current = current.getSuperclass()) {
-            if (BLOCKED_ENTITIES.contains(current)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    public static boolean entitySupportsAsyncApi(Entity entity) {
-        Class<?> cls = entity.getClass();
-        Boolean cached = ASYNC_API_CACHE.get(cls);
-        if (cached != null) return cached;
-        boolean result = !"minecraft".equals(EntityType.getKey(entity.getType()).getNamespace()) && !cls.isAnnotationPresent(AsyncCompatible.class);
-        ASYNC_API_CACHE.put(cls, result);
-        return result;
-    }
-
     private static void tickEntity(ServerLevel world, Entity entity, boolean async) {
         final boolean recording = RECORDING_TICKS_LEFT.get() > 0;
         final long start = recording ? System.nanoTime() : 0L;
@@ -526,7 +459,7 @@ public class ParallelProcessor {
         FOREGROUND_TASKS.clear();
         BACKGROUND_TASKS.clear();
         AsyncConfig.clearCaches();
-        BLACKLISTED_ENTITIES.clear();
+        TickingPolicy.reset();
         resetEntityTickStats();
     }
 }

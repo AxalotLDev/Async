@@ -23,7 +23,7 @@ import java.lang.annotation.Target;
  * }
  * }</pre>
  *
- * @see "com.axalotl.async.common.ParallelProcessor#entitySupportsAsyncApi(Entity entity)"
+ * @see "com.axalotl.async.common.ticking.TickingPolicy#entitySupportsAsyncApi(Entity entity)"
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.TYPE)
