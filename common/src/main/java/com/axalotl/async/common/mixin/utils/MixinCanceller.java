@@ -1,8 +1,12 @@
 package com.axalotl.async.common.mixin.utils;
 
+import com.axalotl.async.common.mixin.lithium.LithiumMovementTrackingLock;
+
 import java.util.List;
 
 public class MixinCanceller implements com.bawnorton.mixinsquared.api.MixinCanceller {
+    private static final String LITHIUM_MIXIN_PACKAGE = LithiumMovementTrackingLock.class.getPackageName() + ".";
+
     private boolean LITHIUM = false;
     private boolean VMP = false;
 
@@ -19,16 +23,7 @@ public class MixinCanceller implements com.bawnorton.mixinsquared.api.MixinCance
             case "com.ishland.c2me.fixes.worldgen.threading_issues.mixin.threading_detections.random_instances.MixinWorld":
                 return true;
         }
-        if (mixinClassName.endsWith("com.axalotl.async.common.mixin.lithium.LithiumServerLevel") ||
-                mixinClassName.endsWith("com.axalotl.async.common.mixin.lithium.LithiumChunkSectionChangeCallbackMixin") ||
-                mixinClassName.endsWith("com.axalotl.async.common.mixin.lithium.LithiumSectionedBlockChangeTrackerMixin") ||
-                mixinClassName.endsWith("com.axalotl.async.common.mixin.lithium.LithiumEntityMovementTrackingMixin") ||
-                mixinClassName.endsWith("com.axalotl.async.common.mixin.lithium.LithiumEntityMovementTrackerMixin") ||
-                mixinClassName.endsWith("com.axalotl.async.common.mixin.lithium.LithiumInternerMixin") ||
-                mixinClassName.endsWith("com.axalotl.async.common.mixin.lithium.LithiumGameEventDispatcherStorage") ||
-                mixinClassName.endsWith("com.axalotl.async.common.mixin.lithium.LithiumItemEntityListMixin") ||
-                mixinClassName.endsWith("com.axalotl.async.common.mixin.lithium.ReferenceMaskedListMixin")
-        ) {
+        if (mixinClassName.startsWith(LITHIUM_MIXIN_PACKAGE)) {
             return !LITHIUM;
         }
         if (mixinClassName.endsWith("com.axalotl.async.common.mixin.vmp.VMPChunkMapMixin")) {
