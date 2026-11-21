@@ -1,8 +1,8 @@
 package com.axalotl.async.common.mixin.world;
 
 import com.axalotl.async.api.utils.ConcurrentCollections;
-import com.axalotl.async.common.ParallelProcessor;
 import com.axalotl.async.common.config.AsyncConfig;
+import com.axalotl.async.common.ticking.EntityTickPlanner;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import it.unimi.dsi.fastutil.objects.ObjectLinkedOpenHashSet;
@@ -12,12 +12,9 @@ import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.particles.ExplosionParticleInfo;
 import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.resources.ResourceKey;
-import net.minecraft.server.level.ServerChunkCache;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvent;
-import net.minecraft.util.profiling.Profiler;
-import net.minecraft.util.profiling.ProfilerFiller;
 import net.minecraft.util.random.WeightedList;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
@@ -39,7 +36,6 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
@@ -52,10 +48,6 @@ import java.util.function.Predicate;
 @Mixin(value = ServerLevel.class, priority = 1500)
 public abstract class ServerLevelMixin extends Level implements WorldGenLevel {
 
-    @Shadow
-    @Final
-    public EntityTickList entityTickList;
-
     @Unique
     ConcurrentLinkedQueue<BlockEventData> syncedBlockEventQueue;
 
@@ -63,10 +55,6 @@ public abstract class ServerLevelMixin extends Level implements WorldGenLevel {
     @Final
     @Mutable
     Set<Mob> navigatingMobs;
-
-    @Shadow
-    @Final
-    private ServerChunkCache chunkSource;
 
     @Unique
     private static final ThreadLocal<int[]> ASYNC_RANDOM_TICK_POS_STATE = ThreadLocal.withInitial(() -> new int[1]);
@@ -93,48 +81,7 @@ public abstract class ServerLevelMixin extends Level implements WorldGenLevel {
 
     @Redirect(method = "tick", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/entity/EntityTickList;forEach(Ljava/util/function/Consumer;)V"))
     private void overwriteEntityTicking(EntityTickList entityTickList, Consumer<Entity> consumer) {
-        ProfilerFiller profilerfiller = Profiler.get();
-        final boolean asyncDespawn = !AsyncConfig.disabled && AsyncConfig.enableAsyncSpawn;
-
-        List<Entity> toTick = new ArrayList<>();
-        List<Entity> despawn = new ArrayList<>();
-
-        this.entityTickList.forEach(entity -> {
-            if (entity == null || entity.isRemoved()) return;
-            if (this.tickRateManager().isEntityFrozen(entity)) return;
-
-            if (!asyncDespawn) {
-                profilerfiller.push("checkDespawn");
-                entity.checkDespawn();
-                profilerfiller.pop();
-            }
-
-            if (!(entity instanceof ServerPlayer)
-                    && !this.chunkSource.chunkMap.getDistanceManager()
-                    .inEntityTickingRange(entity.chunkPosition().pack())) {
-                if (asyncDespawn) despawn.add(entity);
-                return;
-            }
-
-            Entity vehicle = entity.getVehicle();
-            if (vehicle != null) {
-                if (!vehicle.isRemoved() && vehicle.hasPassenger(entity)) {
-                    if (asyncDespawn) despawn.add(entity);
-                    return;
-                }
-                entity.stopRiding();
-            }
-
-            toTick.add(entity);
-        });
-
-        profilerfiller.push("tick");
-        if (asyncDespawn) {
-            ParallelProcessor.callEntityTickBatch(this.getLevel(), toTick, despawn);
-        } else {
-            ParallelProcessor.callEntityTickBatch(this.getLevel(), toTick);
-        }
-        profilerfiller.pop();
+        EntityTickPlanner.tickEntityList(this.getLevel(), !AsyncConfig.disabled && AsyncConfig.enableAsyncSpawn);
     }
 
     @Redirect(method = "blockEvent", at = @At(value = "INVOKE", target = "Lit/unimi/dsi/fastutil/objects/ObjectLinkedOpenHashSet;add(Ljava/lang/Object;)Z", remap = false))
