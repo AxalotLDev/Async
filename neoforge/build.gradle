@@ -11,7 +11,7 @@ repositories {
 
 apply plugin: 'com.modrinth.minotaur'
 modrinth {
-    token = System.getenv("MODRINTH_TOKEN")
+    token = findProperty("MODRINTH_TOKEN")
     projectId = "async"
     versionNumber.set(project.version.toString())
     versionName.set(project.version.toString())
