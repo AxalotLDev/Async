@@ -1,4 +1,4 @@
-package com.axalotl.async.common.utils;
+package com.axalotl.async.common.mixin.lithium;
 
 public final class LithiumBlockChangeTrackerLock {
     public static final Object LOCK = new Object();
