@@ -3,16 +3,17 @@ package com.axalotl.async.common.config;
 import com.axalotl.async.common.ParallelProcessor;
 import com.axalotl.async.common.platform.PlatformUtils;
 import com.axalotl.async.common.ticking.TickingPolicy;
-import lombok.extern.slf4j.Slf4j;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
-@Slf4j
 public class AsyncConfig {
+    public static final Logger LOGGER = LoggerFactory.getLogger(AsyncConfig.class);
 
     public static boolean disabled = false;
     public static int maxThreads = -1;
@@ -73,9 +74,9 @@ public class AsyncConfig {
         if (synchronizedEntities.add(entity)) {
             rebuildCaches();
             PlatformUtils.saveConfig();
-            log.info("Added sync entity: {}", entity);
+            LOGGER.info("Added sync entity: {}", entity);
         } else {
-            log.warn("Entity already synchronized: {}", entity);
+            LOGGER.warn("Entity already synchronized: {}", entity);
         }
     }
 
@@ -83,9 +84,9 @@ public class AsyncConfig {
         if (synchronizedEntities.remove(entity)) {
             rebuildCaches();
             PlatformUtils.saveConfig();
-            log.info("Removed sync entity: {}", entity);
+            LOGGER.info("Removed sync entity: {}", entity);
         } else {
-            log.warn("Entity not found: {}", entity);
+            LOGGER.warn("Entity not found: {}", entity);
         }
     }
 
@@ -126,7 +127,7 @@ public class AsyncConfig {
 
     public static void onConfigLoaded() {
         rebuildCaches();
-        log.info("Configuration loaded.");
+        LOGGER.info("Configuration loaded.");
     }
 
     public static void clearCaches() {
