@@ -1,5 +1,6 @@
 package com.axalotl.async.neoforge.config;
 
+import lombok.extern.slf4j.Slf4j;
 import net.neoforged.neoforge.common.ModConfigSpec;
 
 import java.util.ArrayList;
@@ -9,6 +10,7 @@ import java.util.Set;
 
 import static com.axalotl.async.common.config.AsyncConfig.*;
 
+@Slf4j
 public class AsyncConfig {
     public static final ModConfigSpec SPEC;
     private static final ModConfigSpec.Builder BUILDER = new ModConfigSpec.Builder();
@@ -48,7 +50,7 @@ public class AsyncConfig {
 
         BUILDER.pop();
         SPEC = BUILDER.build();
-        LOGGER.info("Configuration initialized.");
+        log.info("Configuration initialized.");
     }
 
     public static void loadConfig() {
