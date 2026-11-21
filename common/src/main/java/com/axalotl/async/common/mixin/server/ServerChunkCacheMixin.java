@@ -2,7 +2,7 @@ package com.axalotl.async.common.mixin.server;
 
 import com.axalotl.async.common.ParallelProcessor;
 import com.axalotl.async.common.config.AsyncConfig;
-import com.axalotl.async.common.utils.AsyncLevelRandom;
+import com.axalotl.async.common.spawn.SpawnBatch;
 import lombok.extern.slf4j.Slf4j;
 import net.minecraft.server.MinecraftServer;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
@@ -81,10 +81,7 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
     public abstract void tickSpawningChunk(LevelChunk chunk, long timeDiff, List<MobCategory> spawningCategories, NaturalSpawner.SpawnState spawnCookie);
 
     @Unique
-    private List<Runnable> batch;
-
-    @Unique
-    private ParallelProcessor.ParallelBatch spawnBatchInFlight;
+    private SpawnBatch spawnBatch;
 
     @Unique
     private static final ThreadLocal<LastChunkSlot> LAST_CHUNK = ThreadLocal.withInitial(LastChunkSlot::new);
@@ -99,7 +96,7 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
 
     @Inject(method = "<init>", at = @At("RETURN"))
     private void init(CallbackInfo ci) {
-        this.batch = new ArrayList<>();
+        this.spawnBatch = new SpawnBatch(this.level);
     }
 
     @Unique
@@ -207,10 +204,8 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
 
         List<LevelChunk> chunks = new ArrayList<>();
         original.call(map, (Consumer<LevelChunk>) chunks::add);
-        ParallelProcessor.forEachParallel(chunks, chunk -> {
-            AsyncLevelRandom.beginChunk(this.level, chunk.getPos().pack());
-            tickingChunkConsumer.accept(chunk);
-        });
+        ParallelProcessor.forEachParallel(chunks, chunk ->
+                this.spawnBatch.runChunk(chunk.getPos().pack(), () -> tickingChunkConsumer.accept(chunk)));
     }
 
     @WrapMethod(method = "tickSpawningChunk")
@@ -224,10 +219,7 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
             spawnCookie.localMobCapCalculator.playersNearChunk.put(chunk.getPos().pack(), playersCloseForSpawning(chunk.getPos()));
         }
 
-        batch.add(() -> {
-            AsyncLevelRandom.beginChunk(this.level, chunk.getPos().pack());
-            original.call(chunk, timeDiff, spawningCategories, spawnCookie);
-        });
+        this.spawnBatch.submit(chunk.getPos().pack(), () -> original.call(chunk, timeDiff, spawningCategories, spawnCookie));
     }
 
     @Unique
@@ -253,15 +245,6 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
 
     @Inject(method = "tickChunks(Lnet/minecraft/util/profiling/ProfilerFiller;J)V", at = @At("TAIL"))
     private void dispatchSpawnBatch(CallbackInfo ci) {
-        ParallelProcessor.finishBatch(spawnBatchInFlight);
-        spawnBatchInFlight = null;
-
-        if (batch.isEmpty()) {
-            return;
-        }
-
-        List<Runnable> ready = batch;
-        batch = new ArrayList<>();
-        spawnBatchInFlight = ParallelProcessor.submitBatch(() -> ready.forEach(Runnable::run));
+        this.spawnBatch.joinAndSubmit();
     }
 }
