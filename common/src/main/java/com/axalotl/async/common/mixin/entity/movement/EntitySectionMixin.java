@@ -1,6 +1,6 @@
 package com.axalotl.async.common.mixin.entity.movement;
 
-import com.axalotl.async.common.utils.LithiumMovementTrackingLock;
+import com.axalotl.async.common.mixin.lithium.LithiumMovementTrackingLock;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import net.minecraft.util.AbortableIterationConsumer;
@@ -54,7 +54,7 @@ public class EntitySectionMixin<T extends EntityAccess> {
 
     @WrapMethod(method = "updateChunkStatus")
     private Visibility updateChunkStatus(Visibility chunkStatus, Operation<Visibility> original) {
-        synchronized (LithiumMovementTrackingLock.LOCK) {
+        synchronized (LithiumMovementTrackingLock.OUTSIDE_SECTION) {
             synchronized (this) {
                 return original.call(chunkStatus);
             }
