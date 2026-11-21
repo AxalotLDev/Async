@@ -6,7 +6,6 @@ import com.axalotl.async.common.ParallelProcessor.ParallelBatch;
 import com.axalotl.async.common.config.AsyncConfig;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
-import lombok.extern.slf4j.Slf4j;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.profiling.Profiler;
@@ -15,6 +14,8 @@ import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -24,8 +25,9 @@ import java.util.function.Consumer;
 
 import static com.axalotl.async.common.utils.TickStats.*;
 
-@Slf4j
 public class EntityTickPlanner {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(EntityTickPlanner.class);
 
     public static final CostModel ENTITY_TICK_COST = new CostModel(25_000);
     public static final CostModel DESPAWN_COST = new CostModel(2_000);
@@ -124,7 +126,7 @@ public class EntityTickPlanner {
         try {
             entity.checkDespawn();
         } catch (Exception e) {
-            log.error("Error during despawn check. Entity: {}, UUID: {}", entity.getType(), entity.getUUID(), e);
+            LOGGER.error("Error during despawn check. Entity: {}, UUID: {}", entity.getType(), entity.getUUID(), e);
         }
     }
 
@@ -172,7 +174,7 @@ public class EntityTickPlanner {
         try {
             world.tickNonPassenger(entity);
         } catch (Exception e) {
-            log.error("Error during {} tick. Entity: {}, UUID: {}",
+            LOGGER.error("Error during {} tick. Entity: {}, UUID: {}",
                     async ? "async" : "sync", entity.getType(), entity.getUUID(), e);
         } finally {
             if (recording) {

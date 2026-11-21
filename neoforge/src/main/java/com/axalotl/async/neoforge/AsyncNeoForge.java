@@ -5,7 +5,7 @@ import com.axalotl.async.common.ParallelProcessor;
 import com.axalotl.async.common.commands.AsyncCommand;
 import com.axalotl.async.neoforge.platform.NeoForgePermissions;
 import com.mojang.brigadier.CommandDispatcher;
-import lombok.extern.slf4j.Slf4j;
+import com.mojang.logging.LogUtils;
 import net.minecraft.commands.CommandSourceStack;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.Mod;
@@ -16,27 +16,28 @@ import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.neoforge.event.server.ServerStartingEvent;
 import net.neoforged.neoforge.event.server.ServerStoppingEvent;
 import net.neoforged.neoforge.server.permission.events.PermissionGatherEvent;
+import org.slf4j.Logger;
 
 import static com.axalotl.async.common.config.AsyncConfig.getParallelism;
 import static com.axalotl.async.neoforge.config.AsyncConfig.SPEC;
 import static com.axalotl.async.neoforge.config.AsyncConfig.loadConfig;
 
 @Mod(AsyncNeoForge.MOD_ID)
-@Slf4j
 public class AsyncNeoForge extends AsyncCommon {
     public static final String MOD_ID = "async";
+    public static final Logger LOGGER = LogUtils.getLogger();
 
     public AsyncNeoForge(FMLModContainer container) {
-        log.info("Initializing Async...");
+        LOGGER.info("Initializing Async...");
         NeoForge.EVENT_BUS.register(this);
-        log.info("Initializing Async Config...");
+        LOGGER.info("Initializing Async Config...");
         container.registerConfig(ModConfig.Type.COMMON, SPEC, "async.toml");
-        log.info("Async Initialized Successfully!");
+        LOGGER.info("Async Initialized Successfully!");
     }
 
     @SubscribeEvent
     public void onServerStarting(ServerStartingEvent event) {
-        log.info("Async Setting up thread-pool...");
+        LOGGER.info("Async Setting up thread-pool...");
         this.initialize();
         loadConfig();
         ParallelProcessor.setServer(event.getServer());
