@@ -1,5 +1,6 @@
 package com.axalotl.async.common.mixin.lithium;
 
+import com.axalotl.async.common.utils.LithiumMovementTrackingLock;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import net.caffeinemc.mods.lithium.common.tracking.entity.EntityMovementTrackerSection;
