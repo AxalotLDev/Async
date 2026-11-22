@@ -1,6 +1,6 @@
 package com.axalotl.async.common.mixin.entity.movement;
 
-import com.axalotl.async.common.mixin.lithium.LithiumMovementTrackingLock;
+import com.axalotl.async.common.utils.LithiumMovementTrackingLock;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import net.minecraft.util.AbortableIterationConsumer;
