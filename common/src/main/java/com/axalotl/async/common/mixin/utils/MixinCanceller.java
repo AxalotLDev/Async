@@ -1,11 +1,9 @@
 package com.axalotl.async.common.mixin.utils;
 
-import com.axalotl.async.common.mixin.lithium.LithiumMovementTrackingLock;
-
 import java.util.List;
 
 public class MixinCanceller implements com.bawnorton.mixinsquared.api.MixinCanceller {
-    private static final String LITHIUM_MIXIN_PACKAGE = LithiumMovementTrackingLock.class.getPackageName() + ".";
+    private static final String LITHIUM_MIXIN_PACKAGE = "com.axalotl.async.common.mixin.lithium.";
 
     private boolean LITHIUM = false;
     private boolean VMP = false;

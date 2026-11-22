@@ -1,4 +1,1 @@
-- Async mob spawning no longer queues an unbounded backlog: each level keeps at most one spawn batch in the tick pool, joined on the following `ServerChunkCache#tickChunks` tick
-- Fixed `IllegalArgumentException: Modifier is already applied on this attribute!` when async mob spawning ran with Carpet's `lagFreeSpawning`, and dropped that incompatibility warning
-- Fixed mob spawning on tick-pool threads drawing from the server thread's `Level#random`: pool threads now get a private stream seeded from the chunk being processed
-- Fixed a lock-order deadlock between an entity section and its entities: `EntitySection#getEntities` ran its callback while holding the section lock (#212)
+- Fixed a crash on entering a world with Lithium installed: Mixin refused to load the Lithium lock holders that lived inside the mixin package
