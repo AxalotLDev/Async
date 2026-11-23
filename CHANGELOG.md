@@ -1,1 +1,2 @@
 - Fixed a crash on entering a world with Lithium installed: Mixin refused to load the Lithium lock holders that lived inside the mixin package
+- Fixed copper golems locking a golem's chest in another dimension when both chests share the same coordinates
