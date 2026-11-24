@@ -3,3 +3,4 @@
 - Stopped synchronizing every method of every fastutil collection and of the vanilla classes whose fields never cross threads
 - `/async config reload` now rebuilds the worker pool
 - Worker-thread chunk lookups no longer slow down after every `/async config reload`
+- Fixed a NullPointerException when a mob's target dies on another worker between two `getTarget()` reads
