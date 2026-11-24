@@ -36,13 +36,8 @@ public class EntityTickListMixin {
 
     @WrapMethod(method = "forEach")
     private void forEach(Consumer<Entity> output, Operation<Void> original) {
-        final IteratorSafeOrderedReferenceSet.Iterator<Entity> iterator = this.entities.iterator();
-        try {
-            while (iterator.hasNext()) {
-                output.accept(iterator.next());
-            }
-        } finally {
-            iterator.finishedIterating();
+        for (Object entity : this.entities.snapshot()) {
+            output.accept((Entity) entity);
         }
     }
 }
