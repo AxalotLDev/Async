@@ -69,8 +69,6 @@
     "server.ServerChunkCacheMixin",
     "server.ServerLevelEntityCallbacksMixin",
     "server.ServerPlayerMixin",
-    "utils.FastUtilSynchronizeMixin",
-    "utils.LockHelperMixin",
     "utils.ShufflingListMixin",
     "utils.SyncAllMixin",
     "utils.ThreadingDetectorMixin",
