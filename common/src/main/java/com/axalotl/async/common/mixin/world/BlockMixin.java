@@ -17,22 +17,34 @@ public class BlockMixin {
 
     @WrapMethod(method = "dropResources(Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/world/level/Level;Lnet/minecraft/core/BlockPos;)V")
     private static void dropResources(BlockState state, Level level, BlockPos pos, Operation<Void> original) {
-        synchronized (level) {
-            original.call(state, level, pos);
+        if (level != null) {
+            synchronized (level) {
+                original.call(state, level, pos);
+            }
+        } else {
+            original.call(state, null, pos);
         }
     }
 
     @WrapMethod(method = "dropResources(Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/world/level/LevelAccessor;Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/entity/BlockEntity;)V")
     private static void dropResources(BlockState state, LevelAccessor level, BlockPos pos, BlockEntity blockEntity, Operation<Void> original) {
-        synchronized (level) {
-            original.call(state, level, pos, blockEntity);
+        if (level != null) {
+            synchronized (level) {
+                original.call(state, level, pos, blockEntity);
+            }
+        } else {
+            original.call(state, null, pos, blockEntity);
         }
     }
 
     @WrapMethod(method = "dropResources(Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/world/level/Level;Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/entity/BlockEntity;Lnet/minecraft/world/entity/Entity;Lnet/minecraft/world/item/ItemStack;)V")
     private static void dropResources(BlockState state, Level level, BlockPos pos, BlockEntity blockEntity, Entity breaker, ItemStack tool, Operation<Void> original) {
-        synchronized (level) {
-            original.call(state, level, pos, blockEntity, breaker, tool);
+        if (level != null) {
+            synchronized (level) {
+                original.call(state, level, pos, blockEntity, breaker, tool);
+            }
+        } else {
+            original.call(state, null, pos, blockEntity, breaker, tool);
         }
     }
 }
