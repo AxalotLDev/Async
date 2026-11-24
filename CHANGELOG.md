@@ -2,3 +2,4 @@
 - Fixed copper golems locking a golem's chest in another dimension when both chests share the same coordinates
 - `/async config reload` now rebuilds the worker pool
 - Worker-thread chunk lookups no longer slow down after every `/async config reload`
+- Fixed a NullPointerException when a mob's target dies on another worker between two `getTarget()` reads
