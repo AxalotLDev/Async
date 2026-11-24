@@ -137,7 +137,7 @@ public class ParallelProcessor {
 
     private static ThreadPoolExecutor newPool(int parallelism, Class<?> asyncClass) {
         ThreadFactory threadFactory = runnable -> {
-            Thread thread = new Thread(runnable, "Async-Tick-Pool-Thread-" + THREAD_POOL_ID.getAndIncrement());
+            Thread thread = new TickThread(runnable, "Async-Tick-Pool-Thread-" + THREAD_POOL_ID.getAndIncrement());
             registerThread("Async-Tick", thread);
             thread.setDaemon(true);
             thread.setPriority(Thread.NORM_PRIORITY - 1);
@@ -172,15 +172,14 @@ public class ParallelProcessor {
                 .add(new WeakReference<>(thread));
     }
 
-    private static boolean isThreadInPool(Thread thread) {
-        for (WeakReference<Thread> ref : MC_THREAD_TRACKER.getOrDefault("Async-Tick", Set.of())) {
-            if (ref.get() == thread) return true;
+    private static final class TickThread extends Thread {
+        TickThread(Runnable runnable, String name) {
+            super(runnable, name);
         }
-        return false;
     }
 
     public static boolean isServerExecutionThread() {
-        return isThreadInPool(Thread.currentThread());
+        return Thread.currentThread() instanceof TickThread;
     }
 
     public static int getPoolSize() {
