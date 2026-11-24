@@ -266,6 +266,28 @@ public final class IteratorSafeOrderedReferenceSet<E> {
     }
 
     /**
+     * Returns the elements currently in the set, in iteration order, as an array the caller owns.
+     *
+     * <p>The result is a copy: elements added or removed afterwards are not visible through it, and
+     * the array is never resized by later mutation. This lets a caller walk the set while its
+     * callbacks add and remove elements, seeing exactly the elements present when the snapshot was
+     * taken.
+     *
+     * @return a newly allocated array holding the present elements in iteration order
+     */
+    public synchronized Object[] snapshot() {
+        final Object[] copy = new Object[this.indexMap.size()];
+        int count = 0;
+        for (int i = 0, len = this.listSize; i < len && count < copy.length; ++i) {
+            final E element = this.listElements[i];
+            if (element != null) {
+                copy[count++] = element;
+            }
+        }
+        return count == copy.length ? copy : Arrays.copyOf(copy, count);
+    }
+
+    /**
      * Returns an iterator over the set in insertion order.
      *
      * <p>Iteration is safe against removals and may optionally allow
