@@ -27,6 +27,7 @@ public class ParallelProcessor {
 
     //Thread pool
     public static ExecutorService executor;
+    private static Class<?> contextClass;
     private static final AtomicInteger THREAD_POOL_ID = new AtomicInteger();
     @Getter
     private static volatile boolean isShuttingDown = false;
@@ -128,7 +129,13 @@ public class ParallelProcessor {
 
     public static void setupThreadPool(int parallelism, Class<?> asyncClass) {
         isShuttingDown = false;
+        contextClass = asyncClass;
+        if (executor != null) executor.shutdown();
+        executor = newPool(parallelism, asyncClass);
+        log.info("Initialized Pool with {} threads", parallelism);
+    }
 
+    private static ThreadPoolExecutor newPool(int parallelism, Class<?> asyncClass) {
         ThreadFactory threadFactory = runnable -> {
             Thread thread = new Thread(runnable, "Async-Tick-Pool-Thread-" + THREAD_POOL_ID.getAndIncrement());
             registerThread("Async-Tick", thread);
@@ -149,9 +156,14 @@ public class ParallelProcessor {
         pool.setRejectedExecutionHandler(new ThreadPoolExecutor.DiscardPolicy());
         pool.allowCoreThreadTimeOut(false);
         pool.prestartAllCoreThreads();
+        return pool;
+    }
 
-        executor = pool;
-        log.info("Initialized Pool with {} threads", parallelism);
+    public static void rebuildThreadPool() {
+        if (contextClass == null) return;
+        int parallelism = AsyncConfig.getParallelism();
+        if (parallelism == getPoolSize()) return;
+        setupThreadPool(parallelism, contextClass);
     }
 
     public static void registerThread(String poolName, Thread thread) {
