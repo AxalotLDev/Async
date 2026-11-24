@@ -1,3 +1,4 @@
 - Fixed a crash on entering a world with Lithium installed: Mixin refused to load the Lithium lock holders that lived inside the mixin package
 - Fixed copper golems locking a golem's chest in another dimension when both chests share the same coordinates
 - Stopped synchronizing every method of every fastutil collection and of the vanilla classes whose fields never cross threads
+- `/async config reload` now rebuilds the worker pool

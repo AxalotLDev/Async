@@ -127,6 +127,7 @@ public class AsyncConfig {
 
     public static void onConfigLoaded() {
         rebuildCaches();
+        ParallelProcessor.rebuildThreadPool();
         LOGGER.info("Configuration loaded.");
     }
 
