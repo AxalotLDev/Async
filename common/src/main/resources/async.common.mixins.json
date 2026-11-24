@@ -75,7 +75,6 @@
     "server.ServerPlayerMixin",
     "utils.ShufflingListMixin",
     "utils.SyncAllMixin",
-    "utils.ThreadingDetectorMixin",
     "utils.ThreadSafeLegacyRandomSourceMixin",
     "vmp.VMPChunkMapMixin",
     "world.BlockMixin",
