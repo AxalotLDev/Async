@@ -4,3 +4,5 @@
 - Worker-thread chunk lookups no longer slow down after every `/async config reload`
 - Fixed a NullPointerException when a mob's target dies on another worker between two `getTarget()` reads
 - An entity removed and re-added during the entity tick pass is no longer skipped for that whole pass
+- Fixed a deadlock between block drops and neighbor updates: `addAndRun` now locks the level, not the neighbor updater
+- `Block.dropResources` no longer throws on a null level
