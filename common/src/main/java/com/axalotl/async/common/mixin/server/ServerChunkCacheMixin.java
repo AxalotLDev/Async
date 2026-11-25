@@ -127,7 +127,10 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
             return;
         }
 
-        if (!loadOrGenerate) return;
+        if (!loadOrGenerate) {
+            cir.setReturnValue(null);
+            return;
+        }
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
 
         long permitWaitNanos = deadline - System.nanoTime();
@@ -139,7 +142,8 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
             return;
         }
         if (!acquired) {
-            log.warn("Timed out after 5s waiting for a chunk-wait slot for chunk [{}, {}] at status {}; falling back to the vanilla blocking path", x, z, targetStatus);
+            log.warn("Timed out after 5s waiting for a chunk-wait slot for chunk [{}, {}] at status {}; continuing without the chunk", x, z, targetStatus);
+            cir.setReturnValue(null);
             return;
         }
 
@@ -152,7 +156,8 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
             while (!future.isDone()) {
                 if (System.nanoTime() > deadline) {
                     future.cancel(false);
-                    log.warn("Timed out after 5s waiting for chunk [{}, {}] at status {}; falling back to the vanilla blocking path", x, z, targetStatus);
+                    log.warn("Timed out after 5s waiting for chunk [{}, {}] at status {}; continuing without the chunk", x, z, targetStatus);
+                    cir.setReturnValue(null);
                     return;
                 }
                 ChunkAccess cached = tryGetChunk(x, z, targetStatus);
