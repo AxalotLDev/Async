@@ -12,7 +12,8 @@ import java.lang.annotation.Target;
  * By default, all modded entities are assumed to be
  * <b>not thread-safe</b> and will be executed synchronously on the main thread.
  * Entity classes annotated with {@code @AsyncCompatible} indicate that they are
- * designed to be safely used in asynchronous contexts.
+ * designed to be safely used in asynchronous contexts. A mod named in the
+ * {@code asyncMods} configuration option is treated as compatible without the annotation.
  * </p>
  *
  * <h2>Usage</h2>
@@ -23,7 +24,7 @@ import java.lang.annotation.Target;
  * }
  * }</pre>
  *
- * @see "com.axalotl.async.common.ticking.TickingPolicy#entitySupportsAsyncApi(Entity entity)"
+ * @see "com.axalotl.async.common.ticking.TickingPolicy#shouldTickSynchronously(Entity entity)"
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.TYPE)

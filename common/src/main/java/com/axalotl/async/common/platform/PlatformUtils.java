@@ -3,6 +3,7 @@ package com.axalotl.async.common.platform;
 import net.minecraft.commands.CommandSourceStack;
 
 import java.util.ServiceLoader;
+import java.util.Set;
 
 public class PlatformUtils {
     private static final ModPlatform MOD_PLATFORM = PlatformUtils.load(ModPlatform.class);
@@ -22,6 +23,10 @@ public class PlatformUtils {
 
     public static boolean isModLoaded(String modId) {
         return MOD_PLATFORM.isModLoaded(modId);
+    }
+
+    public static Set<String> getModIds() {
+        return MOD_PLATFORM.getModIds();
     }
 
     public static boolean hasPermission(CommandSourceStack source, String node, int level) {

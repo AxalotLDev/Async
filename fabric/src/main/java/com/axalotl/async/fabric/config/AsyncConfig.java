@@ -27,6 +27,7 @@ public class AsyncConfig {
             "disabled",
             "maxThreads",
             "synchronizedEntities",
+            "asyncMods",
             "enableAsyncSpawn",
             "enableAsyncRandomTicks"
     );
@@ -67,6 +68,12 @@ public class AsyncConfig {
                 "Enables async entity spawning.");
         setWithComment("enableAsyncRandomTicks", enableAsyncRandomTicks,
                 "Experimental! Enables async random ticks.");
+        setWithComment("asyncMods", new ArrayList<>(asyncMods),
+                """
+                        Mods whose entities are ticked in parallel.
+                        Mod IDs or (*):
+                          - 'alexscaves' = every entity of that mod
+                          - '*'          = every mod""");
 
         CONFIG.save();
         LOGGER.info("Configuration saved.");
@@ -90,6 +97,11 @@ public class AsyncConfig {
             synchronizedEntities = new HashSet<>(entries);
         }
 
+        List<String> mods = CONFIG.get("asyncMods");
+        if (mods != null) {
+            asyncMods = new HashSet<>(mods);
+        }
+
         restoreComments();
     }
 
@@ -104,6 +116,11 @@ public class AsyncConfig {
                   - 'minecraft:*'      = all entities in namespace""");
         setCommentIfExists("enableAsyncSpawn", "Enables async entity spawning.");
         setCommentIfExists("enableAsyncRandomTicks", "Experimental! Enables async random ticks.");
+        setCommentIfExists("asyncMods", """
+                Mods whose entities are ticked in parallel.
+                Mod IDs or (*):
+                  - 'alexscaves' = every entity of that mod
+                  - '*'          = every mod""");
     }
 
     private static void setCommentIfExists(String key, String comment) {
@@ -134,5 +151,6 @@ public class AsyncConfig {
         enableAsyncSpawn = false;
         enableAsyncRandomTicks = false;
         synchronizedEntities = getDefaultSynchronizedEntities();
+        asyncMods = getDefaultAsyncMods();
     }
 }

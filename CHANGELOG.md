@@ -15,3 +15,5 @@
 - Fixed a NullPointerException when a worker thread read an ender dragon's parts while the server thread attached or detached them
 - Fixed a NullPointerException when a worker thread read a chunk's entity visibility while the server thread was changing it: the concurrent map probed twice and could call a present key absent
 - Fixed a NullPointerException in Lithium's pushable-entity cache when the server thread stopped filtering a chunk section while a worker thread was collecting pushable entities from it
+- Added `asyncMods` and `/async config asyncMods add|remove <mod_id|*>`: the mods whose entities Async may tick in parallel. Minecraft entities are always ticked in parallel, `*` covers every mod (`add *` drops the other entries, `remove *` clears the list), an entry that is not loaded or adds no entity type is skipped with a warning, and the effective list is logged once
+- An empty `synchronizedEntities` list on NeoForge no longer silently falls back to the default entities
