@@ -1,6 +1,7 @@
 package com.axalotl.async.common.mixin.server;
 
 import com.axalotl.async.api.fastutil.Long2ObjectConcurrentHashMap;
+import com.axalotl.async.common.utils.EntitySectionTransition;
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
@@ -113,5 +114,12 @@ public abstract class PersistentEntitySectionManagerMixin implements AutoCloseab
             return entity.isAlwaysTicking() ? Visibility.TICKING : Visibility.TRACKED;
         }
         return result;
+    }
+
+    @WrapMethod(method = "addEntity(Lnet/minecraft/world/level/entity/EntityAccess;Z)Z")
+    private <T extends EntityAccess> boolean addEntityLocked(T entity, boolean loaded, Operation<Boolean> original) {
+        synchronized (EntitySectionTransition.LOCK) {
+            return original.call(entity, loaded);
+        }
     }
 }
