@@ -69,12 +69,14 @@ public abstract class EntitySectionStorageMixin<T extends EntityAccess> {
         }
     }
 
-
     @WrapMethod(method = "remove")
     private void remove(long sectionKey, Operation<Void> original) {
         writeLock.lock();
         try {
-            original.call(sectionKey);
+            EntitySection<T> section = sections.get(sectionKey);
+            if (section == null || section.isEmpty()) {
+                original.call(sectionKey);
+            }
         } finally {
             writeLock.unlock();
         }
