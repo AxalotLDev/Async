@@ -7,3 +7,6 @@
 - An entity removed and re-added during the entity tick pass is no longer skipped for that whole pass
 - Fixed a deadlock between block drops and neighbor updates: `addAndRun` now locks the level, not the neighbor updater
 - `Block.dropResources` no longer throws on a null level
+- Fixed a server freeze when a worker thread reads a chunk that is not loaded
+- Worker-thread chunk reads no longer wait on the server thread when no load was requested
+- Restored the synchronization narrowing the spray dropped from `BinaryHeap`, `PathNavigation`, `SimpleCriterionTrigger` and `ClassInstanceMultiMap`
