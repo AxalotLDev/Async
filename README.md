@@ -83,6 +83,10 @@ or [Discord](https://discord.com/invite/scvCQ2qKS3).*
   to synchronized processing.
 - `/async config synchronizedEntities remove <entity|namespace:*>` — Removes an entity type, or every entity of a
   namespace, from synchronized processing.
+- `/async config asyncMods` — Lists the mods whose entities are processed in parallel.
+- `/async config asyncMods add <mod_id|*>` — Makes every entity of a mod processable in parallel. `*` covers every mod
+  and drops the other entries.
+- `/async config asyncMods remove <mod_id|*>` — Removes a mod from parallel processing. `*` clears the whole list.
 
 ### Statistics
 
@@ -105,6 +109,8 @@ Async can also be configured through its config file:
 - `enableAsyncSpawn` — Parallel mob spawn processing.
 - `enableAsyncRandomTicks` — Async random ticks (experimental).
 - `synchronizedEntities` — Entity types that must be ticked on the main thread.
+- `asyncMods` — Mods whose entities may be ticked in parallel. Empty by default, so only Minecraft entities are ticked
+  in parallel. `*` covers every mod and makes the other entries redundant.
 
 ## 📥 Download
 

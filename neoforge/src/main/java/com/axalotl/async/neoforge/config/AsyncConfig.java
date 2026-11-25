@@ -5,7 +5,6 @@ import net.neoforged.neoforge.common.ModConfigSpec;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 import static com.axalotl.async.common.config.AsyncConfig.*;
 
@@ -16,6 +15,7 @@ public class AsyncConfig {
     private static final ModConfigSpec.BooleanValue disabled;
     private static final ModConfigSpec.IntValue maxThreads;
     private static final ModConfigSpec.ConfigValue<List<? extends String>> synchronizedEntities;
+    private static final ModConfigSpec.ConfigValue<List<? extends String>> asyncMods;
     private static final ModConfigSpec.BooleanValue enableAsyncSpawn;
     private static final ModConfigSpec.BooleanValue enableAsyncRandomTicks;
 
@@ -40,6 +40,18 @@ public class AsyncConfig {
                         obj -> obj instanceof String
                 );
 
+        asyncMods = BUILDER.comment("""
+                        Mods whose entities are ticked in parallel.
+                        Mod IDs or (*):
+                          - 'alexscaves' = every entity of that mod
+                          - '*'          = every mod""")
+                .defineListAllowEmpty(
+                        "asyncMods",
+                        () -> new ArrayList<>(com.axalotl.async.common.config.AsyncConfig.asyncMods),
+                        () -> "",
+                        obj -> obj instanceof String
+                );
+
         enableAsyncSpawn = BUILDER.comment("Enables async entity spawning.")
                 .define("enableAsyncSpawn", com.axalotl.async.common.config.AsyncConfig.enableAsyncSpawn);
 
@@ -57,15 +69,8 @@ public class AsyncConfig {
         com.axalotl.async.common.config.AsyncConfig.enableAsyncSpawn = enableAsyncSpawn.get();
         com.axalotl.async.common.config.AsyncConfig.enableAsyncRandomTicks = enableAsyncRandomTicks.get();
 
-        List<? extends String> entries = synchronizedEntities.get();
-        Set<String> entities = new HashSet<>();
-        if (!entries.isEmpty()) {
-            entities.addAll(entries);
-        }
-
-        com.axalotl.async.common.config.AsyncConfig.synchronizedEntities = entities.isEmpty()
-                ? getDefaultSynchronizedEntities()
-                : entities;
+        com.axalotl.async.common.config.AsyncConfig.synchronizedEntities = new HashSet<>(synchronizedEntities.get());
+        com.axalotl.async.common.config.AsyncConfig.asyncMods = new HashSet<>(asyncMods.get());
 
         com.axalotl.async.common.config.AsyncConfig.onConfigLoaded();
     }
@@ -76,7 +81,7 @@ public class AsyncConfig {
         enableAsyncSpawn.set(com.axalotl.async.common.config.AsyncConfig.enableAsyncSpawn);
         enableAsyncRandomTicks.set(com.axalotl.async.common.config.AsyncConfig.enableAsyncRandomTicks);
         synchronizedEntities.set(new ArrayList<>(com.axalotl.async.common.config.AsyncConfig.synchronizedEntities));
+        asyncMods.set(new ArrayList<>(com.axalotl.async.common.config.AsyncConfig.asyncMods));
         SPEC.save();
-        com.axalotl.async.common.config.AsyncConfig.onConfigLoaded();
     }
 }

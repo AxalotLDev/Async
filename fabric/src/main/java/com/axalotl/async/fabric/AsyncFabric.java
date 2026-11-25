@@ -23,6 +23,7 @@ public class AsyncFabric extends AsyncCommon implements ModInitializer {
             LOGGER.info("Async Setting up thread-pool...");
             ParallelProcessor.setServer(server);
             ParallelProcessor.setupThreadPool(AsyncConfig.getParallelism(), this.getClass());
+            AsyncConfig.onServerStarted();
         });
 
         CommandRegistrationCallback.EVENT.register((dispatcher, _, _) -> AsyncCommand.register(dispatcher));
