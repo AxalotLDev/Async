@@ -33,7 +33,7 @@ public final class Long2ObjectConcurrentHashMap<V> implements Long2ObjectMap<V> 
     @Override
     public V get(long key) {
         V value = backing.get(key);
-        return (value == null && !backing.containsKey(key)) ? defaultReturnValue : value;
+        return value == null ? defaultReturnValue : value;
     }
 
     @Override
@@ -90,7 +90,7 @@ public final class Long2ObjectConcurrentHashMap<V> implements Long2ObjectMap<V> 
     @Override
     public V put(long key, V value) {
         V previous = backing.put(key, value);
-        return (previous == null && !backing.containsKey(key)) ? defaultReturnValue : previous;
+        return previous == null ? defaultReturnValue : previous;
     }
 
     @Override
@@ -122,9 +122,10 @@ public final class Long2ObjectConcurrentHashMap<V> implements Long2ObjectMap<V> 
         return backing.compute(key, remappingFunction);
     }
 
+    @Override
     public V getOrDefault(long key, V defaultValue) {
         V value = backing.get(key);
-        return (value == null && !backing.containsKey(key)) ? defaultValue : value;
+        return value == null ? defaultValue : value;
     }
 
     /**
