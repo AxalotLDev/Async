@@ -10,6 +10,7 @@
 - Fixed a server freeze when a worker thread reads a chunk that is not loaded
 - Worker-thread chunk reads no longer wait on the server thread when no load was requested
 - Restored the synchronization narrowing the spray dropped from `BinaryHeap`, `PathNavigation`, `SimpleCriterionTrigger` and `ClassInstanceMultiMap`
+- Fixed an attribute value read on a worker thread being cached stale, which could clamp a mob's health
 - Fixed entities being dropped from chunk-section queries and from the chunk save when two workers moved entities across the same section boundary at once
 - Fixed a NullPointerException when a worker thread read an ender dragon's parts while the server thread attached or detached them
 - Fixed a NullPointerException when a worker thread read a chunk's entity visibility while the server thread was changing it: the concurrent map probed twice and could call a present key absent
