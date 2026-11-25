@@ -10,3 +10,4 @@
 - Fixed a server freeze when a worker thread reads a chunk that is not loaded
 - Worker-thread chunk reads no longer wait on the server thread when no load was requested
 - Restored the synchronization narrowing the spray dropped from `BinaryHeap`, `PathNavigation`, `SimpleCriterionTrigger` and `ClassInstanceMultiMap`
+- Fixed an attribute value read on a worker thread being cached stale, which could clamp a mob's health

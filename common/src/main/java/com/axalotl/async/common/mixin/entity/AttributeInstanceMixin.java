@@ -23,6 +23,12 @@ public class AttributeInstanceMixin {
     @Shadow
     private final Map<Identifier, AttributeModifier> permanentModifiers = ConcurrentCollections.newHashMap();
 
+    @Shadow
+    private boolean dirty;
+
+    @Shadow
+    private double cachedValue;
+
     @WrapMethod(method = "getModifiers(Lnet/minecraft/world/entity/ai/attributes/AttributeModifier$Operation;)Ljava/util/Map;")
     private Map<Identifier, AttributeModifier> getModifiersConcurrent(AttributeModifier.Operation operation, Operation<Map<Identifier, AttributeModifier>> original) {
         return modifiersByOperation.computeIfAbsent(operation, _ -> ConcurrentCollections.newHashMap());
@@ -32,5 +38,20 @@ public class AttributeInstanceMixin {
     private void addModifierIdempotent(AttributeModifier modifier, Operation<Void> original) {
         modifierById.remove(modifier.id());
         original.call(modifier);
+    }
+
+    @WrapMethod(method = "getValue")
+    private double getValueLocked(Operation<Double> original) {
+        if (!dirty) return cachedValue;
+        synchronized (this) {
+            return original.call();
+        }
+    }
+
+    @WrapMethod(method = "setDirty")
+    private void setDirtyLocked(Operation<Void> original) {
+        synchronized (this) {
+            original.call();
+        }
     }
 }
