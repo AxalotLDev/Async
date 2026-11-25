@@ -1,10 +1,12 @@
 package com.axalotl.async.common.mixin.world;
 
 import com.axalotl.async.api.utils.ConcurrentCollections;
+import com.axalotl.async.api.utils.CopyOnWriteInt2ObjectMap;
 import com.axalotl.async.common.config.AsyncConfig;
 import com.axalotl.async.common.ticking.EntityTickPlanner;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.objects.ObjectLinkedOpenHashSet;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
@@ -19,6 +21,7 @@ import net.minecraft.util.random.WeightedList;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.boss.enderdragon.EnderDragonPart;
 import net.minecraft.world.level.*;
 import net.minecraft.world.level.dimension.DimensionType;
 import net.minecraft.world.level.entity.EntityTickList;
@@ -71,11 +74,17 @@ public abstract class ServerLevelMixin extends Level implements WorldGenLevel {
     @Final
     private List<ServerPlayer> players;
 
+    @Shadow
+    @Mutable
+    @Final
+    private Int2ObjectMap<EnderDragonPart> dragonParts;
+
     @Inject(method = "<init>", at = @At("RETURN"))
     private void init(CallbackInfo ci) {
         navigatingMobs = ConcurrentCollections.newHashSet();
         syncedBlockEventQueue = new ConcurrentLinkedQueue<>();
         players = new CopyOnWriteArrayList<>();
+        dragonParts = new CopyOnWriteInt2ObjectMap<>();
     }
 
 
