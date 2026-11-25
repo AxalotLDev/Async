@@ -11,3 +11,4 @@
 - Worker-thread chunk reads no longer wait on the server thread when no load was requested
 - Restored the synchronization narrowing the spray dropped from `BinaryHeap`, `PathNavigation`, `SimpleCriterionTrigger` and `ClassInstanceMultiMap`
 - Fixed an attribute value read on a worker thread being cached stale, which could clamp a mob's health
+- Fixed entities being dropped from chunk-section queries and from the chunk save when two workers moved entities across the same section boundary at once
