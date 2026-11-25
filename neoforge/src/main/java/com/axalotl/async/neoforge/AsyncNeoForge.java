@@ -18,6 +18,7 @@ import net.neoforged.neoforge.event.server.ServerStoppingEvent;
 import net.neoforged.neoforge.server.permission.events.PermissionGatherEvent;
 import org.slf4j.Logger;
 
+import static com.axalotl.async.common.config.AsyncConfig.onServerStarted;
 import static com.axalotl.async.common.config.AsyncConfig.getParallelism;
 import static com.axalotl.async.neoforge.config.AsyncConfig.SPEC;
 import static com.axalotl.async.neoforge.config.AsyncConfig.loadConfig;
@@ -42,6 +43,7 @@ public class AsyncNeoForge extends AsyncCommon {
         loadConfig();
         ParallelProcessor.setServer(event.getServer());
         ParallelProcessor.setupThreadPool(getParallelism(), this.getClass());
+        onServerStarted();
     }
 
     @SubscribeEvent

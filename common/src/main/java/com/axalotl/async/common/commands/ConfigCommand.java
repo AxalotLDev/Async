@@ -29,6 +29,7 @@ public class ConfigCommand {
                 .then(buildToggleCommand())
                 .then(buildReloadCommand())
                 .then(buildSynchronizedEntitiesCommand())
+                .then(buildAsyncModsCommand())
                 .then(buildAsyncEntitySpawnCommand())
                 .then(buildAsyncRandomTicksCommand())
         );
@@ -118,6 +119,108 @@ public class ConfigCommand {
                             return 1;
                         })
                 );
+    }
+
+    private static LiteralArgumentBuilder<CommandSourceStack> buildAsyncModsCommand() {
+        return literal("asyncMods")
+                .executes(ctx -> {
+                    displayAsyncMods(ctx);
+                    return 1;
+                })
+                .then(literal("add")
+                        .then(Commands.argument("mod", StringArgumentType.greedyString())
+                                .suggests((_, builder) -> {
+                                    builder.suggest(AsyncConfig.ANY_MOD);
+                                    PlatformUtils.getModIds().forEach(builder::suggest);
+                                    return builder.buildFuture();
+                                })
+                                .executes(ConfigCommand::addAsyncMod)))
+                .then(literal("remove")
+                        .then(Commands.argument("mod", StringArgumentType.greedyString())
+                                .suggests((_, builder) -> {
+                                    builder.suggest(AsyncConfig.ANY_MOD);
+                                    AsyncConfig.asyncMods.forEach(builder::suggest);
+                                    return builder.buildFuture();
+                                })
+                                .executes(ConfigCommand::removeAsyncMod)));
+    }
+
+    private static int addAsyncMod(CommandContext<CommandSourceStack> ctx) {
+        String modId = StringArgumentType.getString(ctx, "mod");
+
+        if (AsyncConfig.asyncMods.contains(modId)) {
+            sendErrorMessage(ctx, "Error mod ", modId, " is already processed in parallel.");
+            return 1;
+        }
+
+        if (AsyncConfig.VANILLA_NAMESPACE.equals(modId)) {
+            sendErrorMessage(ctx, "Error mod ", modId, " is always processed in parallel.");
+            return 1;
+        }
+
+        if (!AsyncConfig.ANY_MOD.equals(modId) && AsyncConfig.asyncMods.contains(AsyncConfig.ANY_MOD)) {
+            sendErrorMessage(ctx, "Error mod ", modId, " is redundant, every mod is already processed in parallel.");
+            return 1;
+        }
+
+        if (!AsyncConfig.ANY_MOD.equals(modId) && !PlatformUtils.isModLoaded(modId)) {
+            sendErrorMessage(ctx, "Error mod ", modId, " is not loaded.");
+            return 1;
+        }
+
+        AsyncConfig.addAsyncMod(modId);
+        sendMessage(ctx, "Mod ", modId, " is now processed in parallel.");
+        return 1;
+    }
+
+    private static int removeAsyncMod(CommandContext<CommandSourceStack> ctx) {
+        String modId = StringArgumentType.getString(ctx, "mod");
+
+        if (AsyncConfig.ANY_MOD.equals(modId)) {
+            if (AsyncConfig.asyncMods.isEmpty()) {
+                sendErrorMessage(ctx, "Error mod ", modId, " is not in the async list.");
+                return 1;
+            }
+
+            AsyncConfig.clearAsyncMods();
+            sendMessage(ctx, "Async mods cleared, only ", AsyncConfig.VANILLA_NAMESPACE, " is processed in parallel.");
+            return 1;
+        }
+
+        if (!AsyncConfig.asyncMods.contains(modId)) {
+            sendErrorMessage(ctx, "Error mod ", modId, " is not in the async list.");
+            return 1;
+        }
+
+        if (AsyncConfig.asyncMods.contains(AsyncConfig.ANY_MOD)) {
+            sendErrorMessage(ctx, "Error remove ", AsyncConfig.ANY_MOD, " first, it covers every mod.");
+            return 1;
+        }
+
+        AsyncConfig.removeAsyncMod(modId);
+        sendMessage(ctx, "Mod ", modId, " is no longer processed in parallel.");
+        return 1;
+    }
+
+    private static void displayAsyncMods(CommandContext<CommandSourceStack> ctx) {
+        Set<String> modIds = AsyncConfig.asyncMods;
+        MutableComponent message = prefix.copy()
+                .append(Component.literal("Async Mods: ")
+                        .withStyle(style -> style.withColor(ChatFormatting.WHITE)));
+
+        if (modIds.isEmpty()) {
+            message.append(Component.literal("Only " + AsyncConfig.VANILLA_NAMESPACE + " entities are processed in parallel.")
+                    .withStyle(style -> style.withColor(ChatFormatting.RED)));
+        } else {
+            message.append(Component.literal("\n"));
+            modIds.forEach(modId ->
+                    message.append(Component.literal("- ").withStyle(style -> style.withColor(ChatFormatting.GREEN)))
+                            .append(Component.literal(modId).withStyle(style -> style.withColor(ChatFormatting.YELLOW)))
+                            .append(Component.literal("\n"))
+            );
+        }
+
+        ctx.getSource().sendSuccess(() -> message, false);
     }
 
     private static LiteralArgumentBuilder<CommandSourceStack> buildAsyncEntitySpawnCommand() {
